@@ -42,7 +42,7 @@ const CAPTAIN = {
 // and then while it's hard), spent (now and then, once the fight's gone out of her: hardly words), accept (in place of a plea, the more
 // submissive she is), flushed (once, if her body's response shows: embarrassment), soothe (the palm on her, between), word (her safe word,
 // called), end (when Silas stops). While she's still defiant: defy (back-talk, in place of the early band lines and the pleas), and yield
-// (once, as the defiance breaks). What each calls him is drafted: the maids "sir"; Red, Belle and Snow White, who are wards, "Silas".
+// (once, as the defiance breaks). What each calls him is drafted: the maids "sir"; the wards (Red, Belle, Rapunzel, Snow White) "Silas".
 const REACT = {
   goldie: {
     start: ['Fine. But I want it noted I did not break that chair on purpose.', 'This is ridiculous. …Fine. Fine.', 'You could just dock my wages, like a normal person.'],

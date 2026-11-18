@@ -1,0 +1,161 @@
+# Fenwick Hall: Alpha Plan
+
+This plan comes from parsing the Game Design Document (`docs/gdd.md`, converted from `docs/The_Manor_in_the_Woods_GDD.docx`) and from what can be taken from **Project Meridian** (`asonichero/meridian`): its figures and its discipline engine. As Meridian's own plan did, it keeps these apart:
+
+- **Stated**: what the GDD says.
+- **Ported**: engine pieces from Meridian, and their state in this repo.
+- **Drafted**: first drafts built here where the GDD is silent. Each is marked in the code (`draft`, or "drafted" in a comment) and listed in §5. Nothing drafted contradicts the GDD. Each is easy to change.
+- **Open**: questions for the designer (§6). Where I have a suggestion, it's marked *suggestion*.
+
+---
+
+## 1. The game, as the GDD states it
+
+A third-person narrative walking simulator. Silas Fenwick, a practical woodsman, inherits a decayed country house above the village of Redmere and restores it. Seven young women from European fairy tales (all 18 to 21) come under his roof as employees and wards. He brings order to the estate and to their lives. Five pillars:
+
+1. **Third-person spatial exploration** of the Hall, courtyard, woods and village edge, on foot, at a grounded pace. **Progression is gated physically**: doors unlocked, fallen timber cleared and rooms restored open new wings and trigger new arrivals.
+2. **Environmental clue-finding** before a confrontation: muddy footprints, broken furniture, wolf tracks, pried locks, hidden food caches.
+3. **Intervention and discipline scenes**: a framed dialogue scene where Silas enforces a boundary, teaches a skill or administers firm discipline. **Dialogue choices shape each heroine's growth and change later ambient interactions.**
+4. **On-rails and cutscene journeys**: escorting someone through the woods at twilight, touring hazardous ruins, facing a threat at the village border.
+5. **Evolving manor state**: from dusty and boarded up to warm and lived in, the women filling particular rooms and forming their own dynamics.
+
+**Structure**: seven chapters, one per heroine, each opening a zone, then a finale at the West Wing (the convergence: Snow White's stepmother with bailiffs challenging the title, and a wolf pack). The finale relies on what each woman has learned. Ambient vignettes run between chapters (four named pairings). **Post-game ("The Steward's Year")**: free roam across seasons; discipline continues as habit maintenance and romantic and domestic push-and-pull; **habit drift** (each resident's hidden Compliance and Mindfulness slide unchecked and bring back clues: unlatched doors, misplaced ledgers, late-night candle glow); **late-night interventions**. **Non-exclusivity**: each relationship runs on its own track, and nothing in one thread lowers another.
+
+### What the alpha needs
+
+| # | System | GDD | State in this repo |
+|---|---|---|---|
+| 1 | Third-person exploration: a walking character, camera, collision, interactables | Pillar 1 | **Not built.** Meridian has none (it chose rooms as scenes over walking). This is the largest new system. See open question A |
+| 2 | Zones, gates and chapter progression | Chapter table | **Built as data** (`js/estate.js`): eight zones, their gates, the chapters and their beats. Gate kinds drafted except the two the GDD states |
+| 3 | Clue-finding | Pillar 2 | Each chapter's clues listed (`Estate.CHAPTERS[].clues`). **Ch. 1's are placed** in the guest bedroom (`room.setClues`). How the player finds and reads them is open (B) |
+| 4 | Intervention and discipline scenes | Pillar 3 | **Ported and playable** (`js/session.js`, `session.html`), with every line new in each heroine's voice (`js/lines.js`) |
+| 5 | Her terms, agreed before any correction | (Meridian's consent model) | **Built**: `Lines.terms(id)`, playable from the test page. Whether she can decline, and what follows, is open (C) |
+| 6 | Aftercare | (Meridian) | **Ported**, every line new: reassure / why it mattered / how she is, then what she's to do with the day |
+| 7 | Choices shaping growth and ambient interactions | Pillar 3 | Relationship tracks **built** (`Estate.affect`: trust, respect, affection, growth; romance where named). Not yet wired to scenes |
+| 8 | On-rails journeys | Pillar 4 | **Not built.** Placed: Ch. 2's twilight escort, Ch. 4's border confrontation. "Touring hazardous ruins" isn't placed (G) |
+| 9 | Evolving manor state | Pillar 5 | **Built**: restoration per room, hearths lit, the Hall's warmth (`Estate.restore`, `light`, `warmth`). The guest bedroom renders three states (as found, being restored, restored) |
+| 10 | The estate's places | Setting table | **One room built**: the guest bedroom (Ch. 1). Everything else to build |
+| 11 | Ambient vignettes | Four pairings | **Built as data** (`Estate.VIGNETTES`, available once both are in residence). Scenes not built |
+| 12 | The week: village days, Hall days, boundary walks | Lore | **Drafted** (`Estate.WEEK`, `DAY_SERVES`) |
+| 13 | Habit drift and late-night interventions | Post-game | **Built** (`Estate.drift`, `intervene`), with each heroine's GDD lapses and their clues. Rates drafted |
+| 14 | The finale | Climax | Roles **as data** (`Estate.FINALE`). Scene not built |
+| 15 | The village's verdict, gossip | Ending, lore | Reputation facets **as data** (`Estate.REPUTATION`, `raise`). Gossip not built |
+| 16 | Period clothes | Setting | **Not built.** The figures wear Meridian's garments as stand-ins (§3, E) |
+| 17 | Saved game, chapter scripts, title screen | — | **Not built** |
+
+---
+
+## 2. What's ported from Meridian
+
+| Meridian | Fenwick | State |
+|---|---|---|
+| `vendor/` (three.js r128, OrbitControls, post-processing, GLTFLoader, SkeletonUtils) | `vendor/` | Copied as is |
+| `models/meridian_{f,m}.glb`, `meridian_meta.json` | `models/fenwick_{f,m}.glb`, `fenwick_meta.json` | Copied, renamed. The non-gendered body (Meridian's AI) is left out |
+| `tools/blender/build_figures.py`, `reference.json`, `tools/measure-reference.py` | same | Copied; output names changed to `fenwick_*`. Needs Blender 4.0 (not in this environment) |
+| `js/figure.js` | `js/figure.js` | Code unchanged but for the model file names, and **one addition**: a long `braid` hairstyle (Red's, Snow White's and Rapunzel's plaits) that hangs with gravity |
+| `js/poses.js`, `js/stage.js`, `js/pain.js`, `js/discipline.js`, `js/talk.js` | same | Code unchanged; comments re-themed (the Captain → Silas, deck → floor) |
+| `js/session.js` | `js/session.js` | Code unchanged but for the roster hook (`root.Cast`, `Cast.squireSpec`); comments re-themed. Internally the corrector is still `captain` and the room `bay`, so it stays diffable against Meridian |
+| `js/audio.js` | `js/audio.js` | Ported; **added** a hearth ambience (a fire's crackle, the wind in the Fenwood). The music's themes are still Meridian's |
+| `js/crew.js` | `js/cast.js` | **New**: Silas, the seven heroines and the village cast, in the shape the engine reads |
+| `js/lines.js` | `js/lines.js` | Same structure; **every line new**; adds `terms(id)` |
+| `SuitBay.kit`, `Quarters.kit` | `js/kit.js` | The helpers (canvas textures, merging, which wall a thing is on) kept; the textures are new (limewash, oak panelling and boards, stone, brick, a Turkey rug, linen, a patchwork quilt, dust sheets, leaded windows, cobwebs) |
+| `js/capquarters.js` (the Captain's quarters) | `js/guestroom.js` | **New room on the same layout**: the chair, the bed's edge, the writing table, the settle and every camera where the Captain's quarters had them, so the tuned posing carries over. Re-dressed as a period guest bedroom with two states and Ch. 1's clues |
+| `session.html` | `session.html` | **New page** keeping Meridian's HUD, controls, dialogue box and aftercare flow; without the AI, bridge, check-in and day machinery |
+| `figures.html` | `figures.html` | **New**: the household line-up |
+| `model.html` | `model.html` | Ported (the bodies and garments as a turnaround sheet) |
+| `tests/` | `tests/` | `pain`, `discipline`, `talk`: unchanged. `figure`: adapted to the cast, plus the braids. **New**: `cast`, `estate`, `room`. `npm test` passes 56 of 56 |
+
+**Not ported**: Meridian's ship rooms, its day loop (`day.js`, `daylines.js`, `deckplan.js`, `visit.js`), its AI (`checkin.js`, `stations.js`, `docs/proctor.md`), and the non-gendered body. Meridian's day loop is the nearest source if Fenwick's week ends up played as rooms-as-scenes (A).
+
+---
+
+## 3. Decisions carried over from Meridian
+
+The brief was to use Meridian as the base for models and discipline mechanics, so these come with it. Each is the designer's to confirm or change.
+
+- **The look**: Meridian's figures. Realistic adult proportions (a slightly larger head), toon shading with ink outlines, painted faces with expressions. Fenwick's rooms are painted in code in the same way.
+- **Consent**: each heroine agrees a **safe word**. The player is the disciplinarian, so the stop is the pain model's high, held "too harsh" bar, and **she calls her word herself**. It stops at once and goes straight to her aftercare. Meridian's onboarding rule (taken in hand only after the method is explained and her consent given) becomes Fenwick's **terms** conversation. The GDD doesn't mention consent; see question C.
+- **The scene is player-run**: runs of smacks on a toggle, pace, strength, side, where, soothing between; garments raised or lowered on screen; she reacts by temperament, distress band and defiance. Defiance drains into Compliance, or into Resentment if it's forced; aftercare clears half the resentment.
+- **Positions**: across the knee (on a chair, or a bed's edge), standing with her hands on a support, over a table.
+- **Adults only**: every heroine is 18 to 21, as the GDD states, and a test enforces it. Hansel is never part of a correction.
+
+---
+
+## 4. The first playable (`session.html`)
+
+The guest bedroom, Chapter 1. Choose who is corrected and in what order (any of the seven), the position (across the knee on the oak chair, across the knee on the bed's edge, hands on the writing table), the room's state (as found, being restored, restored), whether Ch. 1's clues are out, day or night, and whether her **terms** are played first. Silas's look and each heroine's relationship sliders are in the set-up. Then it plays as Meridian's correction test does, through her aftercare to a summary. `figures.html` shows the household line-up.
+
+Checked in headless Chromium: the page loads with no errors; a correction runs to the end and the aftercare plays through; Belle's terms play before her correction; Rapunzel calls "Larkspur" when it goes too far, and it stops.
+
+![The guest bedroom, restored, at night](correction-test.jpg)
+
+---
+
+## 5. Drafted here, for review
+
+- **`js/cast.js`**: each heroine's body (height, build), look (skin, hair and style, eyes), how she takes pain, her wilfulness, and her resistance as two numbers (*overt*, open defiance; *covert*, concealment, withholding). These come from the GDD's "Resistance" paragraphs: Goldie is the most overt, Gretel the most covert, and Rapunzel and Snow White are "low on both counts". Also her safe word, her stand-in clothes and her target wardrobe (`Cast.PERIOD`), and where she lives. Silas's age (37) and look. What Silas calls Red ("Red") and Snow White ("Snow"). How each heroine addresses him: the maids say "sir"; Red, Belle, Rapunzel and Snow White say "Silas". Hansel's place (village cast, no correction).
+- **`js/lines.js`**: every line. That covers Silas placing and correcting her, her reactions as her distress rises, her defiance and how it breaks, her word, the aftercare, and the terms.
+- **`js/estate.js`**: the gate kind for each zone, except the briars (Ch. 6) and the West Wing, which the GDD states. Also: the upper rooms opening in Ch. 3; each chapter's beats and further clues; the week's order and whom each day serves; the drift rates and thresholds; the tracks' starting values; the reputation facets.
+- **`js/guestroom.js`**: the room's layout and furnishing (a half-tester bed, a writing table, a settle under the window, a fireplace, a clothes press, a washstand, the broken gilt chair).
+- **Looks**: the heroines' designs come from the tales, never from any film's version. Snow White wears a plait, not a bob, with Grimm's colouring. Belle wears green, not yellow. Rapunzel has golden hair, blue-grey eyes and no purple. Cinderella wears ash-grey and russet, not blue.
+
+---
+
+## 6. Open questions
+
+### A. Exploration and camera
+1. The GDD says third-person, on foot. Meridian chose rooms as scenes instead (a map, then each room is a scene). Is free walking needed for the alpha, or could the first chapters be played room by room while the walking prototype is built? *Suggestion*: build Ch. 1 as room scenes first (everything else is ready for it), and the walking prototype alongside.
+2. Locomotion: retargeted mocap (as Little Red's Lessons did with Mixamo clips: `motion.js`, `mocap.js`), or procedural walking on the current rig?
+3. Camera: over the shoulder, or fixed cinematic angles per room?
+4. How much of the estate is in the alpha, and how big? The Hall, the grounds, the Fenwood and the village edge are a large art job.
+5. Platform: still a browser game (three.js, no build step), desktop only or phones too?
+
+### B. Scope and clues
+6. Which chapters are in the alpha? *Suggestion*: Ch. 1 end to end, then Ch. 2. Between them they touch every pillar: the Hall, a clue trail, discovery, terms, a correction, aftercare, restoration, the forest, a journey and the village.
+7. Is the post-game in the alpha at all?
+8. How clues are found and read: highlighted on approach, examined in close-up, or noted in a journal? Must they all be found before the confrontation?
+
+### C. Consent and the terms
+9. Keep Meridian's safe words? (Built: each heroine chooses hers in the terms.)
+10. Can she decline the terms, and what follows? The GDD says Goldie "returns only if she is willing".
+11. The GDD has Silas discipline Goldie for the trespass *before* he offers her the post. The draft makes that first correction her choice: the reeve, or Silas. Is that right? How does each heroine's first correction come about?
+
+### D. The correction scenes
+12. Positions for each room, and which rooms have them (the study's desk, the kitchen table, the laundry's copper?).
+13. Implements: the GDD says nothing. Meridian keeps the hand only, with implements unlocked through the story. Any in Fenwick (a hairbrush, a strap, a switch from the wood)?
+14. Is the scene player-run, as Meridian's is? Does the infraction set how severe it is?
+15. Witnesses. The ensemble chapters pair heroines (Ch. 4 Goldie with Cinderella, Ch. 7 Belle with Snow White) and the roommates vignette has Silas "hold Goldilocks accountable". Are corrections ever in front of the others? Meridian: private early in the story, public later.
+16. Meridian models the body's response and lets desire be present. Fenwick's named romance tracks are Red and Belle, and the post-game's late-night vignettes are "intimate". For whom, and from when, is desire part of a scene? (Built: the desire slider is open for all; romance tracks only for Red and Belle until the designer opens others, `Estate.allowRomance`.)
+
+### E. Clothes
+17. The period wardrobe needs new Blender garments in `tools/blender/build_figures.py`: skirts or dresses that can be raised, a bodice over a chemise, drawers that can be lowered, aprons, a cloak. The garment list for each heroine is drafted (`Cast.PERIOD`). Until then the stand-ins are trousers, a top and briefs. That needs Blender 4.0.
+18. What changes during a correction (skirt raised, drawers lowered, as Little Red's Lessons had it)?
+
+### F. Cast
+19. What Silas calls Red (Red or Rose?) and Snow White. How each addresses him (sir, Silas, Squire?).
+20. Hansel's age, and whether he's seen.
+21. Silas: a fixed look (the GDD's Silas), or customisable? The test page lets you change his skin, hair and build. His voice?
+22. The kinship rumour (the GDD leaves it open): local colour, the reason Silas reads the wood so well, or dropped?
+
+### G. Systems and numbers
+23. The gate for each zone (drafted except the briars and the West Wing).
+24. What moves each track (trust, respect, affection, growth)? Does growth decide the finale (what if a heroine hasn't learned her skill)?
+25. Habit drift's rates and thresholds; how often clues appear; the "tone" choice of a late-night intervention (authority, dry humour, affection).
+26. The week's order. Does the week run before the post-game?
+27. Reputation: how gossip moves it, and whether it gates anything.
+28. "Touring hazardous ruins": which chapter? (Candidates: Ch. 3's West Wing landing, Ch. 6's gatehouse.)
+
+### H. Look and sound
+29. The grade is warmer than Meridian's steel. Is that right?
+30. Music: Meridian's themes are still in. Pastoral themes for the Hall, the wood and the village?
+
+---
+
+## 7. Milestones (*suggestion*)
+
+1. **Engine, cast and first room** (this branch): the port, the cast, the lines, the estate model, the guest bedroom, the correction test.
+2. **Chapter 1, end to end, as room scenes**: the entrance hall and the stair, the guest bedroom as found, its clues, finding Goldie, her terms, the correction, aftercare, the offer (and her visit home), restoring the room (`Estate` carrying it).
+3. **The walking prototype**, if third-person is confirmed: Silas on foot through the Hall, interactables, the camera.
+4. **The period wardrobe** in Blender.
+5. **Chapter 2**: the cleared drive, the forest trail, the wolf, the twilight escort, Redmere's edge and the bakery.
+6. **The saved game and the week.**

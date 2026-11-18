@@ -1,5 +1,7 @@
-// Fenwick Hall — sound, all synthesised (no audio files), ported from Little Red’s Lessons: a cold ambient score, the ship's own hum and air,
-// the correction's smacks and the cries of whoever is across the lap, and a speech babble for dialogue (a short vowel burst per word, pitched per speaker).
+// Fenwick Hall — sound, all synthesised (no audio files), ported from Project Meridian (and Little Red’s Lessons before it): procedural
+// music, the room's ambience, the correction's smacks and the cries of whoever is across the lap, and a speech babble for dialogue (a short
+// vowel burst per word, pitched per speaker). Meridian's ship ambience (air, hum, relays) is kept; Fenwick's own is the hearth (A.hearth: a
+// fire's crackle and the wind in the Fenwood). The music's themes are still Meridian's (open: docs/alpha-plan.md).
 // Browsers only start audio after a tap or key press: call GameAudio.init() from one (the title screen's buttons do).
 (function (root) {
 'use strict';
@@ -111,6 +113,32 @@ A.ambience = function (levels) {
     chirp();
   }
   const t = ctx.currentTime; N.airGain.gain.linearRampToValueAtTime(0.5 * A.amb.air, t + 1.5); N.humGain.gain.linearRampToValueAtTime(0.35 * A.amb.hum, t + 1.5);
+};
+
+// ── The hearth: Fenwick's own ambience. fire (a wood fire's crackle and its low roar, 0..1), wind (the Fenwood round the house, gusting, 0..1). ──
+A.hearth = function (levels) {
+  if (!A.ctx) return; const ctx = A.ctx, N = A.nodes; A.hth = Object.assign(A.hth || { fire: 0, wind: 0 }, levels);
+  if (!N.fireGain) {
+    N.fireGain = ctx.createGain(); N.fireGain.gain.value = 0; N.fireGain.connect(N.amb);
+    const src = ctx.createBufferSource(); src.buffer = N.noise; src.loop = true; const lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 320;
+    const rg = ctx.createGain(); rg.gain.value = 0.9; src.connect(lp); lp.connect(rg); rg.connect(N.fireGain); src.start();
+    N.windGain = ctx.createGain(); N.windGain.gain.value = 0; N.windGain.connect(N.amb);
+    const ws = ctx.createBufferSource(); ws.buffer = N.noise; ws.loop = true; const bp = ctx.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = 420; bp.Q.value = 0.8;
+    const gust = ctx.createGain(); gust.gain.value = 0.6; ws.connect(bp); bp.connect(gust); gust.connect(N.windGain); ws.start();
+    const lfo = ctx.createOscillator(), lg = ctx.createGain(); lfo.frequency.value = 0.09; lg.gain.value = 0.45; lfo.connect(lg); lg.connect(gust.gain); lfo.start();
+    const lfo2 = ctx.createOscillator(), lg2 = ctx.createGain(); lfo2.frequency.value = 0.05; lg2.gain.value = 160; lfo2.connect(lg2); lg2.connect(bp.frequency); lfo2.start();
+    const crackle = () => {
+      const h = A.hth, t = ctx.currentTime;
+      if (h.fire > 0.02) for (let i = 0, n = 1 + Math.floor(Math.random() * 3); i < n; i++) {
+        const s = t + Math.random() * 0.25, src2 = ctx.createBufferSource(); src2.buffer = N.noise; const hp = ctx.createBiquadFilter(); hp.type = 'bandpass'; hp.frequency.value = 1800 + Math.random() * 2600; hp.Q.value = 1.2;
+        const g = ctx.createGain(), pk = (0.05 + Math.random() * 0.16) * h.fire; g.gain.setValueAtTime(0.0001, s); g.gain.linearRampToValueAtTime(pk, s + 0.001); g.gain.exponentialRampToValueAtTime(0.0001, s + 0.012 + Math.random() * 0.03);
+        src2.connect(hp); hp.connect(g); g.connect(N.amb); src2.start(s, Math.random() * 2); src2.stop(s + 0.06);
+      }
+      N.hearthTimer = setTimeout(crackle, 90 + Math.random() * 380);
+    };
+    crackle();
+  }
+  const t = ctx.currentTime; N.fireGain.gain.linearRampToValueAtTime(0.5 * A.hth.fire, t + 1.5); N.windGain.gain.linearRampToValueAtTime(0.35 * A.hth.wind, t + 1.5);
 };
 
 // ── Effects: a smack (muffled through a wall when `muffle` is set) and her voice. ──────────────────────────────────────────────────────────────────
