@@ -1,0 +1,10 @@
+{
+  "name": "fenwick-hall",
+  "version": "0.0.1",
+  "private": true,
+  "description": "Fenwick Hall (The Manor in the Woods): a third-person narrative walking simulator with discipline scenes and a post-game domestic simulation, built on Project Meridian's figures and discipline engine",
+  "scripts": {
+    "serve": "python3 -m http.server 8123",
+    "test": "node --test tests/*.test.js"
+  }
+}

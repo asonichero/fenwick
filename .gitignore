@@ -1,0 +1,4 @@
+.scratch/
+models/*.blend
+models/*.blend1
+node_modules/
