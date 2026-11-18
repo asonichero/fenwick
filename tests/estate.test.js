@@ -87,3 +87,13 @@ test('the chapters run beat by beat into the post-game; the finale gives every h
   const roled = new Set(Estate.FINALE.roles.flatMap(r => r.who)); assert.deepEqual([...roled].sort(), [...Cast.IDS].sort());
   assert.throws(() => Estate.raise(s, 'charm', 0.1)); assert.equal(Estate.raise(s, 'protector', 0.3), 0.3);
 });
+
+test('Red walks the estate in her kirtle and leggings, more often as time goes on; never to the village; the others in their usual', () => {
+  const s = Estate.create(); for (const id of Cast.IDS) Estate.arrive(s, id);
+  const share = (where, n = 4000) => { const r = seeded(17); let k = 0; for (let i = 0; i < n; i++) if (Estate.outfitFor(s, 'red', where, r) === 'walking') k++; return k / n; };
+  const early = share('wood'); assert.ok(early > 0.2 && early < 0.5, `at first, about one walk in four (${early})`);
+  assert.equal(share('village'), 0); assert.ok(share('hall') < early, 'less often indoors');
+  s.day += 120; const later = share('wood'); assert.ok(later > 0.75, `after a season, most walks (${later})`); assert.ok(share('briar') > 0.75, 'the grounds by zone');
+  Estate.affect(s, 'red', { trust: 1 }); assert.ok(share('wood') >= later);
+  for (const id of Cast.IDS.filter(x => x !== 'red')) assert.equal(Estate.outfitFor(s, id, 'wood'), Cast.outfits(id)[0], id);
+});

@@ -117,7 +117,7 @@ small.note { display: block; color: var(--dim); font-size: 11px; line-height: 1.
   <div class="row seg" id="pos"><button data-v="otk">Across the knee (chair)</button><button data-v="otk:bed">Across the knee (bed)</button><button data-v="wall">Hands on the writing table</button></div>
   <h2>The household <span style="text-transform:none;letter-spacing:0">(tap: corrected → absent)</span></h2>
   <div class="crew" id="crew"></div>
-  <small class="note">A bedroom is private: nobody watches, and anyone waiting her turn waits outside. Witnesses need a room that allows them (the servants’ hall, the kitchens: not built yet).</small>
+  <small class="note">The third button is her outfit, where she has more than one (Red walks the estate in a kirtle and leggings, more often as time goes on). A bedroom is private: nobody watches, and anyone waiting her turn waits outside. Witnesses need a room that allows them (the servants’ hall, the kitchens: not built yet).</small>
   <h2>Her terms</h2>
   <div class="row seg" id="terms"><button data-v="on">Play them first</button><button data-v="off" class="on">Skip</button></div>
   <small class="note">Before Silas ever corrects her, he sets out his terms and she agrees them and chooses her word (js/lines.js: Lines.terms).</small>
@@ -149,7 +149,7 @@ small.note { display: block; color: var(--dim); font-size: 11px; line-height: 1.
     <div class="grp g-side"><span class="lab">Side <kbd>D</kbd></span><div class="row seg" id="side"><button data-v="alt" class="on">Alt</button><button data-v="L">Left</button><button data-v="R">Right</button></div></div>
     <div class="grp g-where"><span class="lab">Where <kbd>A</kbd></span><div class="row seg" id="area"><button data-v="cheek">Cheek</button><button data-v="sitspot" class="on">Sit spot</button><button data-v="thighs">Thighs</button></div></div>
     <div class="grp g-soothe"><span class="lab">Soothe <kbd>S</kbd></span><button id="soothe">Soothe</button></div>
-    <div class="grp g-clothes"><span class="lab">Clothes <kbd>T B U</kbd> (stand-ins)</span><div class="row"><button id="cTop">Top: down</button><button id="cBot">Trousers: up</button><button id="cUnd">Drawers: up</button></div></div>
+    <div class="grp g-clothes"><span class="lab">Clothes <kbd>T B U</kbd></span><div class="row"><button id="cTop">Skirt: down</button><button id="cBot">Leggings: up</button><button id="cUnd">Drawers: up</button></div></div>
     <div class="grp g-end"><span class="lab">Turn <kbd>Enter</kbd></span><button id="end">End turn</button></div>
   </div>
   <div id="meter"><div id="track"><div id="fill"></div></div><div id="info"></div></div>
@@ -182,6 +182,7 @@ if (q.get('state')) cfg.state = q.get('state');
 if (q.get('clues')) cfg.clues = q.get('clues') === '1';
 if (q.get('terms')) cfg.terms = q.get('terms') === '1';
 if (q.get('time')) cfg.time = q.get('time') === 'night' ? 'night' : 'day';
+for (const id of Cast.IDS) if (q.get(id)) { cfg.outfit = cfg.outfit || {}; cfg.outfit[id] = q.get(id); }      // (?red=walking)
 const RESTORED = { found: 0, half: 0.5, restored: 1 };
 
 // ── Setup ──
@@ -192,8 +193,12 @@ function drawCrew() {
     const nm = document.createElement('div'); nm.className = 'nm'; nm.innerHTML = `${r.title === r.name ? r.name : r.name + ' · ' + r.title}<small>${r.role} · Ch. ${r.chapter}</small>`;
     const rb = document.createElement('button'); rb.textContent = n >= 0 ? `Corrected #${n + 1}` : 'Absent'; rb.className = n >= 0 ? 'on' : '';
     rb.onclick = () => { if (n >= 0) cfg.order = cfg.order.filter(x => x !== id); else cfg.order.push(id); save(); drawCrew(); };
-    const age = document.createElement('small'); age.className = 'd'; age.textContent = r.age;
-    el.append(nm, rb, age);
+    // (her outfit, where she has more than one: Red's dress or her walking clothes, Goldie's own or her maid's, and so on)
+    const outs = Cast.outfits(id), ob = document.createElement('button'); cfg.outfit = cfg.outfit || {};
+    if (!outs.includes(cfg.outfit[id])) cfg.outfit[id] = outs[0];
+    ob.textContent = outs.length > 1 ? cfg.outfit[id] : r.age; ob.title = Cast.OUTFIT_NOTES[cfg.outfit[id]] || ''; ob.disabled = outs.length < 2;
+    ob.onclick = () => { cfg.outfit[id] = outs[(outs.indexOf(cfg.outfit[id]) + 1) % outs.length]; save(); drawCrew(); };
+    el.append(nm, rb, ob);
   }
 }
 function drawSilas() {
@@ -260,7 +265,7 @@ async function begin() {
     for (const id of cfg.order) { await play(Lines.terms(id), id); if (run !== beginning) return; }
     $('say').style.display = 'none';
   }
-  const p = id => ({ id, sex: 'f' });
+  const p = id => ({ id, sex: 'f', outfit: (cfg.outfit || {})[id] });
   ses = Session.create(stage, bay, { captain: cfg.silas, position: cfg.position, between: 'aside', queue: cfg.order.map(p), rel: cfg.rel, witnesses: [], sound: !q.get('still') });
   ses.on(onEvent); ses.start(); drawCams(); refresh();
   window.ses = ses;
@@ -363,8 +368,15 @@ function refresh() {
   if (!ses) return; const st = ses.st, c = ses.current;
   $('run').textContent = st.running ? 'Stop run' : 'Start run'; $('run').classList.toggle('on', st.running); $('run').disabled = !c || st.phase !== 'turn' || ses.busy;
   for (const id of ['cTop', 'cBot', 'cUnd', 'soothe', 'end']) $(id).disabled = !c || st.phase !== 'turn' || !!st.ending || (id === 'soothe' && ses.busy);
+  if (c && c.f.layers && !c.f.layers.includes('bottoms')) $('cBot').disabled = true;
   $('soothe').classList.toggle('on', st.soothe); $('paceV').textContent = times(st.pace); $('strengthV').textContent = times(st.strength);
-  if (c && c.f) { const s = c.f.state; $('cTop').textContent = 'Top: ' + (s.top === 'up' ? 'raised' : 'down'); $('cBot').textContent = 'Trousers: ' + (s.bottoms === 'up' ? 'up' : 'lowered'); $('cUnd').textContent = 'Drawers: ' + (s.under === 'up' ? 'up' : 'lowered'); }
+  if (c && c.f) {
+    // (named for what she's wearing: a dress's skirt or the kirtle; leggings, where she wears them; drawers or smalls)
+    const s = c.f.state, P = c.f.spec.period || {};
+    $('cTop').textContent = (P.kind === 'kirtle' ? 'Kirtle: ' : 'Skirt: ') + (s.top === 'up' ? 'raised' : 'down');
+    $('cBot').textContent = P.legs === 'leggings' ? 'Leggings: ' + (s.bottoms === 'up' ? 'up' : 'lowered') : 'No leggings';
+    $('cUnd').textContent = (P.under === 'smalls' ? 'Smalls: ' : 'Drawers: ') + (s.under === 'up' ? 'up' : 'lowered');
+  }
   if (c) { const r = c.r; $('whoNm').textContent = r.title === r.name ? r.name : `${r.name} · ${r.title}`; $('whoSub').textContent = r.role + (st.phase === 'after' ? ' · aftercare' : ''); $('whoWord').textContent = 'Agreed word: ' + r.word; }
 }
 // the meter: distress against the bar (the band ticks, and the safe-word bar in red)

@@ -54,7 +54,7 @@ const ROSTER = {
     resist: { style: 'repetition', overt: 0.3, covert: 0.2 }, meters: { wilfulness: 0.3, compliance: 0.45, mindfulness: 0.3 },
     pain: { tolerance: 0.55, resilience: 0.58 }, home: 'village',
     body: { type: 'sturdy from the oven and the path, average height', h: { f: 1.65 }, mass: 0.52, fat: 0.45, bust: 0.55, response: 1 },
-    look: { skin: '#e8c4a4', hair: '#5a2a1e', hairStyle: 'braid', braidLen: 4.5, ribbon: '#a8282a', eyes: '#6a5a3a' },
+    look: { skin: '#e8c4a4', hair: '#5a2a1e', hairStyle: 'braid', hairCap: 'swept', braidLen: 4.5, ribbon: '#a8282a', eyes: '#6a5a3a' },
     dynamic: { romance: true, bond: 0 }, word: 'Lantern', base: 'smile',
   },
   belle: {
@@ -71,7 +71,7 @@ const ROSTER = {
     resist: { style: 'quiet', overt: 0.45, covert: 0.7 }, meters: { wilfulness: 0.45, compliance: 0.7, mindfulness: 0.75 },
     pain: { tolerance: 0.6, resilience: 0.5 }, home: 'upper',
     body: { type: 'tall and poised', h: { f: 1.68 }, mass: 0.4, fat: 0.35, bust: 0.45, response: 1 },
-    look: { skin: '#e2bc9c', hair: '#4a2e1e', hairStyle: 'bun', eyes: '#6a7480' },
+    look: { skin: '#e2bc9c', hair: '#4a2e1e', hairStyle: 'chignon', eyes: '#6a7480' },
     dynamic: { romance: true, bond: 0 }, word: 'Folio', base: 'calm',
   },
   cinderella: {
@@ -88,7 +88,7 @@ const ROSTER = {
     resist: { style: 'passive', overt: 0.05, covert: 0.6 }, meters: { wilfulness: 0.05, compliance: 0.9, mindfulness: 0.35 },
     pain: { tolerance: 0.72, resilience: 0.38 }, home: 'servants',
     body: { type: 'slight, worn thin by work', h: { f: 1.63 }, mass: 0.32, fat: 0.25, bust: 0.35, response: 1 },
-    look: { skin: '#ecd0b8', hair: '#b8a27a', hairStyle: 'bun', eyes: '#6a7a6a' },
+    look: { skin: '#ecd0b8', hair: '#b8a27a', hairStyle: 'workbun', eyes: '#6a7a6a' },
     dynamic: { romance: null, bond: 0 }, word: 'Ember', base: 'concerned',
   },
   gretel: {
@@ -104,7 +104,7 @@ const ROSTER = {
     resist: { style: 'concealment', overt: 0.2, covert: 0.85 }, meters: { wilfulness: 0.2, compliance: 0.4, mindfulness: 0.6 },
     pain: { tolerance: 0.7, resilience: 0.62 }, home: 'kitchens',
     body: { type: 'small and wiry', h: { f: 1.58 }, mass: 0.38, fat: 0.2, bust: 0.3, response: 1 },
-    look: { skin: '#d8b090', hair: '#8a6a42', hairStyle: 'short', eyes: '#4a3422' },
+    look: { skin: '#d8b090', hair: '#8a6a42', hairStyle: 'cropped', eyes: '#4a3422' },
     dynamic: { romance: null, bond: 0 }, word: 'Pebble', base: 'calm',
   },
   rapunzel: {
@@ -120,7 +120,7 @@ const ROSTER = {
     resist: { style: 'wonder', overt: 0.1, covert: 0.1 }, meters: { wilfulness: 0.1, compliance: 0.75, mindfulness: 0.15 },
     pain: { tolerance: 0.35, resilience: 0.45 }, home: 'garden',
     body: { type: 'tall and slender, pale from the tower', h: { f: 1.70 }, mass: 0.35, fat: 0.35, bust: 0.45, response: 1 },
-    look: { skin: '#f4dccb', hair: '#d8b860', hairStyle: 'braid', braidLen: 8.5, ribbon: '#4a6a3a', eyes: '#7a8aa0' },
+    look: { skin: '#f4dccb', hair: '#d8b860', hairStyle: 'braid', hairCap: 'swept', braidLen: 8.5, ribbon: '#4a6a3a', eyes: '#7a8aa0' },
     dynamic: { romance: null, bond: 0 }, word: 'Larkspur', base: 'wistful',
   },
   snow: {
@@ -137,37 +137,61 @@ const ROSTER = {
     pain: { tolerance: 0.4, resilience: 0.5 }, home: 'upper',
     body: { type: 'small and soft', h: { f: 1.62 }, mass: 0.42, fat: 0.48, bust: 0.5, response: 1 },
     // (Grimm's: skin white as snow, lips red as blood, hair black as ebony; a plait, not the bob of other tellings)
-    look: { skin: '#f6e2d6', hair: '#141010', hairStyle: 'braid', braidLen: 5, ribbon: '#8a1a24', eyes: '#3a2a22', lips: '#b8323a' },
+    look: { skin: '#f6e2d6', hair: '#141010', hairStyle: 'braid', hairCap: 'sidepart', braidLen: 5, ribbon: '#8a1a24', eyes: '#3a2a22', lips: '#b8323a' },
     dynamic: { romance: null, bond: 0 }, word: 'Ebony', base: 'smile',
   },
 };
 const IDS = Object.keys(ROSTER).sort((a, b) => ROSTER[a].chapter - ROSTER[b].chapter);
 
 // ── What they wear ──
-// The target wardrobe (period, pastoral; nothing from any film's designs), for the Blender garments still to be built (docs/alpha-plan.md §3):
-// dresses and skirts that can be raised, a bodice over a chemise, drawers that can be lowered, aprons, a cloak. Until then the session dresses
-// them in the stand-ins below, on the garments the models have (a top, trousers, briefs, footwear), in the same colours.
+// Period dress, built in Blender (tools/blender/build_figures.py) and drawn on in js/figure.js: a dress (sleeves to the wrist, or to the elbow
+// for work) with a fitted, front-laced bodice, the chemise showing at the neckline, a full skirt to the lower calf, and loose drawers to the
+// knee under it, stockings and shoes; or a kirtle (the same cut, to just above the knee) over leggings and fitted smalls, with boots. Nothing
+// from any film's designs. Each heroine's outfits, the first her usual:
+//   kind: dress | kirtle; sleeves: long | elbow; main: the cloth; bodice: its own colour (else the main); apron; trim: bands and lacing;
+//   print: a small sprig print's colour; chemise; patches; under: drawers | smalls (underCol); legs: leggings (legCol, darned); stockings;
+//   shoes: boots (the default) | flats | work | soft | loafers (shoe, sole).
+// Leggings are Gretel's own, and Red's for walking the estate: she wears them more often as time goes on (js/estate.js: Estate.outfitFor).
+const WARDROBE = {
+  goldie: {
+    maid: { kind: 'dress', sleeves: 'elbow', main: '#c8a25a', print: '#f2e6c4', trim: '#7a4a26', apron: '#f4efe4', chemise: '#f6f1e6', under: 'drawers', underCol: '#f2ede2', stockings: '#d8cfbd', shoes: 'flats', shoe: '#3a2a20', sole: '#1e1612' },
+    own: { kind: 'dress', sleeves: 'elbow', main: '#b88a2e', bodice: '#8a4a2a', trim: '#5a3018', chemise: '#efe6d2', under: 'drawers', underCol: '#ece4d4', stockings: '#9a8a74', shoes: 'work', shoe: '#5a3e2a', sole: '#2a2420' },
+  },
+  red: {
+    dress: { kind: 'dress', sleeves: 'elbow', main: '#6a4630', trim: '#a8282a', apron: '#e8e0d0', chemise: '#f4efe4', under: 'drawers', underCol: '#f2ede2', stockings: '#7a2424', shoes: 'boots', shoe: '#4a3020' },
+    walking: { kind: 'kirtle', sleeves: 'elbow', main: '#6a4630', trim: '#a8282a', chemise: '#f4efe4', under: 'smalls', underCol: '#efe8da', legs: 'leggings', legCol: '#6a2622', shoes: 'boots', shoe: '#4a3020' },
+  },
+  belle: {
+    dress: { kind: 'dress', sleeves: 'long', main: '#2f4a3a', trim: '#c8b48a', chemise: '#f4efe4', under: 'drawers', underCol: '#f4f0e6', stockings: '#ece6da', shoes: 'loafers', shoe: '#2a1e18', sole: '#140e0c' },
+  },
+  cinderella: {
+    dress: { kind: 'dress', sleeves: 'elbow', main: '#8a4a32', trim: '#5a3222', apron: '#e8e2d4', chemise: '#f2ede2', under: 'drawers', underCol: '#efe9dc', stockings: '#4a4440', shoes: 'work', shoe: '#4a3a2e', sole: '#221a14' },
+    rags: { kind: 'dress', sleeves: 'elbow', main: '#6a625a', trim: '#4a4440', apron: '#9a9286', chemise: '#c8c0b0', patches: true, under: 'drawers', underCol: '#d8d0c0', stockings: '#3a3632', shoes: 'soft', shoe: '#4a3a2e', sole: '#2a221c' },
+  },
+  gretel: {
+    kirtle: { kind: 'kirtle', sleeves: 'elbow', main: '#5a4630', trim: '#3a2a1a', chemise: '#e2d8c4', patches: true, under: 'smalls', underCol: '#e2d8c4', legs: 'leggings', legCol: '#3e3a32', darned: true, shoes: 'boots', shoe: '#3a2a1e' },
+  },
+  rapunzel: {
+    garden: { kind: 'dress', sleeves: 'long', main: '#8a9a74', trim: '#5a6a4a', apron: '#d8ccb0', chemise: '#f6f1e6', under: 'drawers', underCol: '#f4f0e6', stockings: '#ece6da', shoes: 'boots', shoe: '#5a4632' },
+    tower: { kind: 'dress', sleeves: 'long', main: '#e2d8c2', trim: '#b8ac94', chemise: '#f6f1e6', patches: true, under: 'drawers', underCol: '#f4f0e6', stockings: '#ece6da', shoes: 'soft', shoe: '#b8a88a', sole: '#8a7a5a' },
+  },
+  snow: {
+    dress: { kind: 'dress', sleeves: 'long', main: '#efe6d2', bodice: '#8a1a24', trim: '#d8b46a', chemise: '#fbf8f0', under: 'drawers', underCol: '#f6f2ea', stockings: '#f2eee6', shoes: 'flats', shoe: '#3a1418', sole: '#1a0a0c' },
+  },
+};
+// (what each is, for the set-up: a line about each outfit)
+const OUTFIT_NOTES = { maid: 'as maid', own: 'her own, as found', dress: 'her dress', walking: 'walking the estate: kirtle and leggings', rags: 'as found, in rags', kirtle: 'kirtle and leggings', garden: 'for the garden', tower: 'from the tower' };
 const PERIOD = {
-  goldie: 'Her own at first: a mustard skirt kilted up for climbing walls, a laced rust bodice over a cream chemise, worn shoes. As maid: a faded print work dress, white apron and cap.',
-  red: 'A madder-red hooded cloak, too short now, over a brown working dress and a flour-dusted apron; ankle boots for the path.',
-  belle: 'A merchant’s daughter’s gown in deep green wool with a plain linen collar, ink at the cuffs; sensible heeled shoes. Later, gowns from the upper rooms’ presses.',
-  cinderella: 'Found in rags: a soot-grey work dress, a kerchief, wooden-soled clogs. In the Hall: a russet dress and clean cap from the linen press, and her own shoes.',
-  gretel: 'A patched brown kirtle cut short for running, a shawl knotted at the waist, boots taken from somewhere. In the kitchens: a larder apron with deep pockets.',
-  rapunzel: 'An outgrown linen gown let out at every seam, barefoot. In the garden: a sage gardener’s dress, a canvas apron, borrowed boots.',
-  snow: 'A fine cream gown from her father’s house, torn from the flight, with a crimson laced bodice and a dark travelling cloak; thin shoes.',
+  goldie: 'Her own at first: a mustard skirt and a laced rust bodice over a cream chemise, worn shoes. As maid: a faded print work dress, white apron.',
+  red: 'A brown working dress with red trim and a flour-dusted apron, red wool stockings, ankle boots; on the estate’s paths, more and more, a kirtle over madder leggings. Her madder-red hooded cloak is still to build.',
+  belle: 'A merchant’s daughter’s gown in deep green wool, long-sleeved, pale gold braid at the cuffs and hem, white stockings, heeled shoes.',
+  cinderella: 'Found in rags: a soot-grey dress, patched. In the Hall: a russet dress, a clean apron, grey stockings, her own shoes.',
+  gretel: 'A patched brown kirtle cut short for running, over darned leggings; boots taken from somewhere.',
+  rapunzel: 'From the tower, an outgrown linen gown, let out and patched. In the garden: a sage dress, a canvas apron, borrowed boots.',
+  snow: 'A fine cream gown from her father’s house with a crimson laced bodice, gold braid, white stockings, thin shoes.',
 };
-// The stand-ins (Meridian's off-duty garments: top, sleeves, legs, shoes, in Figure's terms; tunic is the top's main colour, shirt what's
-// under it, accent and print its details).
-const OWN = {
-  goldie: { top: 'waistcoat', sleeves: 'rolled', tunic: '#8a4a2a', shirt: '#efe6d2', print: '#c8a04a', accent: '#c8a04a', trousers: '#8a6a2a', legs: 'canvas', legAccent: '#5a4420', shoes: 'work', shoe: '#5a3e2a', sole: '#2a2420', trim: '#3a2a1e', sock: '#d8cdb4' },
-  red: { top: 'sweatervest', sleeves: 'long', scarf: true, tunic: '#5a3a26', shirt: '#ece4d2', print: '#a8282a', accent: '#a8282a', trousers: '#4a3a2c', legs: 'work', legAccent: '#a8282a', shoes: 'work', shoe: '#4a3020', sole: '#221a14', trim: '#a8282a', sock: '#8a2a2a' },
-  belle: { top: 'cardigan', sleeves: 'long', tunic: '#2f4a3a', shirt: '#eee8da', print: '#c8b48a', accent: '#5a6a4a', trousers: '#2a3028', legs: 'pressed', legAccent: '#3a4238', shoes: 'flats', shoe: '#2a1e18', sole: '#141010', trim: '#5a4430', sock: '#2a2a2a' },
-  cinderella: { top: 'henley', sleeves: 'rolled', tunic: '#6a625a', shirt: '#4a4440', print: '#3a3632', accent: '#8a7a6a', trousers: '#4e4842', legs: 'work', legAccent: '#3a3632', shoes: 'soft', shoe: '#4a3a2e', sole: '#2a221c', trim: '#2a221c', sock: '#5a5450' },
-  gretel: { top: 'waistcoat', sleeves: 'rolled', tunic: '#5a4630', shirt: '#cfc2a4', print: '#8a6a3a', accent: '#6a4a2a', trousers: '#3e3a30', legs: 'combat', legAccent: '#5a4a2a', shoes: 'work', shoe: '#3a2a1e', sole: '#1e1814', trim: '#5a4a2a', sock: '#6a5a44' },
-  rapunzel: { top: 'thermal', sleeves: 'long', tunic: '#d8d0b8', accent: '#6a8a5a', trousers: '#8a9a7a', legs: 'joggers', legAccent: '#6a7a5a', shoes: 'soft', shoe: '#a8987a', sole: '#6a5a44', sock: '#e0d8c4' },
-  snow: { top: 'sweatervest', sleeves: 'long', tunic: '#8a1a24', shirt: '#f2ead8', print: '#d8b46a', accent: '#d8b46a', trousers: '#2a2226', legs: 'pressed', legAccent: '#3a3034', shoes: 'flats', shoe: '#1e1418', sole: '#100a0c', trim: '#8a1a24', sock: '#f2ead8' },
-};
-for (const id in OWN) { ROSTER[id].own = OWN[id]; ROSTER[id].period = PERIOD[id]; }
+for (const id in WARDROBE) { ROSTER[id].wardrobe = WARDROBE[id]; ROSTER[id].period = PERIOD[id]; }
+const outfits = id => Object.keys(WARDROBE[id] || {});
 
 // ── Silas ──
 // GDD: "Silas Fenwick, Squire of Fenwick Hall": a practical, woodsy man in his mid-to-late 30s (the archetype says 30s to 40s), the third or
@@ -184,10 +208,10 @@ const SQUIRE = {
     flaws: ['Rigidity once committed', 'Reading silence as agreement', 'Mistaking competence in a girl for ease'],
     nonExclusive: 'Openly non-exclusive, and says so plainly and early to each woman. Each relationship runs on its own track.',
   },
-  look: { skin: '#d6ad8e', hair: '#4a3220', hairStyle: 'short', eyes: '#5a6a4a', beard: true },
+  look: { skin: '#d6ad8e', hair: '#4a3220', hairStyle: 'tousled', eyes: '#5a6a4a', beard: true },
   build: { mass: 0.68, fat: 0.4 }, h: 1.86,
   own: { top: 'waistcoat', sleeves: 'rolled', tunic: '#3e3428', shirt: '#d8cdb4', print: '#9a7a4a', accent: '#6a5030', trousers: '#4a4234', legs: 'canvas', legAccent: '#2e261c' },
-  options: { skin: ['#f0d0b4', '#d6ad8e', '#b88a6a', '#8a5a3e'], hair: ['#161210', '#3a2a20', '#4a3220', '#6a4a2e', '#8a8580'], hairStyle: ['short', 'crop', 'curls'], build: { lean: [0.45, 0.3], average: [0.6, 0.4], heavy: [0.8, 0.55] } },
+  options: { skin: ['#f0d0b4', '#d6ad8e', '#b88a6a', '#8a5a3e'], hair: ['#161210', '#3a2a20', '#4a3220', '#6a4a2e', '#8a8580'], hairStyle: ['tousled', 'short', 'crop'], build: { lean: [0.45, 0.3], average: [0.6, 0.4], heavy: [0.8, 0.55] } },
 };
 
 // ── Everyone else (no corrections: the village and household as the GDD names them; names only where it gives them) ──
@@ -208,11 +232,11 @@ const VILLAGE = {
 };
 
 const pronouns = () => ({ they: 'she', them: 'her', their: 'her', They: 'She' });
-// A heroine as a figure (all seven are women: the engine's other translation isn't used). outfit: 'own' (her stand-in clothes) is the default.
+// A heroine as a figure (all seven are women: the engine's other translation isn't used), in one of her outfits (her usual by default).
 function figureSpec(id, sex, outfit) {
-  const r = ROSTER[id], L = r.look;
-  return { sex: 'f', height: r.body.h.f, mass: r.body.mass, fat: r.body.fat, skin: L.skin, hair: L.hair, hairStyle: L.hairStyle, braidLen: L.braidLen, ribbon: L.ribbon,
-    eyes: L.eyes, lips: L.lips || null, beard: false, outfit: 'offduty', dept: r.own.accent, bust: r.body.bust, off: r.own };
+  const r = ROSTER[id], L = r.look, W = WARDROBE[id], key = W[outfit] ? outfit : outfits(id)[0];
+  return { sex: 'f', height: r.body.h.f, mass: r.body.mass, fat: r.body.fat, skin: L.skin, hair: L.hair, hairStyle: L.hairStyle, hairCap: L.hairCap, braidLen: L.braidLen, ribbon: L.ribbon,
+    eyes: L.eyes, lips: L.lips || null, beard: false, outfit: 'period', period: W[key], periodKey: key, dept: W[key].trim, bust: r.body.bust };
 }
 function squireSpec(c) {
   c = Object.assign({ skin: SQUIRE.look.skin, hair: SQUIRE.look.hair, hairStyle: SQUIRE.look.hairStyle, build: null, beard: true }, c || {});
@@ -232,7 +256,7 @@ function wriggle(id) {
 const PITCH = { silas: 118, goldie: 222, red: 210, belle: 200, cinderella: 206, gretel: 214, rapunzel: 226, snow: 230 };
 const pitch = id => PITCH[id] || 208;
 
-const api = { METERS, ROSTER, IDS, SQUIRE, VILLAGE, PERIOD, pronouns, figureSpec, squireSpec, pitch, wriggle };
+const api = { METERS, ROSTER, IDS, SQUIRE, VILLAGE, WARDROBE, PERIOD, OUTFIT_NOTES, outfits, pronouns, figureSpec, squireSpec, pitch, wriggle };
 if (typeof module !== 'undefined' && module.exports) module.exports = api;
 root.Cast = api;
 })(typeof window !== 'undefined' ? window : globalThis);

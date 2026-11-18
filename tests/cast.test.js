@@ -75,15 +75,24 @@ test('the terms: Silas sets them out, asks for her word, and she gives it; the l
   }
 });
 
-test('figure specs: each heroine’s own build and look; the braids where they’re drafted; Silas the one man', () => {
+test('figure specs: each heroine’s own build and look, in her period clothes; the braids where they’re drafted; Silas the one man', () => {
   for (const id of Cast.IDS) {
-    const s = Cast.figureSpec(id);
-    assert.equal(s.sex, 'f'); assert.ok(s.height > 1.5 && s.height < 1.8, id); assert.ok(s.hairStyle, id); assert.equal(s.off, Cast.ROSTER[id].own);
-    for (const k of ['tunic', 'trousers']) assert.match(s.off[k], /^#[0-9a-f]{6}$/, id + ' ' + k);
-    assert.ok(Cast.ROSTER[id].period, id + ' has a target wardrobe');
+    const s = Cast.figureSpec(id), W = Cast.WARDROBE[id];
+    assert.equal(s.sex, 'f'); assert.ok(s.height > 1.5 && s.height < 1.8, id); assert.ok(s.hairStyle, id);
+    assert.equal(s.outfit, 'period'); assert.equal(s.period, W[Cast.outfits(id)[0]], id + ' in her usual');
+    for (const [k, o] of Object.entries(W)) {
+      assert.ok(['dress', 'kirtle'].includes(o.kind) && ['long', 'elbow'].includes(o.sleeves), id + ' ' + k);
+      for (const c of ['main', 'chemise', 'underCol', 'shoe']) assert.match(o[c], /^#[0-9a-f]{6}$/, id + ' ' + k + ' ' + c);
+      // (leggings and a kirtle together, with smalls under them; a dress with drawers and stockings)
+      if (o.legs === 'leggings') { assert.equal(o.kind, 'kirtle', id + ' ' + k); assert.equal(o.under, 'smalls'); } else { assert.equal(o.kind, 'dress', id + ' ' + k); assert.equal(o.under, 'drawers'); assert.ok(o.stockings, id + ' ' + k); }
+    }
+    assert.ok(Cast.ROSTER[id].period, id + ' has her wardrobe described');
   }
-  assert.equal(Cast.figureSpec('rapunzel').hairStyle, 'braid'); assert.ok(Cast.figureSpec('rapunzel').braidLen >= 8);
-  const sq = Cast.squireSpec(); assert.equal(sq.sex, 'm'); assert.ok(sq.beard); assert.equal(sq.outfit, 'offduty');
+  // (leggings are Gretel's own, and Red's for walking the estate; everyone else in dresses)
+  assert.deepEqual(Cast.IDS.filter(id => Object.values(Cast.WARDROBE[id]).some(o => o.legs === 'leggings')), ['red', 'gretel']);
+  assert.equal(Cast.figureSpec('gretel').period.legs, 'leggings'); assert.equal(Cast.figureSpec('red').period.kind, 'dress'); assert.equal(Cast.figureSpec('red', 'f', 'walking').period.legs, 'leggings');
+  assert.equal(Cast.figureSpec('rapunzel').hairStyle, 'braid'); assert.ok(Cast.figureSpec('rapunzel').braidLen >= 8); assert.equal(Cast.figureSpec('snow').hairCap, 'sidepart');
+  const sq = Cast.squireSpec(); assert.equal(sq.sex, 'm'); assert.ok(sq.beard); assert.equal(sq.outfit, 'offduty'); assert.equal(sq.hairStyle, 'tousled');
   assert.ok(Cast.wriggle('gretel') > Cast.wriggle('belle'), 'the smaller wriggles more');
 });
 

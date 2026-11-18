@@ -20,7 +20,7 @@ button.on { background: #e8d4a8; border-color: #b08a3e; }
 <body>
 <div id="view"></div>
 <div id="bar"><h1>The household</h1><span id="who"></span></div>
-<div id="note">Silas and the seven heroines as drafted in js/cast.js: heights, builds, skin, hair and eyes, in their stand-in clothes (the period wardrobe is still to be built: docs/alpha-plan.md). Drag to turn; <code>?who=goldie</code> for one; <code>?view=side|back</code>.</div>
+<div id="note">Silas and the seven heroines as drafted in js/cast.js: heights, builds, skin, hair and eyes, in their period clothes and hair (built in Blender: tools/blender/). Drag to turn; <code>?who=goldie</code> for one; <code>?view=side|back</code>; an outfit, <code>?red=walking</code>; the layers, <code>?clothes=up,down,down</code> (top, bottoms, under).</div>
 <script src="vendor/three.min.js"></script><script src="vendor/OrbitControls.js"></script><script src="vendor/GLTFLoader.js"></script>
 <script src="js/cast.js"></script><script src="js/figure.js"></script><script src="js/poses.js"></script>
 <script>
@@ -47,7 +47,8 @@ const ids = only ? [only] : ['silas'].concat(Cast.IDS), gap = 0.78, people = [];
 const ARMS = { silas: 'fold', goldie: null, red: 'clasp', belle: 'clasp', cinderella: 'clasp', gretel: 'fold', rapunzel: null, snow: 'clasp' };
 Figure.preload().then(() => {
   ids.forEach((id, i) => {
-    const spec = id === 'silas' ? Cast.squireSpec() : Cast.figureSpec(id), f = Figure.make(spec); scene.add(f.root);
+    const spec = id === 'silas' ? Cast.squireSpec() : Cast.figureSpec(id, 'f', q.get(id)), f = Figure.make(spec); scene.add(f.root);
+    if (q.get('clothes') && id !== 'silas') { const [top, bottoms, under] = q.get('clothes').split(','); f.setClothes({ top, bottoms, under }); }
     const x = (i - (ids.length - 1) / 2) * gap; Poses.stand(f, new V3(x, 0, 0), 0, { weight: i % 2 ? 0.6 : -0.6 });
     if (ARMS[id]) Poses.arms(f, ARMS[id]);
     f.setExpr(id === 'silas' ? 'calm' : Cast.ROSTER[id].base);
@@ -55,9 +56,11 @@ Figure.preload().then(() => {
     tag.innerHTML = `<b>${r.title && r.title !== r.name && id !== 'silas' ? r.title : r.name}</b><small>${id === 'silas' ? 'Squire · ' + r.age : (r.title !== r.name ? r.name + ' · ' : '') + r.age + ' · ' + r.body.h.f.toFixed(2) + ' m'}</small>`;
     document.body.append(tag); people.push({ f, tag, x, h: spec.height });
   });
-  const span = Math.max(1.4, ids.length * gap), view = q.get('view') || 'front';
-  const dist = span * 1.55 + 1.2, dir = view === 'side' ? new V3(1, 0.12, 0.05) : view === 'back' ? new V3(0, 0.12, -1) : new V3(0.12, 0.12, 1);
-  controls.target.set(0, 0.92, 0); camera.position.copy(controls.target).addScaledVector(dir.normalize(), dist); controls.update();
+  const span = Math.max(1.4, ids.length * gap), view = q.get('view') || 'front', near = /^head/.test(view) && only;
+  // (?view=head, head-side, head-back: close on the one figure's head)
+  const dist = near ? 0.75 : span * 1.55 + 1.2, dir = /side/.test(view) ? new V3(1, 0.12, 0.05) : /back/.test(view) ? new V3(0, 0.12, -1) : /three/.test(view) ? new V3(0.7, 0.15, 0.7) : new V3(0.12, 0.12, 1);
+  controls.target.set(0, near ? people[0].h - 0.14 : 0.92, 0); camera.position.copy(controls.target).addScaledVector(dir.normalize(), dist); controls.update();
+  if (near) for (const P of people) P.tag.style.display = 'none';
   $('who').textContent = only ? '' : `${ids.length} figures, in chapter order`;
   window.ready = true;
 });

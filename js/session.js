@@ -668,7 +668,8 @@ function create(stage, bay, opts) {
     } else if (st.act && cur) {
       // dressing: to the garment's edge (the first quarter), a grip, the edge carried along them (arcing out over the seat), let go, and back
       const a = st.act, u = clamp(a.t / a.dur, 0, 1), pth = dressPath(a), go = pth.to.clone().sub(pth.from).normalize(), carry = ease(clamp((u - 0.32) / 0.5, 0, 1));
-      const at = pth.from.clone().lerp(pth.to, carry).addScaledVector(pth.bn, 0.07 * sc(cur.f) * Math.sin(Math.PI * carry));
+      const at = pth.via ? pth.from.clone().multiplyScalar((1 - carry) * (1 - carry)).addScaledVector(pth.via, 2 * carry * (1 - carry)).addScaledVector(pth.to, carry * carry)
+        : pth.from.clone().lerp(pth.to, carry).addScaledVector(pth.bn, 0.07 * sc(cur.f) * Math.sin(Math.PI * carry));
       const nn = pth.bn.clone(), ff = go.clone().addScaledVector(nn, -go.dot(nn)).normalize();
       const k = u < 0.25 ? ease(u / 0.25) : u > 0.86 ? 1 - ease((u - 0.86) / 0.14) : 1;
       W = rest.clone().lerp(at.clone().addScaledVector(nn, 0.014).addScaledVector(ff, -0.07 * cs), k);
@@ -691,7 +692,9 @@ function create(stage, bay, opts) {
   const canStrike = () => canRun() && !cur.rx.cover && !cur.rx.up;
   function pickSide() { const s = st.side === 'alt' ? st.nextSide : st.side; if (st.side === 'alt') st.nextSide = st.nextSide === 'R' ? 'L' : 'R'; return s; }
   function startSwing() { if (!canStrike() || st.swing) return false; st.swing = { phase: 'lift', t: 0, side: pickSide(), waited: 0 }; return true; }
-  const cushion = () => { const S_ = cur.f.state, c = S.PAIN.CUSHION; let left = 1; if (S_.bottoms === 'up') left *= 1 - (c.trousers || 0.4); if (S_.under === 'up' && st.area !== 'thighs') left *= 1 - (c.briefs || 0.12); return 1 - left; };
+  // (Fenwick: a figure in period dress says what its layers take off, by area (Figure: cushionOf): a skirt down, leggings, drawers or smalls)
+  const cushion = () => { const own = cur.f.cushionOf && cur.f.cushionOf(st.area); if (own != null) return own;
+    const S_ = cur.f.state, c = S.PAIN.CUSHION; let left = 1; if (S_.bottoms === 'up') left *= 1 - (c.trousers || 0.4); if (S_.under === 'up' && st.area !== 'thighs') left *= 1 - (c.briefs || 0.12); return 1 - left; };
   function impact(sw) {
     const P = cur, key = spotOf(sw.side, st.area), tender = P.f.spot[key].mark;
     // (the more comfortable they are with it, the less they dread the hand waiting raised)
@@ -814,7 +817,8 @@ function create(stage, bay, opts) {
     if (!cur) return;
     st.running = false;
     const want = Object.assign({}, cur.f.state, ...st.actQ.map(a => ({ [a.key]: a.to }))), restoring = (o.under || o.bottoms) === 'up' || o.top === 'down';
-    for (const k of ORDER[restoring ? 'up' : 'down']) if (o[k] && o[k] !== want[k]) st.actQ.push({ key: k, to: o[k] });
+    const has = k => !cur.f.layers || cur.f.layers.includes(k);      // (Fenwick: only the layers she's wearing: no leggings under a dress)
+    for (const k of ORDER[restoring ? 'up' : 'down']) if (o[k] && o[k] !== want[k] && has(k)) st.actQ.push({ key: k, to: o[k] });
     emit('state');
   }
   function dressing(dt) {
@@ -831,11 +835,18 @@ function create(stage, bay, opts) {
     const thighs = W_(F, 'thighL').lerp(W_(F, 'thighR'), 0.5).lerp(knees, 0.42).addScaledVector(bn, 0.09 * s);
     const seat = F.surface('cheekL', null, 0.02).p.lerp(F.surface('cheekR', null, 0.02).p, 0.5);
     let A_, B_;
-    if (a.key === 'top') { A_ = seat.clone().lerp(waist, 0.55); B_ = waist.clone().addScaledVector(down, -0.1 * s); }
+    if (a.key === 'top' && F.skirt) {
+      // (Fenwick: a skirt raised from its hem: the hand takes the hem at the back of her calves (a kirtle's, behind her knees) and carries
+      // it up her legs and over her seat to the small of her back)
+      const calves = W_(F, 'shinL').lerp(W_(F, 'shinR'), 0.5).lerp(W_(F, 'footL').lerp(W_(F, 'footR'), 0.5), 0.45).addScaledVector(bn, 0.11 * s);
+      A_ = F.skirt === 'short' ? knees.clone().addScaledVector(bn, 0.03 * s) : calves; B_ = waist.clone().addScaledVector(down, -0.06 * s);
+    } else if (a.key === 'top') { A_ = seat.clone().lerp(waist, 0.55); B_ = waist.clone().addScaledVector(down, -0.1 * s); }
     else if (a.key === 'bottoms') { A_ = waist.clone(); B_ = knees; }
     else { A_ = waist.clone().addScaledVector(down, 0.1 * s); B_ = thighs; }
     const lowering = a.key === 'top' ? a.to === 'up' : a.to === 'down';
-    return lowering ? { from: A_, to: B_, bn, over: seat } : { from: B_, to: A_, bn, over: seat };
+    // (a skirt's hem carried round the back of her legs and out over her seat, not through her)
+    const via = a.key === 'top' && F.skirt ? seat.clone().addScaledVector(bn, 0.15 * s) : null;
+    return lowering ? { from: A_, to: B_, bn, over: seat, via } : { from: B_, to: A_, bn, over: seat, via };
   }
   function callWord() {
     if (!cur || st.word) return;

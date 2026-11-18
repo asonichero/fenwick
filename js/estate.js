@@ -139,7 +139,7 @@ const TRACK = ['trust', 'respect', 'affection', 'growth'];
 
 function create(o) {
   o = o || {};
-  const s = { chapter: 1, beat: 0, day: 0, postgame: false, zones: {}, rooms: {}, residents: [], tracks: {}, habits: {}, rep: {}, flags: {}, log: [] };
+  const s = { chapter: 1, beat: 0, day: 0, postgame: false, zones: {}, rooms: {}, residents: [], arrived: {}, tracks: {}, habits: {}, rep: {}, flags: {}, log: [] };
   for (const z in ZONES) s.zones[z] = { open: ZONES[z].gate.kind === 'none' && ZONES[z].chapter === 1 };
   for (const id in ROOMS) s.rooms[id] = { restored: 0, lit: false };
   for (const k of REPUTATION) s.rep[k] = 0;
@@ -167,13 +167,27 @@ const everyHearth = s => Object.keys(ROOMS).filter(id => ROOMS[id].hearth).every
 // A heroine taken into the household: her home, her track, her habits (from Cast's drafted meters).
 function arrive(s, id) {
   const C = root.Cast, r = C && C.ROSTER[id]; if (!r || s.residents.includes(id)) return false;
-  s.residents.push(id);
+  s.residents.push(id); s.arrived[id] = s.day;
   s.tracks[id] = { trust: 0.2, respect: 0.2, affection: 0.1, growth: 0, romance: r.dynamic.romance === true ? 0 : null };
   // (left alone, habits only slide: the floor is never above where she starts)
   const c = r.meters.compliance, m = r.meters.mindfulness;
   s.habits[id] = { compliance: c, mindfulness: m, floor: { compliance: Math.min(c, floorOf(r, 'compliance')), mindfulness: Math.min(m, floorOf(r, 'mindfulness')) } };
   s.log.push({ day: s.day, arrive: id });
   return true;
+}
+// What she's wearing (Cast.WARDROBE: her outfits, the first her usual). Red's leggings and kirtle are for walking the estate (the grounds and the
+// wood; never the village, where she's her mother's daughter at the bakery counter), and she wears them more often as time goes on: about one
+// walk in four when she first comes to the Hall, most of them after a season, a little more as she trusts Silas (her track's trust). Indoors
+// at the Hall, now and then once she's used to it. where: an area (hall | grounds | wood | village) or a zone's id. (Rates drafted.)
+function walkingChance(s, where) {
+  const area = (ZONES[where] && ZONES[where].area) || where, since = s.day - (s.arrived.red == null ? s.day : s.arrived.red), t = s.tracks.red;
+  const p = clamp(0.25 + 0.6 * Math.min(1, since / 120) + 0.15 * (t ? t.trust : 0), 0, 0.95);
+  return area === 'grounds' || area === 'wood' ? p : area === 'hall' ? 0.25 * p : 0;
+}
+function outfitFor(s, id, where, rnd) {
+  const C = root.Cast, list = C ? C.outfits(id) : []; if (!list.length) return null;
+  if (id === 'red') return (rnd || Math.random)() < walkingChance(s, where) ? 'walking' : 'dress';
+  return list[0];
 }
 const homeOf = id => { const r = root.Cast && root.Cast.ROSTER[id]; return r ? HOMES[r.home] : null; };
 // What a choice does to a relationship: effects on one heroine's track, never another's (the GDD's non-exclusivity). Returns the track.
@@ -228,7 +242,7 @@ function step(s) {
 function raise(s, facet, amount) { if (!REPUTATION.includes(facet)) throw new Error('Estate.raise: ' + facet); s.rep[facet] = clamp(s.rep[facet] + amount, 0, 1); return s.rep[facet]; }
 
 const api = { ZONES, ROOMS, CHAPTERS, UNPLACED_JOURNEYS, HOMES, VIGNETTES, WEEK, DAY_SERVES, LAPSES, DRIFT, FINALE, REPUTATION, TRACK,
-  create, canOpen, open, unlock, clear, restore, light, warmth, everyHearth, arrive, homeOf, affect, allowRomance, vignettes, dayKind, servedToday, drift, intervene, chapterOf, step, raise };
+  create, canOpen, open, unlock, clear, restore, light, warmth, everyHearth, arrive, homeOf, walkingChance, outfitFor, affect, allowRomance, vignettes, dayKind, servedToday, drift, intervene, chapterOf, step, raise };
 if (typeof module !== 'undefined' && module.exports) module.exports = api;
 root.Estate = api;
 })(typeof window !== 'undefined' ? window : globalThis);

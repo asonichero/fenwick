@@ -261,6 +261,70 @@ PATTERNS.shoeG = `{
     diffuseColor.rgb = mix(c, uPat2 * gk * (0.94 + 0.12 * sin(atan(b.x - sx * 0.113, b.z) * 40.0)), sock);
   }
 }`;
+// ── Fenwick: her period clothes (the Blender-built dresses, kirtle, leggings, drawers) ──
+// dressG: a dress or the kirtle. uParam (hem, –, sleeves: 0 long 1 elbow, apron?), uL0 (waist, neckline, print?, bodice its own colour?),
+// uL1 (–, –, the sleeve's end (its height at rest), patches?); uPat0 the trim and lacing, uPat1 the chemise, uPat2 the apron, uPat3 the bodice,
+// uPat4 the print. vPart: the sleeves 1. Above the neckline the chemise shows, gathered; the bodice laced down the front; a seam at the waist;
+// an apron over the skirt's front with its band round the waist; a small sprig print, where there is one; a band at the hem; on the kirtle,
+// patches; at the sleeve's end a cuff band, and below an elbow sleeve the chemise's frill.
+PATTERNS.dressG = `{
+  vec3 b = vBind; float ax = abs(b.x), hem = uParam.x, waist = uL0.x, nl = uL0.y, gk = 1.0 + uGrain * (g - 0.5) * 2.0;
+  float fr = smoothstep(-0.01, 0.03, b.z), skirtP = 1.0 - smoothstep(waist - 0.02, waist - 0.008, b.y);
+  vec3 c = diffuseColor.rgb;
+  if (vPart < 0.5) {
+    if (uL0.w > 0.5) c = mix(uPat3 * gk, c, skirtP);
+    if (uL0.z > 0.5) { float ctr; vec2 uv = vec2(atan(b.x, b.z + 0.03) * 0.17, b.y); float fl = flowerAt(uv, 30.0, ctr); c = mix(c, uPat4 * gk, fl * 0.8 * (uL0.w > 0.5 ? skirtP : 1.0)); c = mix(c, uPat0, ctr * fl * 0.6 * (uL0.w > 0.5 ? skirtP : 1.0)); }
+    // the lacing: criss-cross down the front of the bodice, between two rows of eyelets
+    float bod = (1.0 - skirtP) * fr * step(waist + 0.004, b.y) * (1.0 - smoothstep(nl - 0.05, nl - 0.042, b.y)) * (1.0 - smoothstep(0.018, 0.02, ax));
+    float zz = fract((b.y - waist) / 0.024) - 0.5, lace = min(abs(b.x - zz * 0.03), abs(b.x + zz * 0.03));
+    c = mix(c, uPat0, bod * (1.0 - smoothstep(0.0011, 0.0022, lace)) * step(ax, 0.0155));
+    c = mix(c, c * 0.72, bod * seamAt(ax - 0.0165, 0.0035));
+    // the waist seam, and the apron (its band all round the front, and the bib-less apron itself over the skirt)
+    c *= 1.0 - 0.3 * seamAt(b.y - (waist - 0.012), 0.004);
+    if (uParam.w > 0.5) {
+      float aw = 0.15 + 0.05 * clamp((waist - b.y) / 0.6, 0.0, 1.0), ap = skirtP * fr * (1.0 - smoothstep(aw - 0.003, aw + 0.003, ax)) * step(hem + 0.075, b.y);
+      float band = smoothstep(waist - 0.036, waist - 0.033, b.y) * (1.0 - smoothstep(waist - 0.012, waist - 0.009, b.y)) * smoothstep(-0.06, -0.02, b.z);
+      c = mix(c, uPat2 * gk * (0.96 + 0.06 * fn3(b * 300.0)), max(ap, band));
+      c *= 1.0 - 0.35 * fr * skirtP * max(seamAt(ax - aw, 0.003) * step(hem + 0.075, b.y), seamAt(b.y - hem - 0.075, 0.003) * step(ax, aw));
+    }
+    // a band of the trim at the hem; the kirtle's patches, sewn on with a running stitch
+    c = mix(c, uPat0 * gk, skirtP * (1.0 - smoothstep(hem + 0.028, hem + 0.031, b.y)) * 0.7);
+    if (uL1.w > 0.5) {
+      vec2 q1 = vec2(b.x - 0.09, b.y - hem - 0.11), q2 = vec2(b.x + 0.06, b.y - waist + 0.17);
+      float p1 = fr * step(abs(q1.x), 0.035) * step(abs(q1.y), 0.03), p2 = (1.0 - fr) * step(abs(q2.x), 0.03) * step(abs(q2.y), 0.035);
+      float pp = max(p1, p2); c = mix(c, c * vec3(1.12, 1.05, 0.92), pp);
+      c *= 1.0 - 0.45 * max(p1 * step(0.5, fract((b.x + b.y) * 220.0)) * max(seamAt(abs(q1.x) - 0.033, 0.003), seamAt(abs(q1.y) - 0.028, 0.003)), p2 * step(0.5, fract((b.x + b.y) * 220.0)) * max(seamAt(abs(q2.x) - 0.028, 0.003), seamAt(abs(q2.y) - 0.033, 0.003)));
+    }
+  } else {
+    float e = uL1.z, cuff = smoothstep(e + 0.004, e + 0.007, b.y) * (1.0 - smoothstep(e + 0.022, e + 0.025, b.y));
+    c = mix(c, uPat0 * gk, cuff * 0.8);
+    if (uParam.z > 0.5) c = mix(c, uPat1 * (0.92 + 0.08 * sin(atan(b.x, b.z) * 90.0)), 1.0 - smoothstep(e + 0.003, e + 0.006, b.y));
+  }
+  // (the chemise above the neckline, gathered: what the dress's edge leaves of it)
+  float dn = 0.9131 * (b.y - nl) + 0.4078 * b.z;
+  c = mix(c, uPat1 * (0.9 + 0.1 * sin(atan(b.x, b.z) * 160.0)), smoothstep(-0.018, -0.013, dn) * (1.0 - vPart));
+  c *= 1.0 - 0.3 * seamAt(dn + 0.0155, 0.003) * (1.0 - vPart);
+  diffuseColor.rgb = c;
+}`;
+// legG: leggings, a fine knit (ribs down the leg), a seam up the inside; darned at a knee where they're worn (uL0.x).
+PATTERNS.legG = `{
+  vec3 b = vBind; float sx = b.x >= 0.0 ? 1.0 : -1.0, gk = 1.0 + uGrain * (g - 0.5) * 2.0;
+  vec3 c = diffuseColor.rgb * (0.94 + 0.06 * sin(atan(b.x - sx * 0.09, b.z) * 70.0)) * gk;
+  c *= 1.0 - 0.25 * seamAt(abs(b.x) - 0.03, 0.003) * step(b.y, uParam.x) * step(0.0, -b.z + 0.04);
+  if (uL0.x > 0.5) { vec2 q = vec2(b.x - 0.09, b.y - uParam.y - 0.02); float d = step(length(q * vec2(1.0, 0.8)), 0.035) * smoothstep(0.0, 0.03, b.z); c = mix(c, uPat0 * (0.9 + 0.2 * step(0.5, fract(b.y * 260.0))), d); }
+  diffuseColor.rgb = c;
+}`;
+// drawersG: linen drawers, a drawstring channel at the waist, a frill at each leg's hem with a line of eyelets above it (the marks, as on
+// any under layer, drawn after). uParam (the legs' hem, the waist, –, –).
+PATTERNS.drawersG = `{
+  vec3 b = vBind; float hem = uParam.x, top = uParam.y, gk = 1.0 + uGrain * (g - 0.5) * 2.0, sx = b.x >= 0.0 ? 1.0 : -1.0;
+  vec3 c = diffuseColor.rgb * gk;
+  float frill = 1.0 - smoothstep(hem + 0.03, hem + 0.033, b.y), a = atan(b.x - sx * 0.09, b.z);
+  c *= 1.0 - 0.12 * frill * (0.5 + 0.5 * sin(a * 40.0));
+  float ey = step(abs(b.y - hem - 0.04), 0.004) * step(0.6, fract(a * 9.0)) ; c *= 1.0 - 0.35 * ey;
+  c *= 1.0 - 0.25 * max(seamAt(b.y - top + 0.02, 0.003), seamAt(b.y - hem - 0.033, 0.003));
+  diffuseColor.rgb = c;
+}`;
 const NOISE = `
 float fh(vec3 p){ return fract(sin(dot(p, vec3(127.1, 311.7, 74.7))) * 43758.5453); }
 float fn3(vec3 p){ vec3 i = floor(p), f = fract(p); f = f * f * (3. - 2. * f);
@@ -297,7 +361,8 @@ function paint(m, o) {
   o = o || {};
   const U = { uRim: { value: srgb(o.rim || '#2a3440').multiplyScalar(o.rimK == null ? 1 : o.rimK) }, uGrain: { value: o.grain == null ? 0.03 : o.grain }, uGrainScale: { value: o.scale || 60 }, uHide: { value: 0 },
     uMarks: { value: Array.from({ length: 8 }, () => new THREE.Vector4(0, -9, 0, 0)) }, uMarkCol: { value: srgb(o.markCol || '#b8323a') },
-    uPat0: { value: new THREE.Color(1, 1, 1) }, uPat1: { value: new THREE.Color(1, 1, 1) }, uPat2: { value: new THREE.Color(1, 1, 1) }, uParam: { value: new THREE.Vector4() }, uL0: { value: new THREE.Vector4() }, uL1: { value: new THREE.Vector4() }, uNape: { value: new THREE.Vector4() }, uFlush: { value: new THREE.Vector4() }, uFlushC: { value: new THREE.Vector4() } };
+    uPat0: { value: new THREE.Color(1, 1, 1) }, uPat1: { value: new THREE.Color(1, 1, 1) }, uPat2: { value: new THREE.Color(1, 1, 1) }, uParam: { value: new THREE.Vector4() }, uL0: { value: new THREE.Vector4() }, uL1: { value: new THREE.Vector4() }, uNape: { value: new THREE.Vector4() }, uFlush: { value: new THREE.Vector4() }, uFlushC: { value: new THREE.Vector4() },
+    uPat3: { value: new THREE.Color(1, 1, 1) }, uPat4: { value: new THREE.Color(1, 1, 1) }, uStock: { value: new THREE.Vector4() } };
   m.userData.u = U;
   const key = 'paint|' + [o.regions, o.marks, o.bindAttr, o.tone].map(x => (x ? 1 : 0)).join('') + (o.pattern || '');
   m.customProgramCacheKey = () => key;
@@ -305,13 +370,13 @@ function paint(m, o) {
     Object.assign(sh.uniforms, U);
     sh.vertexShader = sh.vertexShader
       .replace('#include <common>', `#include <common>
-attribute vec3 bind; ${o.regions || o.pattern ? 'attribute float region;' : ''} ${o.tone ? 'attribute float tone;' : ''} varying vec3 vBind; varying float vHide; varying float vPart; varying float vTone; uniform float uHide;`)
+attribute vec3 bind; ${o.regions || o.pattern ? 'attribute float region;' : ''} ${o.tone ? 'attribute float tone;' : ''} varying vec3 vBind; varying float vHide; varying float vPart; varying float vTone; varying float vRegion; uniform float uHide;`)
       .replace('#include <begin_vertex>', `#include <begin_vertex>
 vBind = ${o.bindAttr ? 'bind' : 'position'};
-${o.regions ? 'vHide = mod(floor(uHide / exp2(region) + 0.001), 2.0);' : 'vHide = 0.0;'} ${o.pattern ? 'vPart = region;' : 'vPart = 0.0;'} ${o.tone ? 'vTone = tone;' : 'vTone = 0.0;'}`);
+${o.regions ? 'vHide = mod(floor(uHide / exp2(region) + 0.001), 2.0); vRegion = region;' : 'vHide = 0.0; vRegion = -1.0;'} ${o.pattern ? 'vPart = region;' : 'vPart = 0.0;'} ${o.tone ? 'vTone = tone;' : 'vTone = 0.0;'}`);
     sh.fragmentShader = sh.fragmentShader
       .replace('#include <common>', `#include <common>
-varying vec3 vBind; varying float vHide; varying float vPart; varying float vTone; uniform vec3 uPat0; uniform vec3 uPat1; uniform vec3 uPat2; uniform vec4 uParam; uniform vec4 uL0; uniform vec4 uL1; uniform vec4 uNape; uniform vec4 uFlush; uniform vec4 uFlushC; uniform vec3 uRim; uniform float uGrain; uniform float uGrainScale; uniform vec4 uMarks[8]; uniform vec3 uMarkCol;
+varying vec3 vBind; varying float vHide; varying float vPart; varying float vTone; varying float vRegion; uniform vec3 uPat0; uniform vec3 uPat1; uniform vec3 uPat2; uniform vec3 uPat3; uniform vec3 uPat4; uniform vec4 uStock; uniform vec4 uParam; uniform vec4 uL0; uniform vec4 uL1; uniform vec4 uNape; uniform vec4 uFlush; uniform vec4 uFlushC; uniform vec3 uRim; uniform float uGrain; uniform float uGrainScale; uniform vec4 uMarks[8]; uniform vec3 uMarkCol;
 ${NOISE}`)
       .replace('#include <color_fragment>', `#include <color_fragment>
 if (vHide > 0.5) discard;
@@ -333,6 +398,12 @@ if (uFlushC.x > 0.001) {
 }
 float g = fn3(vBind * uGrainScale) * 0.6 + fn3(vBind * uGrainScale * 2.7) * 0.4;
 diffuseColor.rgb *= 1.0 + uGrain * (g - 0.5) * 2.0;
+// (Fenwick: stockings, for her under a dress (F.setStockings): the legs' skin (the thigh, knee and shin regions) below their tops, a fine knit, a
+// garter band at the top)
+if (uStock.w > 0.0 && vRegion > 4.5 && vRegion < 7.5 && vBind.y < uStock.w) {
+  float knit = 0.93 + 0.07 * sin(atan(vBind.x - sign(vBind.x) * 0.09, vBind.z) * 60.0) + 0.04 * (fn3(vBind * 500.0) - 0.5);
+  diffuseColor.rgb = uStock.rgb * knit * (1.0 - 0.3 * smoothstep(uStock.w - 0.02, uStock.w - 0.012, vBind.y));
+}
 ${o.pattern ? PATTERNS[o.pattern] : ''}
 ${o.marks ? `float mk = 0.0;
 for (int i = 0; i < 8; i++) { vec3 d = vBind - uMarks[i].xyz; d.z *= 0.6; mk += uMarks[i].w * exp(-dot(d, d) / 0.0026); }
@@ -1195,6 +1266,16 @@ function buildHead(F, spec, S) {
 // Hair: a cap over the crown, its front edge drawn back to a hairline by tucking the points in front of it inside the head; then the style's shapes.
 function buildHair(F, spec, S, H, Hs, k) {
   const style = spec.hairStyle; if (style === 'none') return;
+  // (Fenwick: the style built in Blender, where it's loaded (tools/blender/build_hair.py): one mesh in head units, its colour per point multiplied
+  // into the hair's; a braid's cap is the swept or side-parted style the plait leaves from (spec.hairCap). His beard likewise. Then the braid, as
+  // below. Without the Blender-built hair, the shapes built here.)
+  const G = GLB.hair, gname = 'Hair_' + (style === 'braid' ? spec.hairCap || 'swept' : style);
+  if (G && G[gname]) {
+    const gm = new THREE.Mesh(G[gname], tmat(spec.hair, { rim: '#3a3a4a', rimK: 0.6, vc: true })); gm.castShadow = true; H.add(gm); ink(gm, 0.035); F.hairMesh = gm;
+    if (spec.beard && G.Beard_beard) { const bm = new THREE.Mesh(G.Beard_beard, tmat(shade(spec.hair, -0.1), { rim: '#3a3a4a', rimK: 0.5, vc: true })); bm.castShadow = true; H.add(bm); ink(bm, 0.03); }
+    if (style === 'braid') braidOf(F, spec, H, tmat(spec.hair, { rim: '#3a3a4a', rimK: 0.6 }));
+    return;
+  }
   const hm = tmat(spec.hair, { rim: '#3a3a4a', rimK: 0.6 }), put = (geo, x, y, z, rot, sc) => { const m = new THREE.Mesh(geo, hm); m.position.set(x, y, z); if (rot) m.rotation.set(rot[0], rot[1], rot[2]); if (sc) m.scale.set(sc[0], sc[1], sc[2]); m.castShadow = true; H.add(m); ink(m, 0.05); return m; };
   const bob = style === 'bob', vol = style === 'shaved' ? 0.97 : style === 'crop' ? 1.0 : 1.04;
   const cap = new THREE.SphereGeometry(1, 32, 18, 0, Math.PI * 2, 0, Math.PI * (bob ? 0.8 : 0.64)); cap.scale(1.8 * vol, 2.2 * vol, 2.02 * vol);
@@ -1226,6 +1307,10 @@ function buildHair(F, spec, S, H, Hs, k) {
   // (Fenwick: a long plait from the nape to the waist, the strands crossing in lobes down its length, tied off with a tuft below the tie;
   // spec.braidLen, in head units, how far it reaches (8: the waist). It hangs with gravity from its pivot, as the ponytail does, carried
   // a little out from the back so it rides over the shoulder blades.)
+  if (style === 'braid') braidOf(F, spec, H, hm);
+}
+function braidOf(F, spec, H, hm) {
+  const style = 'braid';
   if (style === 'braid') {
     const len = spec.braidLen || 8, piv = new THREE.Group(); piv.position.set(0, 0.9, -2.0); H.add(piv);
     const pts = [new V3(0, 0, 0), new V3(0, -0.7, -0.55), new V3(0, -2.2, -0.85), new V3(0, -len * 0.62, -0.95), new V3(0, -len, -0.7)];
@@ -1315,15 +1400,24 @@ function tickFace(F, dt) {
 // skeleton named as the one above, in the same units and axes. models/fenwick_meta.json gives each joint's place and the body's landmarks (where
 // the hems, cuffs, waist and the rest fall). A figure made from them is posed exactly as a built one, and keeps the toon head, face and hair.
 // Figure.preload() loads them (make() builds figures in code until it has); Figure.adopt(meta, sex, arrayBuffer) takes one already in hand.
-const GLB = { meta: null, sex: {}, ready: null };
+const GLB = { meta: null, sex: {}, hair: null, ready: null };
 function preload(base) {
   if (GLB.ready) return GLB.ready;
   base = base == null ? 'models/' : base;
   if (!THREE.GLTFLoader || typeof fetch === 'undefined') return (GLB.ready = Promise.resolve(false));
+  // (Fenwick: the hair too, built in Blender to fit the head: tools/blender/build_hair.py. Without it, the hair is built in code, as before.)
+  const hair = fetch(base + 'fenwick_hair.glb').then(r => r.arrayBuffer()).then(adoptHair).catch(e => { console.warn('Figure: no Blender-built hair; building it in code.', e); });
   GLB.ready = fetch(base + 'fenwick_meta.json').then(r => r.json())
     .then(meta => Promise.all(['f', 'm'].map(sx => fetch(base + 'fenwick_' + sx + '.glb').then(r => r.arrayBuffer()).then(buf => adopt(meta, sx, buf)))))
-    .then(() => true).catch(e => { console.warn('Figure: the Blender-built models did not load; building the figures in code.', e); GLB.sex = {}; return false; });
+    .then(() => hair).then(() => true).catch(e => { console.warn('Figure: the Blender-built models did not load; building the figures in code.', e); GLB.sex = {}; return false; });
   return GLB.ready;
+}
+// The hair styles: each a mesh in head units (the head group's space), with its colour per point (darker at the roots) to multiply into the
+// hair's own; shared by everyone who wears the style.
+function adoptHair(buf) {
+  return new Promise((res, rej) => new THREE.GLTFLoader().parse(buf, '', g => {
+    GLB.hair = {}; g.scene.traverse(o => { if (o.isMesh) { const geo = o.geometry; geo.userData.shared = true; GLB.hair[o.name.replace(/_\d+$/, '')] = geo; } }); res(GLB.hair);
+  }, rej));
 }
 // (another of them, when it's needed and not before: the non-gendered body, 'n', only for the Proctor if it's chosen so)
 function need(sx, base) {
@@ -1487,7 +1581,7 @@ function prepare(sx, gltf, M) {
         ink_.setX(i, ink_.getX(i) * f);
       }
     }
-    else if (/^(Tunic|Shirt)/.test(name)) for (let i = 0; i < n; i++) reg[i] = ARM_BONES.test(dom[i]) ? 1 : 0;
+    else if (/^(Tunic|Shirt|Dress|Kirtle)/.test(name)) for (let i = 0; i < n; i++) reg[i] = ARM_BONES.test(dom[i]) ? 1 : 0;
     g.setAttribute('region', new THREE.Float32BufferAttribute(reg, 1));
     g.userData.shared = true;
     mesh[name] = { geo: g, keys: Object.assign({}, o.morphTargetDictionary || {}) };
@@ -1513,7 +1607,8 @@ function bodyRegion(P, dom, L, sex) {
   // under the briefs (to their leg openings: cut high at the sides for her) is the seat; below, the thighs, the knee (just above where lowered
   // trousers bunch) and the shins
   const bc = L.briefCut || [0.012, L.briefLeg - 0.006, 0.4375];
-  const inBriefs = sex === 'f' ? ((x * sx - bc[0]) * bc[2] - (y - bc[1])) / Math.hypot(1, bc[2]) < -0.009 : y >= L.briefLeg + 0.009;
+  // (Fenwick's period wardrobe for her, L.period: smalls cut straight across the top of the thigh, as his trunks are)
+  const inBriefs = sex === 'f' && !L.period ? ((x * sx - bc[0]) * bc[2] - (y - bc[1])) / Math.hypot(1, bc[2]) < -0.009 : y >= L.briefLeg + 0.009;
   if (y >= L.briefTop - 0.022 && inBriefs) return R.HIPS_LO;      // (only within the leg openings: hers rise nearly to the waistband at the hip)
   if (inBriefs) return R.SEAT;
   if (y >= L.downTop + 0.02) return R.THIGH;
@@ -1578,7 +1673,9 @@ function makeGLB(spec, T) {
   // the clothes: each garment made when it's first worn, then shown or hidden
   F.gm = {}; F.clothes = {};
   F.state = { top: 'down', bottoms: 'up', under: 'up' };
-  F.setClothes = st => { Object.assign(F.state, st || {}); dressGLB(F); };
+  F.setClothes = st => { Object.assign(F.state, st || {}); if (F.spec.outfit === 'period') dressPeriod(F); else dressGLB(F); };
+  F.cushionOf = area => (F.spec.outfit === 'period' ? cushionPeriod(F, area) : null);
+  F.setPeriod = period => { spec.period = period; spec.outfit = 'period'; for (const k in F.gm) { const m = F.gm[k]; for (const x of [m, m.userData.hull]) if (x) x.parent.remove(x); } F.gm = {}; F.underMat = null; F.setClothes(); };
   F.setOutfit = (outfit, dept) => { spec.outfit = outfit; if (dept) spec.dept = dept; for (const k in F.gm) { const m = F.gm[k]; for (const x of [m, m.userData.hull]) if (x) x.parent.remove(x); } F.gm = {}; F.setClothes(); };
   F.setClothes();
   finish(F, spec);
@@ -1616,13 +1713,83 @@ function garmentGLB(F, name) {
   const sm = skinned(F, geo, m); sm.castShadow = true; sm.receiveShadow = false; ink(sm, INK_W, F, null, HEM_R);
   F.gm[name] = sm; return sm;
 }
+// ── Fenwick: her period wardrobe (spec.outfit 'period', spec.period: the outfit, Cast.WARDROBE). The layers as the correction knows them: the
+// top is her dress or kirtle (down, or its skirt raised at the back), the bottoms her leggings where she wears them (up or lowered), the under
+// her drawers or smalls (up or lowered). Stockings under a dress, drawn on the legs. ──
+const PHIDE = {
+  DressLong: ['CHEST', 'UPARM', 'WAIST_HI', 'WAIST', 'HIPS', 'HIPS_LO', 'SEAT', 'THIGH', 'FOREARM'], DressLongUp: ['CHEST', 'UPARM', 'WAIST_HI', 'WAIST', 'FOREARM'],
+  DressElbow: ['CHEST', 'UPARM', 'WAIST_HI', 'WAIST', 'HIPS', 'HIPS_LO', 'SEAT', 'THIGH'], DressElbowUp: ['CHEST', 'UPARM', 'WAIST_HI', 'WAIST'],
+  Kirtle: ['CHEST', 'UPARM', 'WAIST_HI', 'WAIST', 'HIPS', 'HIPS_LO', 'SEAT', 'THIGH'], KirtleUp: ['CHEST', 'UPARM', 'WAIST_HI', 'WAIST'],
+  Leggings: ['HIPS', 'HIPS_LO', 'SEAT', 'THIGH', 'KNEE', 'SHIN'], LeggingsDown: ['SHIN'], Drawers: ['HIPS', 'HIPS_LO', 'SEAT', 'THIGH'], DrawersDown: [],
+  Smalls: ['HIPS_LO', 'SEAT'], SmallsDown: [], Boots: ['FOOT'],
+};
+// (what each layer takes off a smack's sting when it's over the spot: js/session.js asks F.cushionOf)
+const PCUSH = { skirt: 0.45, leggings: 0.25, drawers: 0.16, smalls: 0.1 };
+function periodNames(F) {
+  const P = F.spec.period || {}, st = F.state, kirtle = P.kind === 'kirtle';
+  return { top: (kirtle ? 'Kirtle' : P.sleeves === 'long' ? 'DressLong' : 'DressElbow') + (st.top === 'up' ? 'Up' : ''),
+    bottoms: P.legs === 'leggings' ? (st.bottoms === 'down' ? 'LeggingsDown' : 'Leggings') : null,
+    under: (P.under === 'smalls' ? 'Smalls' : 'Drawers') + (st.under === 'down' ? 'Down' : ''), boots: 'Boots' };
+}
+function garmentPeriod(F, name) {
+  if (F.gm[name]) return F.gm[name];
+  const P = F.spec.period || {}, L = F.L, geo = F.model.mesh[name] && F.model.mesh[name].geo; if (!geo) return null;
+  const opt = (pat, col, o) => tmat(col, Object.assign({ skin: true, morph: true, side: THREE.DoubleSide, rim: '#3a3028', rimK: 0.55, pattern: pat, bindAttr: true, unique: true }, o || {}));
+  let m;
+  if (/^(Dress|Kirtle)/.test(name)) {
+    m = opt('dressG', P.main || '#6a5a4a'); const U = m.userData.u, kirtle = /^Kirtle/.test(name);
+    U.uPat0.value.copy(srgb(P.trim || shade(P.main || '#6a5a4a', -0.3))); U.uPat1.value.copy(srgb(P.chemise || '#f2ede2')); U.uPat2.value.copy(srgb(P.apron || '#f2ede2'));
+    U.uPat3.value.copy(srgb(P.bodice || P.main || '#6a5a4a')); U.uPat4.value.copy(srgb(P.print || '#ffffff'));
+    const sleeveA = kirtle || P.sleeves !== 'long' ? L.sleeveE : L.cuffA;
+    U.uParam.value.set(kirtle ? L.kirtleHem : L.skirtHem, /Up$/.test(name) ? 1 : 0, kirtle || P.sleeves !== 'long' ? 1 : 0, P.apron ? 1 : 0);
+    U.uL0.value.set(L.waist, L.neckline, P.print ? 1 : 0, P.bodice ? 1 : 0); U.uL1.value.set(0, 0, L.shoulder - sleeveA * Math.cos(L.abd), P.patches ? 1 : 0);
+  } else if (/^Leggings/.test(name)) {
+    m = opt('legG', P.legCol || '#3e3a32'); const U = m.userData.u; U.uPat0.value.copy(srgb(shade(P.legCol || '#3e3a32', 0.25))); U.uParam.value.set(L.crotch - 0.02, L.knee, 0, 0); U.uL0.value.set(P.darned ? 1 : 0, 0, 0, 0);
+  } else if (/^(Drawers|Smalls)/.test(name)) {
+    const col = P.underCol || '#f2ede2', down = /Down$/.test(name), drawers = /^Drawers/.test(name);
+    m = down ? opt('drawersG', col) : (F.underMat = F.underMat || opt('drawersG', col, { marks: true, markCol: shade(col, -0.2), rimK: 0.45 }));
+    m.userData.u.uParam.value.set(drawers ? (down ? L.knee - 0.01 : L.drawersLeg) : -9, down ? (drawers ? L.drawersDown : L.briefDown) : drawers ? L.trouserTop : L.briefTop, 0, 0);
+  } else {
+    const sh = SHOES[P.shoes] || 0;
+    m = opt('shoeG', P.shoe || '#4a3424', { rimK: 0.4, rim: '#3a4048' }); const U = m.userData.u; U.uParam.value.set(sh, F.H.ankle, 0, 0);
+    if (sh) { U.uPat0.value.copy(srgb(P.sole || '#2a2018')); U.uPat1.value.copy(srgb(P.trimShoe || P.sole || '#2a2018')); U.uPat2.value.copy(srgb(P.stockings || P.legCol || '#d8d0c0')); }
+  }
+  const depth = /^(Drawers|Smalls)/.test(name) ? 2 : /^Leggings/.test(name) ? 1 : 0;
+  if (depth) { m.polygonOffset = true; m.polygonOffsetFactor = depth; m.polygonOffsetUnits = 2 * depth; }
+  const sm = skinned(F, geo, m); sm.castShadow = true; sm.receiveShadow = false; ink(sm, INK_W, F, null, HEM_R);
+  F.gm[name] = sm; return sm;
+}
+function dressPeriod(F) {
+  const want = periodNames(F), on = new Set(Object.values(want).filter(Boolean));
+  // (under a dress's skirt that's down, her drawers aren't drawn: nothing of them shows, and their frill, weighted to her knees, would come
+  // through the skirt, weighted to her thighs, as her legs bend)
+  const hidden = (F.spec.period || {}).kind !== 'kirtle' && F.state.top !== 'up' ? want.under : null;
+  for (const k of on) garmentPeriod(F, k);
+  for (const k in F.gm) { const m = F.gm[k], v = on.has(k) && k !== hidden; m.visible = v; if (m.userData.hull) m.userData.hull.visible = v; }
+  F.clothes = { top: F.gm[want.top], bottoms: want.bottoms ? F.gm[want.bottoms] : null, under: F.gm[want.under] }; F.bootL = F.bootR = F.gm.Boots;
+  F.layers = ['top', 'under'].concat(want.bottoms ? ['bottoms'] : []);
+  F.skirt = (F.spec.period || {}).kind === 'kirtle' ? 'short' : 'long';
+  let hide = 0; for (const k of on) for (const r of PHIDE[k] || []) hide |= 1 << R[r];
+  F.skinMat.userData.u.uHide.value = hide;
+  // (stockings under a dress, to above the knee; none under leggings)
+  const P = F.spec.period || {}; F.skinMat.userData.u.uStock.value.set(0, 0, 0, 0);
+  if (P.stockings && P.legs !== 'leggings') { const c = srgb(P.stockings); F.skinMat.userData.u.uStock.value.set(c.r, c.g, c.b, F.L.knee + 0.105); }
+  if (F.spot) for (const k of SPOTS) F.mark(k, 0);
+}
+function cushionPeriod(F, area) {
+  const st = F.state, P = F.spec.period || {}; let left = 1;
+  if (st.top === 'down' && (P.kind !== 'kirtle' || area !== 'thighs')) left *= 1 - PCUSH.skirt;
+  if (P.legs === 'leggings' && st.bottoms === 'up') left *= 1 - PCUSH.leggings;
+  if (st.under === 'up' && (P.under !== 'smalls' || area !== 'thighs')) left *= 1 - (P.under === 'smalls' ? PCUSH.smalls : PCUSH.drawers);
+  return 1 - left;
+}
 function dressGLB(F) {
   const st = F.state, O = outfitOf(F.spec), longS = F.spec.outfit !== 'offduty' || O.sleeves === 'long', tops = longS ? ['Tunic', 'TunicUp'] : ['Shirt', 'ShirtUp'];
   const want = { top: tops[st.top === 'up' ? 1 : 0], bottoms: st.bottoms === 'down' ? 'TrousersDown' : 'Trousers', under: st.under === 'down' ? 'BriefsDown' : 'Briefs', boots: 'Boots' };
   const on = new Set(Object.values(want));
   for (const k of Object.values(want)) garmentGLB(F, k);
   for (const k in F.gm) { const m = F.gm[k], v = on.has(k); m.visible = v; if (m.userData.hull) m.userData.hull.visible = v; }
-  F.clothes = { top: F.gm[want.top], bottoms: F.gm[want.bottoms], under: F.gm[want.under] }; F.bootL = F.bootR = F.gm.Boots;
+  F.clothes = { top: F.gm[want.top], bottoms: F.gm[want.bottoms], under: F.gm[want.under] }; F.bootL = F.bootR = F.gm.Boots; F.layers = ['top', 'bottoms', 'under']; F.skirt = null;
   // the skin under each garment hidden (so nothing pokes through as they move)
   let hide = 1 << R.FOOT; const H = r => { hide |= 1 << r; };
   H(R.CHEST); H(R.UPARM); H(R.WAIST_HI); if (longS) H(R.FOREARM); if (st.top !== 'up') H(R.WAIST);
@@ -1712,6 +1879,6 @@ function tickPresence(F, dt) {
   H.u.uHoloK.value = (H.glitch > 0 ? 0.55 + 0.45 * Math.random() : 1) * (0.94 + 0.06 * Math.sin(H.u.uHoloT.value * 9.0));
 }
 
-const api = { presence, tickPresence, need, tmat, ink, dqs, grip, FINGERS, make, preload, adopt, models: () => Object.keys(GLB.sex), EXPRS, MOUTHS, HEAD_SCALE, OUTFITS, SPOTS, ik2, aim, setWorldQuat, mat, paint, srgb, shade, R };
+const api = { presence, tickPresence, need, adoptHair, hairStyles: () => Object.keys(GLB.hair || {}), tmat, ink, dqs, grip, FINGERS, make, preload, adopt, models: () => Object.keys(GLB.sex), EXPRS, MOUTHS, HEAD_SCALE, OUTFITS, SPOTS, ik2, aim, setWorldQuat, mat, paint, srgb, shade, R };
 root.Figure = api;
 })(typeof window !== 'undefined' ? window : globalThis);

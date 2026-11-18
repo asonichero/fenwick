@@ -72,13 +72,17 @@ const loaded = Promise.all(['f', 'm'].map(sx => F.adopt(meta, sx, glb(sx))));
 // (a heroine by id, or Silas: the household's one man)
 const gfig = (id, sex) => F.make(sex === 'm' || id === 'silas' ? Cast.squireSpec() : Cast.figureSpec(id || 'belle'));
 
-test('the Blender-built figures: the same skeleton, built from the models, each layer weighted to one', async () => {
+test('the Blender-built figures: the same skeleton, built from the models, every garment weighted to one', async () => {
   await loaded;
   for (const sex of ['f', 'm']) {
     const f = gfig('goldie', sex);
     assert.ok(f.model, 'made from the model'); assert.equal(f.bones.length, sex === 'm' ? 45 : 43);      // (his: two more, for his lift and his scrotum's own swing)
     for (const s of ['L', 'R']) { for (const n of ['index', 'middle', 'ring', 'pinky', 'thumb']) assert.equal(f.bone[n + '2' + s].parent, f.bone[n + '1' + s]); assert.equal(f.bone['glute' + s].parent, f.bone.hips); }
-    f.setClothes({ top: 'up', bottoms: 'down', under: 'down' }); f.setOutfit('uniform');
+    // (every garment the model has, made: hers in each outfit and state, his raised, lowered and in uniform)
+    if (sex === 'f') for (const id of Cast.IDS) for (const o of Cast.outfits(id)) { f.setPeriod(Cast.WARDROBE[id][o]); for (const st of [{ top: 'down', bottoms: 'up', under: 'up' }, { top: 'up', bottoms: 'down', under: 'down' }]) f.setClothes(st); check(f); }
+    else { f.setClothes({ top: 'up', bottoms: 'down', under: 'down' }); f.setOutfit('uniform'); check(f); }
+  }
+  function check(f) {
     for (const m of [f.body, ...Object.values(f.gm)]) {
       const w = m.geometry.attributes.skinWeight.array, j = m.geometry.attributes.skinIndex.array;
       for (let i = 0; i < w.length; i += 4) { const t = w[i] + w[i + 1] + w[i + 2] + w[i + 3]; assert.ok(Math.abs(t - 1) < 1e-4, `${m.geometry.name} weights ${t}`); }
@@ -114,15 +118,24 @@ test('the body’s response: the sex fuller, his lifting on its own bone, a deep
   }
 });
 
-test('one of each layer is worn at a time, and the skin under it is hidden', async () => {
+test('her period layers: the dress (or kirtle), leggings where she wears them, drawers (or smalls); the skin under each hidden', async () => {
   await loaded;
-  const f = gfig(), hide = () => f.skinMat.userData.u.uHide.value, bit = r => (hide() >> r) & 1;
-  const shown = () => Object.entries(f.gm).filter(([, m]) => m.visible).map(([k]) => k).sort();
-  assert.deepEqual(shown(), ['Boots', 'Briefs', 'Trousers', 'Tunic']); assert.equal(bit(F.R.SEAT), 1); assert.equal(bit(F.R.FOOT), 1);
-  f.setClothes({ bottoms: 'down', under: 'down' }); assert.deepEqual(shown(), ['Boots', 'BriefsDown', 'TrousersDown', 'Tunic']); assert.equal(bit(F.R.SEAT), 0); assert.equal(bit(F.R.SHIN), 1);
-  f.setClothes({ top: 'up' }); assert.equal(bit(F.R.WAIST), 0); assert.equal(bit(F.R.WAIST_HI), 1);
-  assert.equal(f.clothes.top, f.gm.TunicUp); assert.equal(f.clothes.bottoms, f.gm.TrousersDown);
-  f.setOutfit('uniform'); assert.ok(f.gm.TunicUp.visible);
+  const shown = f => Object.entries(f.gm).filter(([, m]) => m.visible).map(([k]) => k).sort(), bit = (f, r) => (f.skinMat.userData.u.uHide.value >> r) & 1;
+  const belle = gfig('belle');
+  assert.deepEqual(shown(belle), ['Boots', 'DressLong']);      // (her drawers under the skirt, not drawn while it's down)
+  assert.deepEqual(belle.layers.sort(), ['top', 'under']); assert.equal(belle.skirt, 'long'); assert.equal(belle.clothes.bottoms, null);
+  assert.equal(bit(belle, F.R.SEAT), 1); assert.equal(bit(belle, F.R.FOREARM), 1);
+  belle.setClothes({ top: 'up' }); assert.deepEqual(shown(belle), ['Boots', 'Drawers', 'DressLongUp']); assert.equal(bit(belle, F.R.SEAT), 1);
+  belle.setClothes({ under: 'down' }); assert.deepEqual(shown(belle), ['Boots', 'DrawersDown', 'DressLongUp']); assert.equal(bit(belle, F.R.SEAT), 0); assert.equal(bit(belle, F.R.THIGH), 0);
+  assert.ok(belle.skinMat.userData.u.uStock.value.w > 0.5, 'stockings under a dress');
+  const gretel = gfig('gretel');
+  assert.deepEqual(shown(gretel), ['Boots', 'Kirtle', 'Leggings', 'Smalls']); assert.deepEqual(gretel.layers.sort(), ['bottoms', 'top', 'under']); assert.equal(gretel.skirt, 'short');
+  assert.equal(gretel.skinMat.userData.u.uStock.value.w, 0, 'no stockings under leggings'); assert.equal(bit(gretel, F.R.SHIN), 1);
+  gretel.setClothes({ top: 'up', bottoms: 'down', under: 'down' }); assert.deepEqual(shown(gretel), ['Boots', 'KirtleUp', 'LeggingsDown', 'SmallsDown']); assert.equal(bit(gretel, F.R.SEAT), 0);
+  // (what each takes off a smack: a skirt that's down most; bare, nothing)
+  assert.equal(gretel.cushionOf('sitspot'), 0); belle.setClothes({ top: 'down', under: 'up' }); assert.ok(belle.cushionOf('sitspot') > 0.45);
+  // (Red: her dress, or her walking clothes; the outfit changed, the garments with it)
+  const red = gfig('red'); assert.ok(red.gm.DressElbow); red.setPeriod(Cast.WARDROBE.red.walking); assert.ok(red.gm.Kirtle && red.gm.Leggings && !red.gm.DressElbow);
 });
 
 test('the Blender-built seat’s spots are on its outer surface, in order down it', async () => {
@@ -163,15 +176,26 @@ test('her forms: folds with the pelvis (only their lower outer edges sharing wit
   const m = gfig('silas'); for (let i = 0; i < m.body.geometry.attributes.tone.count; i++) assert.equal(m.body.geometry.attributes.tone.getX(i), 0);
 });
 
-test('each in her own stand-ins (Cast.OWN): the top’s sleeves, the patterns, the shoes; Silas in his waistcoat and boots', async () => {
+test('her clothes drawn on: lacing, chemise, apron, print, patches; the leggings darned; Silas in his waistcoat and boots', async () => {
   await loaded;
-  const top = f => Object.keys(f.gm).find(k => /^(Tunic|Shirt)/.test(k) && f.gm[k].visible);
-  const goldie = gfig('goldie'); assert.equal(top(goldie), 'Shirt');      // (sleeves rolled for work)
-  assert.equal(goldie.gm.Shirt.material.userData.u.uL0.value.x, 4); assert.equal(goldie.gm.Trousers.material.userData.u.uL0.value.z, 0); assert.equal(goldie.gm.Boots.material.userData.u.uParam.value.x, 3);
-  const belle = gfig('belle'); assert.equal(top(belle), 'Tunic');      // (long sleeves: a cardigan over a collared shirt)
-  assert.equal(belle.gm.Tunic.material.userData.u.uL0.value.x, 5); assert.ok(belle.skinMat.userData.u.uHide.value & (1 << F.R.FOREARM));
-  const silas = gfig('silas'); assert.equal(top(silas), 'Shirt');
-  assert.equal(silas.gm.Shirt.material.userData.u.uL0.value.x, 4); assert.equal(silas.gm.Boots.material.userData.u.uParam.value.x, 0);
+  const u = (f, k) => f.gm[k].material.userData.u;
+  const goldie = gfig('goldie'); assert.ok(goldie.gm.DressElbow);
+  assert.equal(u(goldie, 'DressElbow').uParam.value.w, 1, 'an apron'); assert.equal(u(goldie, 'DressElbow').uL0.value.z, 1, 'a print'); assert.equal(u(goldie, 'DressElbow').uParam.value.z, 1, 'elbow sleeves');
+  const snow = gfig('snow'); assert.equal(u(snow, 'DressLong').uL0.value.w, 1, 'her bodice its own colour'); assert.equal(u(snow, 'DressLong').uParam.value.w, 0, 'no apron');
+  const gretel = gfig('gretel'); assert.equal(u(gretel, 'Kirtle').uL1.value.w, 1, 'patches'); assert.equal(u(gretel, 'Leggings').uL0.value.x, 1, 'darned');
+  const silas = gfig('silas'), top = Object.keys(silas.gm).find(k => /^(Tunic|Shirt)/.test(k) && silas.gm[k].visible); assert.equal(top, 'Shirt');
+  assert.equal(u(silas, 'Shirt').uL0.value.x, 4); assert.equal(u(silas, 'Boots').uParam.value.x, 0);
+});
+
+test('the Blender-built hair: every style the household wears, coloured per point, fitted to the head; his beard', async () => {
+  const hb = fs.readFileSync(path.join(MODELS, 'fenwick_hair.glb')); await F.adoptHair(hb.buffer.slice(hb.byteOffset, hb.byteOffset + hb.byteLength));
+  const styles = F.hairStyles();
+  for (const id of Cast.IDS) { const L = Cast.ROSTER[id].look; assert.ok(styles.includes('Hair_' + (L.hairStyle === 'braid' ? L.hairCap : L.hairStyle)), id); }
+  assert.ok(styles.includes('Hair_' + Cast.SQUIRE.look.hairStyle)); assert.ok(styles.includes('Beard_beard'));
+  const f = gfig('goldie'); assert.ok(f.hairMesh && f.hairMesh.geometry.attributes.color, 'her curls, with their colour per point');
+  const box = new THREE.Box3().setFromBufferAttribute(f.hairMesh.geometry.attributes.position);
+  assert.ok(box.max.y > 2.1 && box.max.y < 3.2 && box.min.y > -3.2, `in head units: ${box.min.y.toFixed(2)}..${box.max.y.toFixed(2)}`);
+  const s = gfig('silas'); assert.ok(s.hairMesh, 'his hair'); assert.equal(s.head.children.filter(m => m.isMesh && m.geometry.attributes.color).length, 2, 'his hair and his beard');
 });
 
 test('the braids: Red’s, Snow White’s and Rapunzel’s plaits hang from the head and swing with gravity; Rapunzel’s reaches the waist', async () => {

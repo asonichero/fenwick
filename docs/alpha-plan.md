@@ -40,7 +40,7 @@ A third-person narrative walking simulator. Silas Fenwick, a practical woodsman,
 | 13 | Habit drift and late-night interventions | Post-game | **Built** (`Estate.drift`, `intervene`), with each heroine's GDD lapses and their clues. Rates drafted |
 | 14 | The finale | Climax | Roles **as data** (`Estate.FINALE`). Scene not built |
 | 15 | The village's verdict, gossip | Ending, lore | Reputation facets **as data** (`Estate.REPUTATION`, `raise`). Gossip not built |
-| 16 | Period clothes | Setting | **Not built.** The figures wear Meridian's garments as stand-ins (§3, E) |
+| 16 | Period clothes and hair | Setting | **Built in Blender** (§3): dresses, a kirtle, leggings, drawers, smalls, boots; eight hair styles and Silas's beard. Red's cloak still to build (E) |
 | 17 | Saved game, chapter scripts, title screen | — | **Not built** |
 
 ---
@@ -51,10 +51,11 @@ A third-person narrative walking simulator. Silas Fenwick, a practical woodsman,
 |---|---|---|
 | `vendor/` (three.js r128, OrbitControls, post-processing, GLTFLoader, SkeletonUtils) | `vendor/` | Copied as is |
 | `models/meridian_{f,m}.glb`, `meridian_meta.json` | `models/fenwick_{f,m}.glb`, `fenwick_meta.json` | Copied, renamed. The non-gendered body (Meridian's AI) is left out |
-| `tools/blender/build_figures.py`, `reference.json`, `tools/measure-reference.py` | same | Copied; output names changed to `fenwick_*`. Needs Blender 4.0 (not in this environment) |
+| `tools/blender/build_figures.py`, `reference.json`, `tools/measure-reference.py` | same | Copied; output names changed to `fenwick_*`. Runs unchanged on Blender 5.1 (its Python module, `bpy`, from PyPI) and reproduces Meridian's bodies exactly. **Added**: her period wardrobe (§3) |
+| (none) | `tools/blender/build_hair.py`, `tools/export-head.js` | **New**: the hair, built in Blender to fit the head the game builds in code (§3) |
 | `js/figure.js` | `js/figure.js` | Code unchanged but for the model file names, and **one addition**: a long `braid` hairstyle (Red's, Snow White's and Rapunzel's plaits) that hangs with gravity |
 | `js/poses.js`, `js/stage.js`, `js/pain.js`, `js/discipline.js`, `js/talk.js` | same | Code unchanged; comments re-themed (the Captain → Silas, deck → floor) |
-| `js/session.js` | `js/session.js` | Code unchanged but for the roster hook (`root.Cast`, `Cast.squireSpec`); comments re-themed. Internally the corrector is still `captain` and the room `bay`, so it stays diffable against Meridian |
+| `js/session.js` | `js/session.js` | Code unchanged but for the roster hook (`root.Cast`, `Cast.squireSpec`) and her period layers (a skirt raised from its hem, round over her seat; only the layers she's wearing; what each cushions, from the figure); comments re-themed. Internally the corrector is still `captain` and the room `bay`, so it stays diffable against Meridian |
 | `js/audio.js` | `js/audio.js` | Ported; **added** a hearth ambience (a fire's crackle, the wind in the Fenwood). The music's themes are still Meridian's |
 | `js/crew.js` | `js/cast.js` | **New**: Silas, the seven heroines and the village cast, in the shape the engine reads |
 | `js/lines.js` | `js/lines.js` | Same structure; **every line new**; adds `terms(id)` |
@@ -63,7 +64,7 @@ A third-person narrative walking simulator. Silas Fenwick, a practical woodsman,
 | `session.html` | `session.html` | **New page** keeping Meridian's HUD, controls, dialogue box and aftercare flow; without the AI, bridge, check-in and day machinery |
 | `figures.html` | `figures.html` | **New**: the household line-up |
 | `model.html` | `model.html` | Ported (the bodies and garments as a turnaround sheet) |
-| `tests/` | `tests/` | `pain`, `discipline`, `talk`: unchanged. `figure`: adapted to the cast, plus the braids. **New**: `cast`, `estate`, `room`. `npm test` passes 56 of 56 |
+| `tests/` | `tests/` | `pain`, `discipline`, `talk`: unchanged. `figure`: adapted to the cast, plus the braids, the period wardrobe and the hair. **New**: `cast`, `estate`, `room`. `npm test` passes 58 of 58 |
 
 **Not ported**: Meridian's ship rooms, its day loop (`day.js`, `daylines.js`, `deckplan.js`, `visit.js`), its AI (`checkin.js`, `stations.js`, `docs/proctor.md`), and the non-gendered body. Meridian's day loop is the nearest source if Fenwick's week ends up played as rooms-as-scenes (A).
 
@@ -79,6 +80,14 @@ The brief was to use Meridian as the base for models and discipline mechanics, s
 - **Positions**: across the knee (on a chair, or a bed's edge), standing with her hands on a support, over a table.
 - **Adults only**: every heroine is 18 to 21, as the GDD states, and a test enforces it. Hansel is never part of a correction.
 
+### Decided since: clothes and hair, built in Blender
+
+- **Period dresses** for all but Gretel (`tools/blender/build_figures.py`, her build). Each dress has a fitted bodice laced down the front, with the chemise showing at a low, round neckline. The sleeves go to the wrist (Belle, Rapunzel, Snow White) or to just below the elbow for work, with the chemise's frill below. The skirt is fitted over the hips and hangs as a bell to the lower calf, fuller behind, with folds. Under it are loose knee-length drawers with a frill, stockings gartered above the knee (drawn on the legs), and shoes or ankle boots. The details (lacing, chemise, apron, sprig print, bands, patches) are drawn per pixel (`js/figure.js`: the `dressG` pattern), so one set of meshes serves every heroine in her own colours (`Cast.WARDROBE`).
+- **Leggings** for Gretel: a patched kirtle (the same cut, to just above the knee) over darned leggings and fitted smalls, with boots. **Red** wears leggings as her alternate for walking the estate. On the grounds and in the wood she chooses them about one walk in four when she first comes to the Hall, most walks after a season, and a little more as she trusts Silas. Never in the village, and only now and then indoors (`Estate.outfitFor`; the rates are drafts).
+- **In a correction** the layers are her skirt (or kirtle), raised at the back and gathered in a roll at the small of her back (the hand takes the hem behind her calves and carries it up over her seat). Then her leggings, if she wears them, lowered to her knees. Then her drawers (or smalls), lowered. A skirt that's down cushions most. The drawers aren't drawn under a skirt that's down.
+- **Outfits for moments in the story**: Goldie's own clothes (as found) or her maid's dress; Eleanor's rags (as found) or her russet dress; Rapunzel's outgrown tower gown or her garden dress. The test page offers them.
+- **Hair** (`tools/blender/build_hair.py`): each style is a mesh fitted to the code-built head (exported by `tools/export-head.js`). It's a scalp shell cut exactly along the style's hairline, under locks: tapered strands that follow the scalp and fall with gravity, coil into a bun or hang as ringlets. They're darker at the roots, coloured per point and multiplied into the hair's own colour, so each style serves any colour. The styles: Goldie's curls and ringlets; Red's and Rapunzel's hair swept back from a center part into the plait; Snow White's side part with a swept fringe; Belle's chignon with a curled tendril at each ear; Eleanor's working bun, coming loose; Gretel's knife-cut crop; Silas's short tousled hair and a full beard. The plaits themselves are still the code-built ones.
+
 ---
 
 ## 4. The first playable (`session.html`)
@@ -93,7 +102,7 @@ Checked in headless Chromium: the page loads with no errors; a correction runs t
 
 ## 5. Drafted here, for review
 
-- **`js/cast.js`**: each heroine's body (height, build), look (skin, hair and style, eyes), how she takes pain, her wilfulness, and her resistance as two numbers (*overt*, open defiance; *covert*, concealment, withholding). These come from the GDD's "Resistance" paragraphs: Goldie is the most overt, Gretel the most covert, and Rapunzel and Snow White are "low on both counts". Also her safe word, her stand-in clothes and her target wardrobe (`Cast.PERIOD`), and where she lives. Silas's age (37) and look. What Silas calls Red ("Red") and Snow White ("Snow"). How each heroine addresses him: the maids say "sir"; Red, Belle, Rapunzel and Snow White say "Silas". Hansel's place (village cast, no correction).
+- **`js/cast.js`**: each heroine's body (height, build), look (skin, hair and style, eyes), how she takes pain, her wilfulness, and her resistance as two numbers (*overt*, open defiance; *covert*, concealment, withholding). These come from the GDD's "Resistance" paragraphs: Goldie is the most overt, Gretel the most covert, and Rapunzel and Snow White are "low on both counts". Also her safe word, her wardrobe's cut and colours (`Cast.WARDROBE`), and where she lives. Silas's age (37) and look. What Silas calls Red ("Red") and Snow White ("Snow"). How each heroine addresses him: the maids say "sir"; Red, Belle, Rapunzel and Snow White say "Silas". Hansel's place (village cast, no correction).
 - **`js/lines.js`**: every line. That covers Silas placing and correcting her, her reactions as her distress rises, her defiance and how it breaks, her word, the aftercare, and the terms.
 - **`js/estate.js`**: the gate kind for each zone, except the briars (Ch. 6) and the West Wing, which the GDD states. Also: the upper rooms opening in Ch. 3; each chapter's beats and further clues; the week's order and whom each day serves; the drift rates and thresholds; the tracks' starting values; the reputation facets.
 - **`js/guestroom.js`**: the room's layout and furnishing (a half-tester bed, a writing table, a settle under the window, a fireplace, a clothes press, a washstand, the broken gilt chair).
@@ -128,8 +137,8 @@ Checked in headless Chromium: the page loads with no errors; a correction runs t
 16. Meridian models the body's response and lets desire be present. Fenwick's named romance tracks are Red and Belle, and the post-game's late-night vignettes are "intimate". For whom, and from when, is desire part of a scene? (Built: the desire slider is open for all; romance tracks only for Red and Belle until the designer opens others, `Estate.allowRomance`.)
 
 ### E. Clothes
-17. The period wardrobe needs new Blender garments in `tools/blender/build_figures.py`: skirts or dresses that can be raised, a bodice over a chemise, drawers that can be lowered, aprons, a cloak. The garment list for each heroine is drafted (`Cast.PERIOD`). Until then the stand-ins are trousers, a top and briefs. That needs Blender 4.0.
-18. What changes during a correction (skirt raised, drawers lowered, as Little Red's Lessons had it)?
+17. Still to build: Red's hooded cloak (outdoors; a maid's cap; petticoats under the skirts?). The skirts are skinned to the legs, not simulated, so a strong kick bends the skirt with the leg. Is cloth simulation wanted later?
+18. What changes during a correction: built as skirt raised, then leggings lowered, then drawers lowered. Is that the order wanted? Are the colours and cuts in `Cast.WARDROBE` right?
 
 ### F. Cast
 19. What Silas calls Red (Red or Rose?) and Snow White. How each addresses him (sir, Silas, Squire?).
