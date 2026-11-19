@@ -246,22 +246,27 @@ def smooth_interp(xk, yk, sigma, pad=0.06, step=0.0005):
 def lower_leg(P):
     """(Fenwick) The leg below the calf, drawn rather than measured (the turnaround's ankle is a column carried down into the foot): it narrows
     above the ankle; the Achilles tendon stands out behind with a hollow either side of it; the ankle bones (the inner higher and further
-    forward, the outer lower and further back); then it closes inside the foot, which takes over from there."""
-    def at(P, y, key):
-        P = sorted(P, key=lambda r: r['y']); return float(np.interp(y, [r['y'] for r in P], [r[key] for r in P]))
-    top = 0.25; keep = [r for r in P if r['y'] > top]
-    m = {k: at(P, top, k) for k in ('cx', 'cz', 'rx', 'zF', 'zB')}
-    K = [(top, m['rx'], m['zF'], m['zB'], m['cz']), (0.20, 0.0315, 0.0345, 0.0335, -0.0215), (0.165, 0.029, 0.031, 0.0285, -0.0185),
+    forward, the outer lower and further back); then it closes inside the foot, which takes over from there. From the calf down to it the
+    measured leg hands over to the drawn one gradually (BAND): every measure, and the lobe that carries the calf's bulge behind, eased from
+    one to the other, so the calf tapers into the lower leg rather than stopping at a line."""
+    P = sorted(P, key=lambda r: r['y']); py = [r['y'] for r in P]
+    at = lambda y, key: float(np.interp(y, py, [r[key] for r in P]))
+    lob0 = next(r['lobes'][0] for r in P if r['lobes']); lob_m = lambda y: float(np.interp(y, py, [r['lobes'][0][2] if r['lobes'] else 0.0 for r in P]))
+    lo, top = 0.17, 0.29; keep = [r for r in P if r['y'] > top]
+    K = [(top, at(top, 'rx'), at(top, 'zF'), at(top, 'zB'), at(top, 'cz')), (0.20, 0.0315, 0.0345, 0.0335, -0.0215), (0.165, 0.029, 0.031, 0.0285, -0.0185),
          (0.13, 0.0276, 0.029, 0.0255, -0.016), (0.105, 0.0279, 0.029, 0.025, -0.015), (0.085, 0.0283, 0.0298, 0.026, -0.0145),
          (0.065, 0.029, 0.031, 0.029, -0.0145), (0.045, 0.026, 0.028, 0.029, -0.016), (0.028, 0.015, 0.017, 0.017, -0.016), (0.006, 0.003, 0.003, 0.003, -0.016)][::-1]
     ky = [k[0] for k in K]; col = lambda i: smooth_interp(ky, [k[i] for k in K], 0.012)
     RX, ZF, ZB, CZ = col(1), col(2), col(3), col(4)
-    tend = smooth_interp([0.03, 0.05, 0.075, 0.1, 0.13, 0.165, 0.2, top], [0, 0.004, 0.007, 0.009, 0.009, 0.0065, 0.003, 0.0], 0.01)
-    rows = []
+    tend = smooth_interp([0.03, 0.05, 0.075, 0.1, 0.13, 0.165, 0.2, 0.25], [0, 0.004, 0.007, 0.009, 0.009, 0.0065, 0.003, 0.0], 0.01)
+    cx0 = at(0.2, 'cx'); rows = []
     for y in np.arange(0.006, top, 0.004):      # (closing to nothing inside the foot: a column cut off there, its blend with the foot would step)
-        cx = float(np.interp(y, [0.0, 0.2, top], [at(P, 0.2, 'cx'), at(P, 0.2, 'cx'), m['cx']]))
-        lob = [(-np.pi / 2, 0.3, float(tend(y))), (-0.4, 0.3, 0.0036 * float(gauss(y - 0.07, 0.0085))), (np.pi - 0.3, 0.3, 0.0048 * float(gauss(y - 0.084, 0.009)))]
-        rows.append(ring(float(y), (cx, float(CZ(y))), float(RX(y)), float(ZF(y)), float(ZB(y)), 2.1, lob))
+        w = float(ss(lo, top, y))       # (how far the measured leg has taken over)
+        d = dict(cx=cx0, cz=float(CZ(y)), rx=float(RX(y)), zF=float(ZF(y)), zB=float(ZB(y)))
+        v = {k: (1 - w) * d[k] + w * at(y, k) for k in d}
+        lob = [(-np.pi / 2, 0.3, float(tend(y)) * (1 - w)), (-0.4, 0.3, 0.0036 * float(gauss(y - 0.07, 0.0085))), (np.pi - 0.3, 0.3, 0.0048 * float(gauss(y - 0.084, 0.009))),
+               (lob0[0], lob0[1], lob_m(y) * w)]
+        rows.append(ring(float(y), (v['cx'], v['cz']), v['rx'], v['zF'], v['zB'], 2.1 * (1 - w) + 2.05 * w, lob))
     return rows + keep
 
 TORSO = torso_profile(); LEG = lower_leg(leg_profile()); ARM, ARM_LEN, HAND_LEN = arm_profile()
