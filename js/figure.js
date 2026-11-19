@@ -330,6 +330,7 @@ float fh(vec3 p){ return fract(sin(dot(p, vec3(127.1, 311.7, 74.7))) * 43758.545
 float fn3(vec3 p){ vec3 i = floor(p), f = fract(p); f = f * f * (3. - 2. * f);
   return mix(mix(mix(fh(i), fh(i + vec3(1,0,0)), f.x), mix(fh(i + vec3(0,1,0)), fh(i + vec3(1,1,0)), f.x), f.y),
              mix(mix(fh(i + vec3(0,0,1)), fh(i + vec3(1,0,1)), f.x), mix(fh(i + vec3(0,1,1)), fh(i + vec3(1,1,1)), f.x), f.y), f.z); }
+float segd(vec2 p, vec2 a, vec2 b){ vec2 pa = p - a, ba = b - a; return length(pa - ba * clamp(dot(pa, ba) / dot(ba, ba), 0.0, 1.0)); }
 // Prints, on a surface unrolled round a body part (u round it, v up it), in cells (each cell's own, checked with its neighbours so nothing is
 // cut off at a cell's edge): small five-petalled flowers (with their centres), or broad pointed leaves (with their middle veins).
 float flowerAt(vec2 p, float dens, out float ctr) {
@@ -357,14 +358,92 @@ float leafAt(vec2 p, float dens, out float vein) {
 }
 // (where a garment's edge or seam lies: a thin dark line at distance d from it)
 float seamAt(float d, float w) { return 1.0 - smoothstep(w * 0.5, w, abs(d)); }`;
+// (Fenwick: the skin's painted detail, as the clothes' details are drawn: from each point's rest position, so it stays crisp and goes with the
+// skin. Her areolae and nipples (round the breast's apex, which Blender raises a little: uNip, its radius in w), the crease under each breast and
+// the shade beneath, the breastbone between; the collarbones and the notch between them; the navel (uNav, a dimple in the model) and a faint
+// line down to it, the lines of the hip bones; behind, the spine's groove, the inner edges of the shoulder blades, the dimples above the seat;
+// the kneecaps. uBust: how far below the apex the breast meets the chest, and how deep the crease is there (by her bust's size). uBd0: neck, armpit, waist, the top of the seat; uBd1: shoulder x, hip x, crotch, knee; uKnee: the knee joint. Only where the model gives them.)
+const SKIN_DETAIL = `
+if (uNip.w > 0.0) {
+  vec3 b = vBind; float ax = abs(b.x), sx = b.x >= 0.0 ? 1.0 : -1.0;
+  float neck = uBd0.x, pit = uBd0.y, waist = uBd0.z, seatTop = uBd0.w, shX = uBd1.x, hipX = uBd1.y, crotch = uBd1.z, knee = uBd1.w;
+  float front = smoothstep(0.0, 0.03, b.z), back = smoothstep(0.0, 0.03, -b.z);
+  vec3 c = vec3(sx * uNip.x, uNip.y, uNip.z), k = vec3(1.0);
+  // the areola, a little uneven in tone; the nipple deeper, shaded on its lower side and lit on its upper, with a soft edge where it rises
+  float d = length(b - c), R = uNip.w, ny = clamp((b.y - c.y) / 0.0055, -1.0, 1.0);
+  k *= mix(vec3(1.0), vec3(0.86, 0.69, 0.65), (1.0 - smoothstep(R - 0.003, R + 0.0006, d)) * (0.85 + 0.15 * fn3(b * 900.0)));
+  k *= mix(vec3(1.0), vec3(0.88, 0.76, 0.74) * (1.0 - 0.1 * max(0.0, -ny)), 1.0 - smoothstep(0.0042, 0.006, d));
+  k *= 1.0 - 0.12 * (1.0 - smoothstep(0.0, 0.0014, abs(d - 0.0058))) * (1.0 - smoothstep(-0.9, 0.1, ny));
+  k *= 1.0 + 0.14 * (1.0 - smoothstep(0.0, 0.0018, length(b - c - vec3(sx * 0.0012, 0.0018, 0.004))));
+  // the crease under each breast and the shade above it; the breastbone between them
+  vec2 e = (b.xy - c.xy) / vec2(0.07, uBust.x); float el = length(e), under = step(b.y, c.y - 0.012) * front * smoothstep(0.03, 0.07, b.z);
+  k *= 1.0 - 0.16 * uBust.y * under * (1.0 - smoothstep(0.0, 0.08, abs(el - 1.0))) * smoothstep(0.004, 0.02, ax);
+  k *= 1.0 - 0.07 * under * smoothstep(0.72, 0.97, el) * (1.0 - step(1.0, el));
+  k *= 1.0 - 0.07 * front * (1.0 - smoothstep(0.004, 0.014, ax)) * smoothstep(c.y - 0.07, c.y - 0.03, b.y) * (1.0 - smoothstep(c.y + 0.03, c.y + 0.07, b.y));
+  // the collarbones, from the notch at the base of the throat out to the shoulders: shade below, light along the bone
+  float yc = neck - 0.032 + 0.012 * smoothstep(0.02, 0.12, ax), cl = smoothstep(-0.02, 0.004, b.z) * smoothstep(0.016, 0.03, ax) * (1.0 - smoothstep(shX - 0.03, shX, ax));
+  k *= 1.0 - 0.15 * cl * smoothstep(-0.008, -0.002, b.y - yc) * (1.0 - smoothstep(-0.002, 0.0005, b.y - yc));
+  k *= 1.0 + 0.06 * cl * smoothstep(0.0, 0.002, b.y - yc) * (1.0 - smoothstep(0.003, 0.006, b.y - yc));
+  k *= 1.0 - 0.16 * front * exp(-((b.x / 0.008) * (b.x / 0.008) + ((b.y - neck + 0.03) / 0.006) * ((b.y - neck + 0.03) / 0.006)));
+  // the navel: a small hollow, deepest under its hood, the lower rim catching the light; a faint line above it
+  if (uNav.w > 0.5) {
+    vec2 nq = vec2(b.x / 0.004, (b.y - uNav.y) / 0.0062); float nd = length(nq);
+    k *= mix(vec3(1.0), mix(vec3(0.8, 0.64, 0.6), vec3(0.6, 0.43, 0.41), smoothstep(-0.8, 0.6, nq.y)), front * (1.0 - smoothstep(0.7, 1.05, nd)));
+    k *= 1.0 - 0.1 * front * (1.0 - smoothstep(0.0, 0.4, abs(nd - 1.15))) * smoothstep(0.0, 0.7, nq.y);
+    k *= 1.0 + 0.08 * front * (1.0 - smoothstep(0.0, 0.35, abs(nd - 1.25))) * (1.0 - smoothstep(-0.5, 0.2, nq.y));
+    k *= 1.0 - 0.06 * front * exp(-dot(nq / 2.6, nq / 2.6));
+    k *= 1.0 - 0.035 * front * (1.0 - smoothstep(0.0015, 0.005, ax)) * smoothstep(uNav.y + 0.02, uNav.y + 0.05, b.y) * (1.0 - smoothstep(c.y - 0.1, c.y - 0.06, b.y));
+  }
+  // the lines of the hip bones, short and soft, angled in toward the mons
+  float hv = (b.y - crotch - 0.05) - (ax - 0.035) * 1.25;
+  k *= 1.0 - 0.045 * front * (1.0 - smoothstep(0.002, 0.009, abs(hv))) * smoothstep(0.045, 0.06, ax) * (1.0 - smoothstep(0.075, hipX, ax));
+  // behind: the groove of the spine; the shoulder blades (the inner edge near upright, the point at the bottom, the outer edge up to the
+  // armpit); the two dimples above the seat
+  k *= 1.0 - 0.07 * back * (1.0 - smoothstep(0.002, 0.009, ax)) * smoothstep(seatTop + 0.05, seatTop + 0.1, b.y) * (1.0 - smoothstep(neck - 0.07, neck - 0.03, b.y));
+  vec2 sp = vec2(ax, b.y), ia = vec2(0.062, pit - 0.075);
+  float sd = min(segd(sp, vec2(0.05, pit + 0.075), ia), segd(sp, ia, vec2(0.108, pit - 0.008)));
+  k *= 1.0 - 0.055 * back * (1.0 - smoothstep(0.001, 0.009, sd)) * smoothstep(pit - 0.1, pit - 0.08, b.y);
+  k *= 1.0 - 0.13 * back * exp(-(((ax - 0.036) / 0.009) * ((ax - 0.036) / 0.009) + ((b.y - seatTop - 0.05) / 0.011) * ((b.y - seatTop - 0.05) / 0.011)));
+  // the kneecaps: shade round the lower half, light on the top
+  if (uKnee.w > 0.5) {
+    vec2 kr = vec2(ax - uKnee.x, b.z - uKnee.z); float kf = smoothstep(0.55, 0.85, kr.y / max(length(kr), 1e-4));
+    vec2 kq = vec2(ax - uKnee.x, b.y - uKnee.y - 0.02) / vec2(0.025, 0.03); float kn = length(kq);
+    k *= 1.0 - 0.07 * kf * (1.0 - smoothstep(0.0, 0.22, abs(kn - 1.0))) * (1.0 - smoothstep(-0.2, 0.4, kq.y));
+    k *= 1.0 + 0.04 * kf * (1.0 - smoothstep(0.3, 0.9, kn)) * smoothstep(-0.3, 0.5, kq.y);
+  }
+  diffuseColor.rgb *= k;
+}
+// her feet (uFootF: the frame, from under the ankle (x, z), turned out by (cos, sin); uToe: each toenail's centre (u across, y, w along) and the
+// toe's radius): a paler sole; the nails, pinker, their free edges paler, a fold round each; a shade where each toe meets the next. Not under
+// stockings.
+if (uFootF.z > 0.0 && vBind.y < 0.06 && !(uStock.w > 0.0 && vRegion > 4.5 && vRegion < 7.5 && vBind.y < uStock.w)) {
+  vec3 b = vBind; vec2 R = vec2(abs(b.x) - uFootF.x, b.z - uFootF.y);
+  float u = R.x * uFootF.z - R.y * uFootF.w, w = R.x * uFootF.w + R.y * uFootF.z, y = b.y;
+  vec3 k = mix(vec3(1.0), vec3(1.0, 0.9, 0.88), 1.0 - smoothstep(0.003, 0.008, y));
+  for (int i = 0; i < 5; i++) {
+    vec4 t = uToe[i]; float r = t.w;
+    vec2 q = vec2(u - t.x, w - t.z) / vec2(0.68 * r, 0.8 * r);
+    float nd = pow(pow(abs(q.x), 3.0) + pow(abs(q.y), 3.0), 1.0 / 3.0), top = smoothstep(t.y - 0.6 * r, t.y - 0.3 * r, y);
+    k = mix(k, k * vec3(1.03, 0.92, 0.91) * (1.0 + 0.12 * smoothstep(0.4, 0.95, q.y)), (1.0 - smoothstep(0.88, 1.0, nd)) * top);
+    k *= 1.0 - 0.2 * top * (1.0 - smoothstep(0.0, 0.14, abs(nd - 1.0)));
+    if (i < 4) {
+      vec4 n = uToe[i + 1]; float um = (t.x * n.w + n.x * t.w) / (t.w + n.w), wt = min(t.z + 1.2 * t.w, n.z + 1.2 * n.w);
+      k *= 1.0 - 0.24 * (1.0 - smoothstep(0.0006, 0.0024, abs(u - um))) * smoothstep(wt - 0.05, wt - 0.035, w) * (1.0 - smoothstep(wt - 0.004, wt, w))
+                   * (1.0 - smoothstep(max(t.y, n.y) + 0.001, max(t.y, n.y) + 0.005, y));
+    }
+  }
+  diffuseColor.rgb *= k;
+}`;
 function paint(m, o) {
   o = o || {};
   const U = { uRim: { value: srgb(o.rim || '#2a3440').multiplyScalar(o.rimK == null ? 1 : o.rimK) }, uGrain: { value: o.grain == null ? 0.03 : o.grain }, uGrainScale: { value: o.scale || 60 }, uHide: { value: 0 },
     uMarks: { value: Array.from({ length: 8 }, () => new THREE.Vector4(0, -9, 0, 0)) }, uMarkCol: { value: srgb(o.markCol || '#b8323a') },
     uPat0: { value: new THREE.Color(1, 1, 1) }, uPat1: { value: new THREE.Color(1, 1, 1) }, uPat2: { value: new THREE.Color(1, 1, 1) }, uParam: { value: new THREE.Vector4() }, uL0: { value: new THREE.Vector4() }, uL1: { value: new THREE.Vector4() }, uNape: { value: new THREE.Vector4() }, uFlush: { value: new THREE.Vector4() }, uFlushC: { value: new THREE.Vector4() },
-    uPat3: { value: new THREE.Color(1, 1, 1) }, uPat4: { value: new THREE.Color(1, 1, 1) }, uStock: { value: new THREE.Vector4() } };
+    uPat3: { value: new THREE.Color(1, 1, 1) }, uPat4: { value: new THREE.Color(1, 1, 1) }, uStock: { value: new THREE.Vector4() },
+    uNip: { value: new THREE.Vector4(0, 0, 0, 0) }, uNav: { value: new THREE.Vector4(0, 0, 0, 0) }, uBd0: { value: new THREE.Vector4() }, uBd1: { value: new THREE.Vector4() },
+    uKnee: { value: new THREE.Vector4(0, 0, 0, 0) }, uBust: { value: new THREE.Vector4(0.056, 1, 0, 0) }, uFootF: { value: new THREE.Vector4(0, 0, 0, 0) }, uToe: { value: [0, 1, 2, 3, 4].map(() => new THREE.Vector4(0, 0, 0, 0)) } };      // (off unless set: a Vector4's w is 1 by default)
   m.userData.u = U;
-  const key = 'paint|' + [o.regions, o.marks, o.bindAttr, o.tone].map(x => (x ? 1 : 0)).join('') + (o.pattern || '');
+  const key = 'paint|' + [o.regions, o.marks, o.bindAttr, o.tone, o.detail].map(x => (x ? 1 : 0)).join('') + (o.pattern || '');
   m.customProgramCacheKey = () => key;
   m.onBeforeCompile = sh => {
     Object.assign(sh.uniforms, U);
@@ -376,7 +455,7 @@ vBind = ${o.bindAttr ? 'bind' : 'position'};
 ${o.regions ? 'vHide = mod(floor(uHide / exp2(region) + 0.001), 2.0); vRegion = region;' : 'vHide = 0.0; vRegion = -1.0;'} ${o.pattern ? 'vPart = region;' : 'vPart = 0.0;'} ${o.tone ? 'vTone = tone;' : 'vTone = 0.0;'}`);
     sh.fragmentShader = sh.fragmentShader
       .replace('#include <common>', `#include <common>
-varying vec3 vBind; varying float vHide; varying float vPart; varying float vTone; varying float vRegion; uniform vec3 uPat0; uniform vec3 uPat1; uniform vec3 uPat2; uniform vec3 uPat3; uniform vec3 uPat4; uniform vec4 uStock; uniform vec4 uParam; uniform vec4 uL0; uniform vec4 uL1; uniform vec4 uNape; uniform vec4 uFlush; uniform vec4 uFlushC; uniform vec3 uRim; uniform float uGrain; uniform float uGrainScale; uniform vec4 uMarks[8]; uniform vec3 uMarkCol;
+varying vec3 vBind; varying float vHide; varying float vPart; varying float vTone; varying float vRegion; uniform vec3 uPat0; uniform vec3 uPat1; uniform vec3 uPat2; uniform vec3 uPat3; uniform vec3 uPat4; uniform vec4 uStock; uniform vec4 uNip; uniform vec4 uNav; uniform vec4 uBd0; uniform vec4 uBd1; uniform vec4 uKnee; uniform vec4 uBust; uniform vec4 uFootF; uniform vec4 uToe[5]; uniform vec4 uParam; uniform vec4 uL0; uniform vec4 uL1; uniform vec4 uNape; uniform vec4 uFlush; uniform vec4 uFlushC; uniform vec3 uRim; uniform float uGrain; uniform float uGrainScale; uniform vec4 uMarks[8]; uniform vec3 uMarkCol;
 ${NOISE}`)
       .replace('#include <color_fragment>', `#include <color_fragment>
 if (vHide > 0.5) discard;
@@ -404,6 +483,7 @@ if (uStock.w > 0.0 && vRegion > 4.5 && vRegion < 7.5 && vBind.y < uStock.w) {
   float knit = 0.93 + 0.07 * sin(atan(vBind.x - sign(vBind.x) * 0.09, vBind.z) * 60.0) + 0.04 * (fn3(vBind * 500.0) - 0.5);
   diffuseColor.rgb = uStock.rgb * knit * (1.0 - 0.3 * smoothstep(uStock.w - 0.02, uStock.w - 0.012, vBind.y));
 }
+${o.detail ? SKIN_DETAIL : ''}
 ${o.pattern ? PATTERNS[o.pattern] : ''}
 ${o.marks ? `float mk = 0.0;
 for (int i = 0; i < 8; i++) { vec3 d = vBind - uMarks[i].xyz; d.z *= 0.6; mk += uMarks[i].w * exp(-dot(d, d) / 0.0026); }
@@ -1650,7 +1730,14 @@ function makeGLB(spec, T) {
   // the body
   // (his drawn from both sides: where the shaft turns, lifting or swinging with gravity, the skin between it and the scrotum turns over on itself,
   // and from one side that shows the outline's shell through it as a dark patch)
-  const skinM = tmat(spec.skin, { skin: true, morph: true, regions: true, marks: true, bindAttr: true, tone: true, unique: true, rim: '#6a5048', rimK: 0.5, side: spec.sex === 'm' ? THREE.DoubleSide : THREE.FrontSide });
+  const skinM = tmat(spec.skin, { skin: true, morph: true, regions: true, marks: true, bindAttr: true, tone: true, detail: true, unique: true, rim: '#6a5048', rimK: 0.5, side: spec.sex === 'm' ? THREE.DoubleSide : THREE.FrontSide });
+  { const L = T.L, U = skinM.userData.u;      // (Fenwick: the skin's painted detail, where the model says where it goes)
+    const bk = F.keys.bust || 0, bs = F.keys.bustSmall || 0;      // (the fold lower on a fuller bust, the crease fainter on a smaller)
+    U.uBust.value.set(0.055 + 0.05 * bk - 0.004 * bs, 1 + 0.4 * bk - 0.45 * bs, 0, 0);
+    if (L.nipple) { U.uNip.value.set(L.nipple[0], L.nipple[1], L.nipple[2], 0.0165 * (1 + 0.2 * bk - 0.12 * bs)); U.uBd0.value.set(L.neck, L.armpit, L.waist, L.seatTop); U.uBd1.value.set(L.shX, L.hipX, L.crotch, L.knee); }
+    if (L.navel) U.uNav.value.set(L.navel[0], L.navel[1], L.navel[2], 1);
+    const kn = T.joints.shinL; if (L.nipple && kn) U.uKnee.value.set(kn[0], kn[1], kn[2], 1);
+    if (L.toes && L.footFrame) { U.uFootF.value.fromArray(L.footFrame); U.uToe.value.forEach((v, i) => v.fromArray(L.toes, i * 4)); } }
   F.body = skinned(F, T.mesh.Body.geo, skinM); F.body.castShadow = true; F.body.receiveShadow = false; F.skinMat = skinM;
   // (the nape, from just above the collar up under the skull, isn't drawn: the head's own skin is there, and the neck's would show through the
   // back of the head as it tips back; cut level behind, rising round the sides toward the jaw)

@@ -23,6 +23,7 @@ node tools/export-head.js                                     # the head the gam
 ## Clothes and hair
 
 - **Dresses** for six of the seven: a bodice laced down the front with the chemise showing at the neckline, sleeves to the wrist or the elbow, and a full skirt to the lower calf. Under them are knee-length drawers, stockings and shoes or ankle boots. **Gretel** wears a patched kirtle (the same cut, to above the knee) over darned leggings, with boots. **Red** wears the same for walking the estate, more often as time goes on (`Estate.outfitFor`). Each heroine's colours, apron, print and patches are in `Cast.WARDROBE` and drawn on per pixel. Some have outfits for story moments: Goldie's own clothes, Eleanor's rags, Rapunzel's tower gown.
+- **Her body** carries painted detail drawn from the model's rest pose: areolae and nipples, the crease under each breast (set by her bust), collarbones, navel, the hip lines, the spine and shoulder blades, the dimples above the seat, kneecaps. Her ankles narrow over the ankle bones and Achilles tendon into feet with an arch, five toes and their nails.
 - **Hair** is built in Blender to fit the code-built head: a scalp shell cut along the hairline, under tapered locks that follow the scalp, fall with gravity, curl into ringlets or coil into a bun. Goldie has curls; Red and Rapunzel have a center part into their plaits; Snow White has a side part and fringe; Belle a chignon; Eleanor a working bun; Gretel a knife-cut crop; Silas short tousled hair and a beard.
 
 ## The correction test (`session.html`)

@@ -235,7 +235,36 @@ def arm_axis(sx):
     J = np.array([sx * SH_X, SH_Y, -0.01]); d = np.array([sx * math.sin(ABD), -math.cos(ABD), 0.0]); e1 = np.array([sx * math.cos(ABD), math.sin(ABD), 0.0])
     return J, d, e1
 def arm_at(sx, a): J, d, e1 = arm_axis(sx); return J + d * a
-TORSO = torso_profile(); LEG = leg_profile(); ARM, ARM_LEN, HAND_LEN = arm_profile()
+def smooth_interp(xk, yk, sigma, pad=0.06, step=0.0005):
+    """(Fenwick) Keyframes joined smoothly rather than by straight lines (which leave a crease at each keyframe where the slope turns): sampled
+    finely, the ends held, evened out over sigma; a function of x."""
+    xs = np.arange(min(xk) - pad, max(xk) + pad, step); ys = np.interp(xs, xk, yk)
+    n = int(3 * sigma / step); w = np.exp(-0.5 * (np.arange(-n, n + 1) * step / sigma) ** 2); w /= w.sum()
+    ys = np.convolve(np.pad(ys, n, mode='edge'), w, mode='valid')
+    return lambda x: np.interp(x, xs, ys)
+
+def lower_leg(P):
+    """(Fenwick) The leg below the calf, drawn rather than measured (the turnaround's ankle is a column carried down into the foot): it narrows
+    above the ankle; the Achilles tendon stands out behind with a hollow either side of it; the ankle bones (the inner higher and further
+    forward, the outer lower and further back); then it closes inside the foot, which takes over from there."""
+    def at(P, y, key):
+        P = sorted(P, key=lambda r: r['y']); return float(np.interp(y, [r['y'] for r in P], [r[key] for r in P]))
+    top = 0.25; keep = [r for r in P if r['y'] > top]
+    m = {k: at(P, top, k) for k in ('cx', 'cz', 'rx', 'zF', 'zB')}
+    K = [(top, m['rx'], m['zF'], m['zB'], m['cz']), (0.20, 0.0315, 0.0345, 0.0335, -0.0215), (0.165, 0.029, 0.031, 0.0285, -0.0185),
+         (0.13, 0.0276, 0.029, 0.0255, -0.016), (0.105, 0.0279, 0.029, 0.025, -0.015), (0.085, 0.0283, 0.0298, 0.026, -0.0145),
+         (0.065, 0.029, 0.031, 0.029, -0.0145), (0.045, 0.026, 0.028, 0.029, -0.016), (0.028, 0.015, 0.017, 0.017, -0.016), (0.006, 0.003, 0.003, 0.003, -0.016)][::-1]
+    ky = [k[0] for k in K]; col = lambda i: smooth_interp(ky, [k[i] for k in K], 0.012)
+    RX, ZF, ZB, CZ = col(1), col(2), col(3), col(4)
+    tend = smooth_interp([0.03, 0.05, 0.075, 0.1, 0.13, 0.165, 0.2, top], [0, 0.004, 0.007, 0.009, 0.009, 0.0065, 0.003, 0.0], 0.01)
+    rows = []
+    for y in np.arange(0.006, top, 0.004):      # (closing to nothing inside the foot: a column cut off there, its blend with the foot would step)
+        cx = float(np.interp(y, [0.0, 0.2, top], [at(P, 0.2, 'cx'), at(P, 0.2, 'cx'), m['cx']]))
+        lob = [(-np.pi / 2, 0.3, float(tend(y))), (-0.4, 0.3, 0.0036 * float(gauss(y - 0.07, 0.0085))), (np.pi - 0.3, 0.3, 0.0048 * float(gauss(y - 0.084, 0.009)))]
+        rows.append(ring(float(y), (cx, float(CZ(y))), float(RX(y)), float(ZF(y)), float(ZB(y)), 2.1, lob))
+    return rows + keep
+
+TORSO = torso_profile(); LEG = lower_leg(leg_profile()); ARM, ARM_LEN, HAND_LEN = arm_profile()
 HIP_Y = ym(crotch_py) + 0.075; CROTCH_Y = ym(crotch_py); KNEE_Y = ym(knee_py); ANKLE_Y = 0.075; WRIST_Y = SH_Y - ARM_LEN * math.cos(ABD)
 ELBOW_Y = SH_Y - ARM_LEN * 0.53 * math.cos(ABD)
 _toe, _heel = side_ext(sole - 8)
@@ -532,7 +561,7 @@ def joints(sex, torso, leg, arm, N):
         hx = sx * at(leg, HIP_Y - 0.06, 'cx')
         J['thigh' + s] = ('hips', (hx, HIP_Y, 0)); J['shin' + s] = ('thigh' + s, (sx * at(leg, KNEE_Y, 'cx'), KNEE_Y, 0.006))
         ax = sx * at(leg, ANKLE_Y + 0.02, 'cx')
-        J['foot' + s] = ('shin' + s, (ax, ANKLE_Y, -0.008)); J['toe' + s] = ('foot' + s, (ax + sx * 0.008, 0.024, FOOT_LEN - 0.105))
+        J['foot' + s] = ('shin' + s, (ax, ANKLE_Y, -0.008)); O_, l_, f_ = foot_frame(sx, leg); J['toe' + s] = ('foot' + s, tuple(float(v) for v in O_ + l_ * 0.004 + np.array([0, 0.02, 0]) + f_ * 0.112))      # (Fenwick: on the line of the toes' bases)
         J['glute' + s] = ('hips', (sx * 0.072, ym(crotch_py - 45), -at(torso, ym(crotch_py - 45), 'zB') * 0.55 + at(torso, ym(crotch_py - 45), 'cz')))
     if m: J['sex'] = ('hips', tuple(float(v) for v in his_root(torso, leg)[0]))       # (his: the lift's pivot, where it leaves the body)
     return J
@@ -596,15 +625,77 @@ def hand_parts(sx, hk):
     lo = np.minimum(W, W + d * 0.2) - 0.06; hi = np.maximum(W, W + d * 0.2) + 0.06
     return hand, (lo, hi)
 
+TOE_OUT = math.radians(6)
+def foot_frame(sx, leg):
+    """(Fenwick) The foot's frame: from under the ankle, u out to the side (the little toe's), w forward along the foot, turned out a little."""
+    ax = sx * at(leg, ANKLE_Y + 0.02, 'cx'); O = np.array([ax, 0.0, -0.014])
+    l = np.array([sx * math.cos(TOE_OUT), 0.0, -math.sin(TOE_OUT)]); fw = np.array([sx * math.sin(TOE_OUT), 0.0, math.cos(TOE_OUT)])
+    return O, l, fw
+# the toes, big to little: (u, w) at the base, the knuckle and the tip; radii there (each a little flatter than round)
+TOES = [((-0.0245, 0.118), (-0.0245, 0.152), (-0.0245, 0.182), (0.0125, 0.0118, 0.0106)),
+        ((-0.0035, 0.122), (-0.003, 0.149), (-0.0025, 0.172), (0.009, 0.0083, 0.0077)),
+        ((0.0125, 0.118), (0.0128, 0.142), (0.013, 0.163), (0.0085, 0.0079, 0.0073)),
+        ((0.0265, 0.111), (0.0267, 0.133), (0.0268, 0.152), (0.0081, 0.0075, 0.0069)),
+        ((0.039, 0.1), (0.0392, 0.12), (0.0393, 0.138), (0.0077, 0.0071, 0.0065))]
+TOE_FLAT = 1.25
+def toe_points(t):
+    """A toe's base, knuckle and tip centres in the foot's frame (u, y, w), each sitting so the toe's underside just clears the floor."""
+    (b, m, tp, r) = t
+    return [np.array([b[0], r[0] / TOE_FLAT + 0.006, b[1]]), np.array([m[0], r[1] / TOE_FLAT + 0.0025, m[1]]), np.array([tp[0], r[2] / TOE_FLAT + 0.0018, tp[1]])]
 def foot_part(sx, leg):
-    ax = sx * at(leg, ANKLE_Y + 0.02, 'cx')
-    A = np.array([ax, ANKLE_Y + 0.01, -0.006]); H = np.array([ax, 0.035, -0.048]); Bl = np.array([ax + sx * 0.007, 0.024, FOOT_LEN - 0.1]); T = np.array([ax + sx * 0.012, 0.018, FOOT_LEN - 0.03])
-    def foot(P):
-        Q = P.copy(); Q[:, 0] = ax + (P[:, 0] - ax) * 0.8; Q[:, 1] = P[:, 1] * 1.3         # (flatter than round, wider than deep)
-        f = smax(capsule(P, A, H, 0.031, 0.03), capsule(Q, H * np.array([1, 1.3, 1]), Bl * np.array([1, 1.3, 1]), 0.032, 0.034), 0.012)
-        f = smax(f, capsule(Q, Bl * np.array([1, 1.3, 1]), T * np.array([1, 1.3, 1]), 0.034, 0.022), 0.008)
-        return np.minimum(f, P[:, 1] - 0.002)       # (the sole flat on the deck)
-    return foot, (np.array([ax - 0.08, -0.01, -0.1]), np.array([ax + 0.08, ANKLE_Y + 0.06, FOOT_LEN + 0.02]))
+    """(Fenwick) The foot, under the drawn ankle: the heel; the foot itself, lofted from the heel to the ball (highest along the instep, on the
+    big toe's side, lower on the outer edge; flat underneath but for the arch, lifted on the inner side); five toes from the ball, the big toe
+    apart from the rest. Returned with a smooth last (the same foot with one toe box for the toes) for the boots to be built round."""
+    O, l, fw = foot_frame(sx, leg)
+    WK = np.array([-0.035, 0.0, 0.035, 0.07, 0.1, 0.125, 0.14]); UC = np.array([0.0, 0.0, -0.001, 0.0, 0.001, 0.001, 0.0])
+    HW = np.array([0.025, 0.0265, 0.033, 0.038, 0.043, 0.0455, 0.044]); YT = np.array([0.044, 0.05, 0.058, 0.047, 0.037, 0.029, 0.025])
+    # (under the ankle the foot sits inside the leg, which comes down into it: were the two the same width there, their join would swell into
+    # a ring)
+    def frame(P):
+        R = P - O; return R @ l, P[:, 1], R @ fw
+    UCs, HWs, YTs = (smooth_interp(WK, v, 0.012) for v in (UC, HW, YT))
+    def body(u, y, w):
+        uc = UCs(w); hw = HWs(w); yt = YTs(w)
+        nu = (u - uc) / hw; yt = yt * (1 - 0.12 * np.tanh(nu)); hh = yt / 2
+        nv = (y - hh) / hh; pv = np.where(nv > 0, 2.3, 4.0)       # (rounder over the top, flatter underneath)
+        ew = np.maximum(0, w - 0.115) / 0.03 + np.maximum(0, -0.02 - w) / 0.03
+        d = (np.abs(nu) ** 3 + np.abs(nv) ** pv + ew ** 3) ** (1 / 3)
+        f = (1 - d) * 2 * hw * hh / (hw + hh)      # (scaled smoothly: a min() here would put a crease in its blend with the heel)
+        # the arch: the inner edge's underside lifted off the floor, highest mid-foot
+        ya = 0.013 * gauss(w - 0.045, 0.03) * ss(0.002, -0.9, nu)
+        return -smax(-f, -(y - ya), 0.006)
+    def heel(u, y, w):
+        q = np.stack([u / (0.025 + 0.004 * ss(0.05, 0.0, y)), (y - 0.031) / 0.034, (w + 0.035) / 0.028], 1); return (1 - np.linalg.norm(q, axis=1)) * 0.026
+    toes = [toe_points(t) + [t[3]] for t in TOES]
+    def toe_field(u, y, w):
+        Q = np.stack([u, y * TOE_FLAT, w], 1); f = -np.ones(len(u))
+        for B, M, T, r in toes:
+            s_ = np.array([1, TOE_FLAT, 1])
+            f = np.maximum(f, np.maximum(capsule(Q, B * s_, M * s_, r[0], r[1]), capsule(Q, M * s_, T * s_, r[1], r[2])))
+        return f
+    def box_field(u, y, w):        # (the last's toe box: one rounded form over where the toes are)
+        Q = np.stack([u, y * TOE_FLAT, w], 1); s_ = np.array([1, TOE_FLAT, 1])
+        A = np.array([-0.008, 0.02, 0.118]) * s_; Bm = np.array([0.0, 0.016, 0.162]) * s_
+        return capsule(Q, A, Bm, 0.036, 0.024)
+    def make(toe_fn, k):
+        def foot(P):
+            u, y, w = frame(P)
+            f = smax(heel(u, y, w), body(u, y, w), 0.012)
+            f = smax(f, toe_fn(u, y, w), k)
+            return -smax(-f, -(P[:, 1] - 0.002), 0.005)       # (the sole flat on the deck, its edge rounded)
+        return foot
+    foot = make(toe_field, 0.008); foot.last = make(box_field, 0.02)
+    lo = np.array([O[0] - 0.09, -0.01, -0.1]); hi = np.array([O[0] + 0.09, ANKLE_Y + 0.06, FOOT_LEN + 0.04])
+    return foot, (lo, hi)
+def toe_nails():
+    """Where each toenail lies (for the paint), in the foot's frame (u, y, w): its centre on the top of the toe near the tip, and the toe's
+    radius there."""
+    out = []
+    for t in TOES:
+        B, M, T = toe_points(t); r = t[3][2]
+        d = (T - M) / np.linalg.norm(T - M); c = T - d * r * 0.25 + np.array([0, r / TOE_FLAT, 0])
+        out.append([float(v) for v in c] + [float(r)])
+    return out
 
 def front_z(Sf, y, x=0.0):
     lo, hi = -0.05, 0.3
@@ -674,6 +765,34 @@ def sex_parts(sex, T, k=(1.0, 1.0, 1.0)):
         return smax(scrotum, capsule(P, A, B, 0.016 * kg, 0.0148 * kg), 0.004)      # (only a tight join: lifting, it comes away clean)
     return parts, None, 0.026
 
+# (Fenwick: the skin's small forms. Each breast's apex: the most forward point of its form (the profile's paired lobes), where a soft rise of the
+# areola and nipple sits, a couple of centimetres across, which the marching survives (the nipple itself, too small for it, is painted:
+# js/figure.js); and the navel, a dimple a little below the waist. Found from whichever profile is given, so each shape key carries its own.)
+def bust_apex(torso):
+    rows = sorted(torso, key=lambda r: r['y']); S = Surface(torso); best = None
+    for i, r in enumerate(rows):
+        for a, w, m in r['lobes']:
+            if a > 0 and 0.3 < abs(a - np.pi / 2) < 0.9 and m > 1e-4 and (best is None or m > best[2]): best = (i, a, m)
+    if best is None: return []
+    i, a, m = best; out = []
+    for aa in (a, np.pi - a):      # (her left (+x) and her right)
+        k = (aa + np.pi) / (2 * np.pi) * NA; k0 = int(np.floor(k)) % NA; v = k - np.floor(k); rr = S.T[i, k0] * (1 - v) + S.T[i, (k0 + 1) % NA] * v
+        P = np.array([S.cx[i] + rr * np.cos(aa), S.y[i], S.cz[i] + rr * np.sin(aa)]); n = np.array([np.cos(aa), -0.12, np.sin(aa)]); out.append((P, n / np.linalg.norm(n)))
+    return out
+def navel_at(torso):
+    yn = float(min(np.arange(CROTCH_Y + 0.1, ym(armpit_py), 0.005), key=lambda y: at(torso, y, 'rx'))) - 0.04
+    return np.array([0.0, yn, front_z(Surface(torso), yn)])
+def skin_forms(torso, sex):
+    if sex == 'm': return lambda P: 0.0
+    ap = bust_apex(torso); nv = navel_at(torso)
+    def f(P):
+        d = 0.0
+        for A, n in ap:
+            q = P - A; d = d + 0.0045 * np.exp(-np.sum(q * q, 1) / (2 * 0.0072 ** 2))
+        q = (P - nv) / np.array([0.0055, 0.0085, 0.009]); d = d - 0.0062 * np.exp(-0.5 * np.sum(q * q, 1))
+        return d
+    return f
+
 def body_field(torso, leg, arm, sex, sexk=(1.0, 1.0, 1.0)):
     """The body's parts as fields, and how they're joined: the trunk, the legs and arms (the measured surfaces), the hands and feet, the sex."""
     hk = HAND_K[sex]
@@ -717,7 +836,9 @@ def body_field(torso, leg, arm, sex, sexk=(1.0, 1.0, 1.0)):
         f = smax(f, c['footL'], 0.014); f = smax(f, c['footR'], 0.014)
         if add: f = smax(f, c['sex'], ksex)      # (his a soft join, no crease where it meets the body; hers closer, a crease against the thighs)
         if cut: f = f - cut(P)
+        f = f + forms(P)      # (Fenwick: the areolae's rise and the navel)
         return f, c
+    forms = skin_forms(torso, sex)
     return F
 
 def march(F, h=0.003, lo=(-0.33, -0.004, -0.18), hi=(0.33, 1.62, 0.27)):
@@ -748,6 +869,59 @@ def remesh(ob, voxel=0.0025, smooth=4, faces=38000):
     bpy.ops.object.modifier_apply(modifier='dec')
     ob.select_set(False)
 
+TOES_AT = lambda X: (X[:, 1] < 0.048) & (X[:, 2] > 0.075)        # (the toes and the ball they come from)
+def refine_feet(ob, F, passes=((TOES_AT, 2),)):
+    """(Fenwick) The toes finer than the body's grid can draw them: their faces subdivided (each edge in three; the rest of the foot is fine as it is), then each
+    point there put back on the field's surface (a few Newton steps along its gradient, the points evened out along the surface between), so
+    the toes and the hollows between them come through."""
+    import bmesh
+    bm = bmesh.new(); bm.from_mesh(ob.data)
+    for inside, cuts in passes:
+        bm.verts.ensure_lookup_table()
+        co = np.array([fromB(v.co) for v in bm.verts]); ok = inside(co)
+        edges = [e for e in bm.edges if ok[e.verts[0].index] and ok[e.verts[1].index]]
+        bmesh.ops.subdivide_edges(bm, edges=edges, cuts=cuts, use_grid_fill=True)
+        bmesh.ops.triangulate(bm, faces=bm.faces[:])
+        bm.verts.index_update()
+    bm.to_mesh(ob.data); bm.free(); ob.data.update()
+    X, ed = mesh_arrays(ob); sel = passes[0][0](X); i = np.where(sel)[0]
+    f = lambda P: F(P)[0]; e = 0.0004
+    def project(P):
+        for _ in range(3):
+            v = f(P); g = np.stack([(f(P + np.eye(3)[k] * e) - f(P - np.eye(3)[k] * e)) / (2 * e) for k in range(3)], 1)
+            step = (v / np.maximum(np.sum(g * g, 1), 1e-6))[:, None] * g
+            n = np.linalg.norm(step, axis=1, keepdims=True); P = P - step * np.minimum(1, 0.003 / np.maximum(n, 1e-9))
+        return P
+    for it in range(3):
+        X[i] = project(X[i])
+        if it == 2: break
+        acc = np.zeros_like(X); cnt = np.zeros(len(X))
+        np.add.at(acc, ed[:, 0], X[ed[:, 1]]); np.add.at(acc, ed[:, 1], X[ed[:, 0]]); np.add.at(cnt, ed.ravel(), 1)
+        X[i] = X[i] + 0.4 * (acc[i] / np.maximum(cnt[i], 1)[:, None] - X[i])
+    set_positions(ob, X)
+    print('feet refined:', len(i), 'points')
+
+def weights_from(src, dst):
+    """(Fenwick) dst's weights from src's, point by point: where a point is one of src's own (everywhere but the refined toes), its weights as
+    they are; elsewhere, from the nearest few of src's points (inverse distance)."""
+    from mathutils.kdtree import KDTree
+    sv = src.data.vertices; kd = KDTree(len(sv))
+    for v in sv: kd.insert(v.co, v.index)
+    kd.balance()
+    names = [g.name for g in src.vertex_groups]; W = np.zeros((len(sv), len(names)))
+    for v in sv:
+        for gg in v.groups: W[v.index, gg.group] = gg.weight
+    vg = {nm: (dst.vertex_groups.get(nm) or dst.vertex_groups.new(name=nm)) for nm in names}; none = 0
+    for v in dst.data.vertices:
+        hits = kd.find_n(v.co, 4)
+        if hits[0][2] < 1e-7: w = W[hits[0][1]]
+        else: k = np.array([1 / (h[2] + 1e-4) ** 2 for h in hits]); w = (k / k.sum()) @ W[[h[1] for h in hits]]
+        top = np.argsort(w)[-4:]; tot = w[top].sum()
+        if tot <= 0: none += 1; continue
+        for gi in top:
+            if w[gi] > 1e-4: vg[names[gi]].add([v.index], float(w[gi] / tot), 'REPLACE')
+    print('weights: from the body before its toes were refined;', none, 'points without')
+
 def build(sex):
     global SH_X
     SH_X = SH_XS[sex]          # (a man's shoulders broader: his arms hang further out)
@@ -760,6 +934,10 @@ def build(sex):
     bpy.context.view_layer.objects.active = body; body.select_set(True)
     sm = body.modifiers.new('sm', 'LAPLACIANSMOOTH'); sm.iterations = 2; sm.lambda_factor = 0.5; sm.use_volume_preserve = True; bpy.ops.object.modifier_apply(modifier='sm')
     d = body.modifiers.new('dec', 'DECIMATE'); d.decimate_type = 'COLLAPSE'; d.ratio = min(1.0, 44000 / max(1, len(me.polygons))); bpy.ops.object.modifier_apply(modifier='dec')
+    # (Fenwick: the automatic weights are taken on the body as it is here, before its toes are refined (Blender's heat weighting can fail on
+    # the refined toes, and then a whole leg goes unweighted), and given to the refined body point by point: see weights_from)
+    pre = bpy.data.objects.new('BodyPre', body.data.copy()); bpy.context.scene.collection.objects.link(pre)
+    refine_feet(body, F)
     bpy.ops.object.mode_set(mode='EDIT'); bpy.ops.mesh.select_all(action='SELECT'); bpy.ops.mesh.normals_make_consistent(inside=False); bpy.ops.object.mode_set(mode='OBJECT')
     body.select_set(False)
     X, ed = mesh_arrays(body); Nrm = normals(body)
@@ -811,6 +989,8 @@ def build(sex):
             Yv[ring, 0] = sg[ring] * np.maximum(Yv[ring, 0] * sg[ring], np.abs(X[ring, 0]))
         k = body.shape_key_add(name=v, from_mix=False); k.data.foreach_set('co', np.stack([Yv[:, 0], -Yv[:, 2], Yv[:, 1]], 1).ravel())
     ink_weights(body)
+    ia = body.data.attributes['_INK']; iv = np.zeros(len(X), np.float32); ia.data.foreach_get('value', iv)      # (Fenwick: a finer outline round the toes)
+    iv[TOES_AT(X) & np.char.startswith(label.astype(str), 'foot')] *= 0.4; ia.data.foreach_set('value', iv)
     if sex == 'f':      # (a finer outline over her forms: the crease between the folds is narrow, and a full one scribbles across it)
         ia = body.data.attributes['_INK']; iv = np.zeros(len(X), np.float32); ia.data.foreach_get('value', iv); iv[label == 'sex'] *= 0.45; ia.data.foreach_set('value', iv)
     # (_PART: 1 on the sex; on hers, 2 on the inner form, for its own deeper tone)
@@ -819,8 +999,11 @@ def build(sex):
     a = body.data.attributes.new('_PART', 'FLOAT', 'POINT'); a.data.foreach_set('value', pv)
     J = joints(sex, torso, leg, arm, None)
     rig = armature('Rig', J)
-    bpy.ops.object.select_all(action='DESELECT'); body.select_set(True); rig.select_set(True); bpy.context.view_layer.objects.active = rig
+    bpy.ops.object.select_all(action='DESELECT'); pre.select_set(True); rig.select_set(True); bpy.context.view_layer.objects.active = rig
     bpy.ops.object.parent_set(type='ARMATURE_AUTO')
+    bpy.ops.object.select_all(action='DESELECT'); body.select_set(True); rig.select_set(True); bpy.context.view_layer.objects.active = rig
+    bpy.ops.object.parent_set(type='ARMATURE_NAME')
+    weights_from(pre, body); bpy.data.objects.remove(pre)
     sex_weights(body, X, label, sex, torso, leg)
     print(sex, 'groups', len(body.vertex_groups))
     return body, rig, J, (torso, leg, arm, label)
@@ -939,6 +1122,12 @@ def landmarks(sex, torso):
     if sex == 'm': S0_, R0_, A_, t_ = his_axis(Surface(torso)); L['sexRest'] = float(math.atan2(t_[2] - A_[2], A_[1] - t_[1])); L['scrotum'] = [float(v) for v in list(S0_) + list(R0_)]      # (its centre and radii: the game finds its points by these)      # (how far forward of straight down he hangs)       # (her leg openings: a line from beside the gusset's bottom (x, y) rising at this slope to the hip)
     L['downTop'] = KNEE_Y + 0.085; L['briefDown'] = CROTCH_Y - 0.115
     L['bootTop'] = 0.205; L['hipX'] = float(at(LEG, CROTCH_Y - 0.02, 'cx')); L['shX'] = SH_X; L['abd'] = ABD
+    if sex != 'm':      # (Fenwick: her left breast's apex and the navel, for the skin's painted detail)
+        ap = bust_apex(torso)
+        if ap: L['nipple'] = [float(v) for v in ap[0][0]]
+        L['navel'] = [float(v) for v in navel_at(torso)]
+        L['toes'] = [v for t in toe_nails() for v in t]      # (the toenails, big to little, in the foot's frame: centre u, y, w and the toe's radius)
+        O_, l_, f_ = foot_frame(1, LEG); L['footFrame'] = [float(O_[0]), float(O_[2]), math.cos(TOE_OUT), math.sin(TOE_OUT)]      # (her left foot's: under the ankle (x, z), its turn out)
     return {k: ([float(a) for a in v] if isinstance(v, list) else float(v)) for k, v in L.items()}
 
 def mesh_from(name, V, Fc, faces):
@@ -1151,7 +1340,7 @@ def garments(sex, torso, leg, arm, body, label, rig):
          [((0, yb + 0.006, 0), up_), ((0, yb - 0.062, 0), down_)], LEGS_L, h=0.0025)
     # ── boots: round the foot and up the shin, a sole and heel under them, flat on the deck
     Lk = [Cloth(leg, lambda y: 0.0095 + 0.003 * ss(0.12, 0.2, y), sx) for sx in (1, -1)]
-    ft = [foot_part(sx, leg)[0] for sx in (1, -1)]
+    ft = [foot_part(sx, leg)[0].last for sx in (1, -1)]      # (round the last: no toes through the leather)
     def boot(P):
         f = -np.ones(len(P))
         for Lk1, fo in zip(Lk, ft):
@@ -1337,7 +1526,7 @@ def period_garments(sex, torso, leg, arm, body, label, rig):
     dress('Kirtle', 'elbow', KIRTLE_HEM, 0.06, 0.01, 0.7, 1.12, leggings_f, L['trouserTop'], 12000)
     # ── boots, as the men's: round the foot and up the shin ──
     Lk = [Cloth(leg, lambda y: 0.0095 + 0.003 * ss(0.12, 0.2, y), sx) for sx in (1, -1)]
-    ft = [foot_part(sx, leg)[0] for sx in (1, -1)]
+    ft = [foot_part(sx, leg)[0].last for sx in (1, -1)]      # (round the last: no toes through the leather)
     def boot(P):
         f = -np.ones(len(P))
         for Lk1, fo in zip(Lk, ft):

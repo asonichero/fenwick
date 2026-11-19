@@ -187,6 +187,17 @@ test('her clothes drawn on: lacing, chemise, apron, print, patches; the leggings
   assert.equal(u(silas, 'Shirt').uL0.value.x, 4); assert.equal(u(silas, 'Boots').uParam.value.x, 0);
 });
 
+test('her skin’s painted detail and her feet, where the model puts them; the crease under her breasts by her bust; none on Silas', async () => {
+  await loaded;
+  const U = f => f.skinMat.userData.u, belle = gfig('belle'), red = gfig('red'), gretel = gfig('gretel'), silas = gfig('silas'), L = belle.L;
+  assert.ok(L.nipple && L.navel && L.toes && L.footFrame, 'the model gives them'); assert.equal(L.toes.length, 20);
+  assert.ok(U(belle).uNip.value.w > 0); assert.equal(U(belle).uNav.value.w, 1); assert.equal(U(belle).uKnee.value.w, 1); assert.ok(U(belle).uFootF.value.z > 0.9);
+  const w = U(belle).uToe.value.map(v => v.z);       // (the toenails big to little, each a little further back than the last)
+  for (let i = 1; i < 5; i++) assert.ok(w[i] < w[i - 1], `toe ${i}`);
+  assert.ok(U(red).uBust.value.x > U(belle).uBust.value.x, 'lower on a fuller bust'); assert.ok(U(gretel).uBust.value.y < U(belle).uBust.value.y, 'fainter on a smaller');
+  assert.equal(U(silas).uNip.value.w, 0); assert.equal(U(silas).uFootF.value.z, 0);
+});
+
 test('the Blender-built hair: every style the household wears, coloured per point, fitted to the head; his beard', async () => {
   const hb = fs.readFileSync(path.join(MODELS, 'fenwick_hair.glb')); await F.adoptHair(hb.buffer.slice(hb.byteOffset, hb.byteOffset + hb.byteLength));
   const styles = F.hairStyles();
