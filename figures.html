@@ -1,75 +1,334 @@
 <!doctype html>
-<html lang="en">
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>Fenwick Hall · The household</title>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Fenwick Hall · Figures</title>
 <style>
-:root { --ink: #2a2018; --dim: #6a5c4c; --panel: rgba(250, 244, 234, 0.9); --line: #cdbfa8; }
-html, body { margin: 0; height: 100%; overflow: hidden; background: #d8d0c4; color: var(--ink); font: 13px/1.4 system-ui, -apple-system, "Segoe UI", sans-serif; }
+:root { --panel: rgba(250, 246, 238, 0.92); --line: #cdbfa8; --ink: #2a2018; --dim: #76685a; --amber: #b07a2a; --red: #b8402e; }
+html, body { margin: 0; height: 100%; background: #d8d0c4; color: var(--ink); font: 13px/1.4 system-ui, -apple-system, "Segoe UI", sans-serif; overflow: hidden; }
 #view { position: fixed; inset: 0; }
-#bar { position: fixed; left: 12px; top: 12px; right: 12px; display: flex; flex-wrap: wrap; gap: 6px; align-items: center; z-index: 2; }
-#bar h1 { font: 600 17px Georgia, serif; margin: 0 10px 0 0; }
-button { font: inherit; color: var(--ink); background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 5px 10px; cursor: pointer; }
-button.on { background: #e8d4a8; border-color: #b08a3e; }
-.tag { position: fixed; transform: translate(-50%, 0); text-align: center; pointer-events: none; background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 3px 8px; white-space: nowrap; z-index: 1; }
-.tag b { font: 600 13px Georgia, serif; display: block; } .tag small { color: var(--dim); font-size: 11px; }
-#note { position: fixed; left: 12px; bottom: 12px; max-width: min(560px, calc(100% - 24px)); background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 8px 12px; color: var(--dim); font-size: 12px; z-index: 2; }
-</style>
-</head>
-<body>
-<div id="view"></div>
-<div id="bar"><h1>The household</h1><span id="who"></span></div>
-<div id="note">Silas and the seven heroines as drafted in js/cast.js: heights, builds, skin, hair and eyes, in their period clothes and hair (built in Blender: tools/blender/). Drag to turn; <code>?who=goldie</code> for one; <code>?view=side|back</code>; an outfit, <code>?red=walking</code>; the layers, <code>?clothes=up,down,down</code> (top, bottoms, under).</div>
+.box { background: var(--panel); border: 1px solid var(--line); border-radius: 16px; backdrop-filter: blur(6px); box-shadow: 0 6px 24px rgba(40, 30, 20, 0.12); box-sizing: border-box; }
+#panel { position: fixed; top: calc(12px + env(safe-area-inset-top)); left: calc(12px + env(safe-area-inset-left)); width: 300px; max-height: calc(100% - 24px); overflow: auto; padding: 12px 14px; z-index: 4; }
+h1 { font: 600 17px Georgia, 'Iowan Old Style', serif; margin: 0 0 8px; } h2 { font-size: 10px; text-transform: uppercase; letter-spacing: 0.12em; color: var(--dim); margin: 12px 0 5px; }
+.row { display: flex; flex-wrap: wrap; gap: 5px; align-items: center; }
+button, select { font: inherit; color: var(--ink); background: #fff; border: 1px solid var(--line); border-radius: 10px; padding: 5px 9px; cursor: pointer; }
+select { width: 100%; padding: 6px 8px; } button:hover { border-color: #a89e90; } button.on { background: #f0dcb4; border-color: var(--amber); color: #5a3a10; } button:disabled { opacity: 0.45; cursor: default; }
+#hide { position: fixed; top: calc(12px + env(safe-area-inset-top)); left: calc(324px + env(safe-area-inset-left)); z-index: 5; } #panel.closed { display: none; }
+a { color: var(--dim); } small.note { display: block; color: var(--dim); font-size: 11px; margin-top: 5px; line-height: 1.4; }
+.rel { display: grid; grid-template-columns: auto 1fr 34px; gap: 4px 8px; align-items: center; font-size: 12px; } .rel input { width: 100%; accent-color: var(--amber); } .rel span { color: var(--dim); text-align: right; }
+/* The correction's HUD, as the correction test has it (js/session.js run from here), down the right: who, the cameras, the controls. No
+   dialogue and no meter: this page is for looking at what happens, not for its numbers. */
+#hud { position: fixed; top: calc(12px + env(safe-area-inset-top)); right: calc(12px + env(safe-area-inset-right)); width: 400px; display: none; flex-direction: column; gap: 8px; z-index: 3; }
+body.correcting #hud { display: flex; }
+#who { padding: 9px 14px; } #who .nm { font: 600 15px Georgia, serif; } #who small { color: var(--dim); display: block; }
+#cams { display: flex; gap: 4px; flex-wrap: wrap; } #cams button { flex: 1 1 auto; padding: 5px 6px; font-size: 13px; }
+#bar { padding: 10px 12px 8px; }
+#bar .top { display: grid; grid-template-columns: repeat(6, 1fr); gap: 8px; align-items: end; }
+#bar .grp { display: flex; flex-direction: column; gap: 4px; min-width: 0; } #bar .lab { font-size: 10px; text-transform: uppercase; letter-spacing: 0.12em; color: var(--dim); }
+.g-run { grid-column: span 2; } .g-soothe { grid-column: span 2; } .g-end { grid-column: span 2; } .g-pace, .g-str, .g-side, .g-where { grid-column: span 3; } .g-clothes { grid-column: 1 / -1; }
+.g-reset { grid-column: span 3; } .g-sound { grid-column: span 3; }
+#run, #end, #soothe, #reset, #sound { width: 100%; } #run { font-size: 16px; padding: 9px 10px; border-radius: 14px; } #run.on { background: #f4d4c8; border-color: var(--red); color: #6a1a10; }
+#bar .seg, .g-clothes .row { display: flex; flex-wrap: nowrap; gap: 0; } #bar .seg button, .g-clothes .row button { flex: 1 1 0; min-width: 0; padding-left: 4px; padding-right: 4px; font-size: 13px; }
+#bar .seg button { border-radius: 0; margin-left: -1px; } #bar .seg button:first-child { border-radius: 10px 0 0 10px; } #bar .seg button:last-child { border-radius: 0 10px 10px 0; }
+.g-clothes .row { gap: 5px; } .g-pace .row, .g-str .row { justify-content: space-between; flex-wrap: nowrap; } .val { min-width: 38px; text-align: center; color: var(--amber); }
+#info { margin-top: 8px; font-size: 12px; color: var(--dim); min-height: 1.3em; } #info b { color: var(--ink); }
+kbd { font: 10px ui-monospace, monospace; color: var(--dim); }
+@media (max-width: 760px), (max-height: 520px) {
+  #panel { width: auto; right: 12px; max-height: 42%; top: auto; bottom: calc(12px + env(safe-area-inset-bottom)); } #hide { left: auto; right: 12px; }
+  #hud { width: auto; left: 12px; right: 12px; } #bar .top { gap: 6px; } kbd { display: none; }
+}
+@media (hover: none) { kbd { display: none; } button { min-height: 34px; } }
+</style></head>
+<body><div id="view"></div>
+<div id="panel" class="box">
+  <h1>Figures</h1>
+  <h2>Heroine</h2><select id="who"></select>
+  <h2>Outfit</h2><div class="row" id="outfit"></div>
+  <h2>Clothes</h2><div class="row"><button id="pTop"></button><button id="pBot"></button><button id="pUnd"></button></div>
+  <h2>Silas</h2><div class="row" id="sbuild"></div>
+  <h2>Pose</h2><div class="row" id="pose"></div>
+  <small class="note" id="poseNote"></small>
+  <h2>Where she is with him</h2><div class="rel" id="rel"></div>
+  <small class="note">In a correction: how she takes it (defiant, head up and looking back, slow to settle; submissive, still sooner; comfortable, freer; desire, her body's response). In the aftercare: how close she sits. Nothing here changes as she's corrected.</small>
+  <h2>Expression</h2><select id="expr"></select>
+  <h2>Response</h2><div class="row" style="gap:8px"><input type="range" id="resp" min="0" max="100" step="1" style="flex:1;accent-color:var(--amber)"><span id="respV" style="font-size:12px;color:var(--dim);width:34px;text-align:right"></span><button id="respAuto">Auto</button></div>
+  <h2>View</h2><div class="row" id="views"></div><div class="row" style="margin-top:5px"><button id="spin">Turntable</button></div>
+  <p style="margin:12px 0 0;color:var(--dim);font-size:12px">Drag to orbit, scroll or pinch to zoom. <a href="session.html">The correction test</a> · <a href="household.html">the household</a></p>
+</div>
+<button id="hide">☰</button>
+
+<div id="hud">
+<div id="who" class="box"><div class="nm" id="whoNm">—</div><small id="whoSub"></small></div>
+<div id="cams"></div>
+<div id="bar" class="box">
+  <div class="top">
+    <div class="grp g-run"><span class="lab">Run <kbd>Space</kbd></span><button id="run">Start run</button></div>
+    <div class="grp g-soothe"><span class="lab">Soothe <kbd>S</kbd></span><button id="soothe">Soothe</button></div>
+    <div class="grp g-end"><span class="lab">Turn <kbd>Enter</kbd></span><button id="end">End turn</button></div>
+    <div class="grp g-pace"><span class="lab">Pace <kbd>[ ]</kbd></span><div class="row"><button data-k="pace" data-d="-0.25">−</button><span class="val" id="paceV">1×</span><button data-k="pace" data-d="0.25">+</button></div></div>
+    <div class="grp g-str"><span class="lab">Strength <kbd>- =</kbd></span><div class="row"><button data-k="strength" data-d="-0.25">−</button><span class="val" id="strengthV">1×</span><button data-k="strength" data-d="0.25">+</button></div></div>
+    <div class="grp g-side"><span class="lab">Side <kbd>D</kbd></span><div class="row seg" id="side"><button data-v="alt" class="on">Alt</button><button data-v="L">Left</button><button data-v="R">Right</button></div></div>
+    <div class="grp g-where"><span class="lab">Where <kbd>A</kbd></span><div class="row seg" id="area"><button data-v="cheek">Cheek</button><button data-v="sitspot" class="on">Sit spot</button><button data-v="thighs">Thighs</button></div></div>
+    <div class="grp g-clothes"><span class="lab">Clothes <kbd>T B U</kbd></span><div class="row"><button id="cTop"></button><button id="cBot"></button><button id="cUnd"></button></div></div>
+    <div class="grp g-reset"><span class="lab">Marks <kbd>R</kbd></span><button id="reset">Reset</button></div>
+    <div class="grp g-sound"><span class="lab">Sound</span><button id="sound">Off</button></div>
+  </div>
+  <div id="info"></div>
+</div>
+</div>
+
 <script src="vendor/three.min.js"></script><script src="vendor/OrbitControls.js"></script><script src="vendor/GLTFLoader.js"></script>
-<script src="js/cast.js"></script><script src="js/figure.js"></script><script src="js/poses.js"></script>
+<script src="js/pain.js"></script><script src="js/audio.js"></script><script src="js/cast.js"></script><script src="js/lines.js"></script>
+<script src="js/figure.js"></script><script src="js/poses.js"></script><script src="js/session.js"></script>
 <script>
 'use strict';
+// A heroine and Silas, in a plain, well-lit space (Project Meridian's figures page, for Fenwick): any heroine in any of her outfits, her
+// clothes raised or lowered, Silas's build, and where she is with him (defiance, submission, desire, comfort). Standing: side by side, facing
+// him, being told off, or in the corner. In the correction's positions (across the knee on a chair or the edge of a bed, hands on a table,
+// over a table, and the aftercare), the correction itself runs here (js/session.js, on props where a room would have its furniture), with
+// the correction test's controls, round after round, so what it does to her can be watched: no dialogue, no meter, and nothing it does
+// changes the sliders. Reset clears her marks and lets what she feels settle.
+//   ?who=goldie&outfit=maid&clothes=down,up,up&pose=otk&def=0&sub=0&des=0&com=0&expr=auto&resp=auto&view=three&build=average&spin=1
 const $ = id => document.getElementById(id), q = new URLSearchParams(location.search), V3 = THREE.Vector3;
+const num = (k, d) => (q.get(k) == null ? d : Math.max(0, Math.min(1, +q.get(k) || 0)));
+const cfg = { who: Cast.ROSTER[q.get('who')] ? q.get('who') : 'goldie', outfit: q.get('outfit'), pose: q.get('pose') || 'rest', expr: q.get('expr') || 'auto',
+  resp: q.get('resp') && q.get('resp') !== 'auto' ? num('resp', 0) : 0, respAuto: !q.get('resp') || q.get('resp') === 'auto', view: q.get('view') || 'three', spin: !!q.get('spin'),
+  clothes: (q.get('clothes') || 'down,up,up').split(','), build: q.get('build') || 'average', sound: false,
+  rel: { defiance: num('def', null), submission: num('sub', 0), desire: num('des', 0), comfort: num('com', 0) } };
+if (cfg.rel.defiance == null) cfg.rel.defiance = Cast.ROSTER[cfg.who].meters.wilfulness;
+if (!Cast.outfits(cfg.who).includes(cfg.outfit)) cfg.outfit = Cast.outfits(cfg.who)[0];
+
+// ── The space: a soft backdrop and floor, lit from three sides ──
 const renderer = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true });
 renderer.setPixelRatio(Math.min(2, devicePixelRatio)); renderer.outputEncoding = THREE.sRGBEncoding; renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 $('view').appendChild(renderer.domElement);
-const scene = new THREE.Scene(), BG = new THREE.Color('#d8d0c4'); scene.background = BG; scene.fog = new THREE.Fog(BG, 10, 22);
-const camera = new THREE.PerspectiveCamera(30, 1, 0.05, 80), controls = new THREE.OrbitControls(camera, renderer.domElement);
-controls.enableDamping = true;
+const scene = new THREE.Scene(), BG = new THREE.Color('#d8d0c4'); scene.background = BG; scene.fog = new THREE.Fog(BG, 8, 18);
+const camera = new THREE.PerspectiveCamera(30, 1, 0.05, 60), controls = new THREE.OrbitControls(camera, renderer.domElement);
+controls.enableDamping = true; controls.minDistance = 0.4; controls.maxDistance = 10;
 scene.add(new THREE.HemisphereLight(0xfffcf6, 0x9a9288, 0.45));
-const key = new THREE.DirectionalLight(0xfff2e2, 0.8); key.position.set(2.5, 5, 4); key.castShadow = true; key.shadow.mapSize.set(2048, 2048);
-Object.assign(key.shadow.camera, { left: -5, right: 5, top: 3, bottom: -0.5, near: 0.5, far: 16 }); key.shadow.bias = -0.0004; key.shadow.normalBias = 0.02; scene.add(key);
-const fill = new THREE.DirectionalLight(0xe4ecff, 0.26); fill.position.set(-3, 2.2, 2); scene.add(fill);
+const key = new THREE.DirectionalLight(0xfff2e2, 0.8); key.position.set(2.2, 4.2, 3.2); key.castShadow = true; key.shadow.mapSize.set(2048, 2048);
+Object.assign(key.shadow.camera, { left: -2.4, right: 2.4, top: 2.6, bottom: -1.2, near: 0.5, far: 14 }); key.shadow.bias = -0.0004; key.shadow.normalBias = 0.02; scene.add(key);
+const fill = new THREE.DirectionalLight(0xe4ecff, 0.26); fill.position.set(-3, 2.2, 1.8); scene.add(fill);
 const rim = new THREE.DirectionalLight(0xffffff, 0.3); rim.position.set(0.5, 3, -4); scene.add(rim);
-const floor = new THREE.Mesh(new THREE.CircleGeometry(16, 64), new THREE.MeshStandardMaterial({ color: '#cbc2b4', roughness: 0.95 })); floor.rotation.x = -Math.PI / 2; floor.receiveShadow = true; scene.add(floor);
+const floor = new THREE.Mesh(new THREE.CircleGeometry(14, 64), new THREE.MeshStandardMaterial({ color: '#cbc2b4', roughness: 0.95 })); floor.rotation.x = -Math.PI / 2; floor.receiveShadow = true; scene.add(floor);
+
+// ── The props, where the correction expects its furniture (each position's spot at the middle, Silas facing +z): an oak chair; the edge of a
+// bed (behind him, its mattress at 0.5 m); a writing table, its front edge 0.85 m ahead of where she stands; a long kitchen table, 0.55 m
+// ahead; a settle for the aftercare. Plain shapes in wood and linen. As the guest bedroom's, so what's posed here is what's posed there. ──
+const wood = new THREE.MeshStandardMaterial({ color: '#8a6040', roughness: 0.6 }), dark = new THREE.MeshStandardMaterial({ color: '#5a3c26', roughness: 0.6 });
+const linen = new THREE.MeshStandardMaterial({ color: '#e8e0d0', roughness: 0.9 }), quilt = new THREE.MeshStandardMaterial({ color: '#9a5a44', roughness: 0.9 }), cushion = new THREE.MeshStandardMaterial({ color: '#4e6a58', roughness: 0.9 });
+const PROPS = {};
+const prop = (name, parts) => { const g = new THREE.Group(); for (const [w, h, d, m, x, y, z] of parts) { const b = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), m); b.position.set(x, y, z); b.castShadow = b.receiveShadow = true; g.add(b); } g.visible = false; scene.add(g); PROPS[name] = g; };
+const legs = (x0, x1, z0, z1, h, m, t) => [[x0, z0], [x0, z1], [x1, z0], [x1, z1]].map(([x, z]) => [t || 0.045, h, t || 0.045, m, x, h / 2, z]);
+prop('chair', [[0.48, 0.06, 0.48, cushion, 0, 0.45, 0.04], [0.48, 0.03, 0.48, wood, 0, 0.41, 0.04], ...legs(-0.21, 0.21, -0.17, 0.25, 0.41, wood), [0.44, 0.5, 0.04, wood, 0, 0.72, -0.18]]);
+prop('bed', [[2.1, 0.32, 1.5, dark, 0, 0.16, -0.62], [2.06, 0.18, 1.46, linen, 0, 0.41, -0.62], [1.2, 0.06, 1.48, quilt, 0.3, 0.53, -0.62], [0.4, 0.12, 1.3, linen, -0.82, 0.56, -0.62], [0.08, 1.4, 1.5, dark, -1.05, 0.7, -0.62]]);
+prop('edge', [[1.1, 0.035, 0.6, wood, 0, 0.742, 1.15], [1.02, 0.1, 0.52, wood, 0, 0.675, 1.15], ...legs(-0.5, 0.5, 0.9, 1.4, 0.63, wood, 0.04)]);
+prop('table', [[0.9, 0.05, 1.8, wood, 0, 0.725, 1.45], ...legs(-0.4, 0.4, 0.62, 2.28, 0.7, wood, 0.06)]);
+prop('settle', [[1.4, 0.3, 0.6, wood, 0.31, 0.15, -0.1], [1.32, 0.12, 0.54, cushion, 0.31, 0.36, -0.08], [1.4, 0.62, 0.1, dark, 0.31, 0.6, -0.4], [0.06, 0.5, 0.6, dark, -0.39, 0.48, -0.1], [0.06, 0.5, 0.6, dark, 1.01, 0.48, -0.1]]);
+// (the room the correction is told about: only where things are; nothing in it for the camera to hide)
+const BAY = { group: new THREE.Group(), name: 'Figures', private: true, spots: {
+  bench: { at: new V3(0, 0, 0), yaw: 0, turn: 0, seatY: 0.48 },
+  seats: { bed: { at: new V3(0, 0, 0), yaw: 0, turn: 0, seatY: 0.48, rest: { y: 0.5, edge: 0.11 } } },
+  wall: { at: new V3(0, 0, 0), yaw: 0, support: { kind: 'edge', y: 0.77, d: 0.85, bend: 0.95, lines: 'writing' } },
+  table: { at: new V3(0, 0, 0), yaw: 0, top: 0.75, d: 0.55, w: 0.9, len: 1.8, grip: 'sides' },
+  after: { at: new V3(0, 0, 0), yaw: 0, seatY: 0.44, beside: new V3(0.62, 0, 0) },
+  watch: [{ at: new V3(4, 0, -4), yaw: 0 }], corner: { at: new V3(4.5, 0, 4), yaw: 0 } } };
+// (and the stage it's told about: the scene, the camera, and a way to move it, glided)
+let glide = null;
+const STAGE = { scene, camera, go(pos, look, ms) { if (!ms) { camera.position.copy(pos); controls.target.copy(look); controls.update(); glide = null; return; }
+  glide = { t0: performance.now(), ms, p0: camera.position.clone(), p1: pos.clone(), l0: controls.target.clone(), l1: look.clone() }; } };
 function resize() { renderer.setSize(innerWidth, innerHeight); camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix(); }
 addEventListener('resize', resize); resize();
 
-const only = q.get('who') && (Cast.ROSTER[q.get('who')] || q.get('who') === 'silas') ? q.get('who') : null;
-const ids = only ? [only] : ['silas'].concat(Cast.IDS), gap = 0.78, people = [];
-// (how each stands: weight on one leg, and the arms as fits her)
-const ARMS = { silas: 'fold', goldie: null, red: 'clasp', belle: 'clasp', cinderella: 'clasp', gretel: 'fold', rapunzel: null, snow: 'clasp' };
-Figure.preload().then(() => {
-  ids.forEach((id, i) => {
-    const spec = id === 'silas' ? Cast.squireSpec() : Cast.figureSpec(id, 'f', q.get(id)), f = Figure.make(spec); scene.add(f.root);
-    if (q.get('clothes') && id !== 'silas') { const [top, bottoms, under] = q.get('clothes').split(','); f.setClothes({ top, bottoms, under }); }
-    const x = (i - (ids.length - 1) / 2) * gap; Poses.stand(f, new V3(x, 0, 0), 0, { weight: i % 2 ? 0.6 : -0.6 });
-    if (ARMS[id]) Poses.arms(f, ARMS[id]);
-    f.setExpr(id === 'silas' ? 'calm' : Cast.ROSTER[id].base);
-    const r = id === 'silas' ? Cast.SQUIRE : Cast.ROSTER[id], tag = document.createElement('div'); tag.className = 'tag';
-    tag.innerHTML = `<b>${r.title && r.title !== r.name && id !== 'silas' ? r.title : r.name}</b><small>${id === 'silas' ? 'Squire · ' + r.age : (r.title !== r.name ? r.name + ' · ' : '') + r.age + ' · ' + r.body.h.f.toFixed(2) + ' m'}</small>`;
-    document.body.append(tag); people.push({ f, tag, x, h: spec.height });
-  });
-  const span = Math.max(1.4, ids.length * gap), view = q.get('view') || 'front', near = /^head/.test(view) && only;
-  // (?view=head, head-side, head-back: close on the one figure's head)
-  const dist = near ? 0.75 : span * 1.55 + 1.2, dir = /side/.test(view) ? new V3(1, 0.12, 0.05) : /back/.test(view) ? new V3(0, 0.12, -1) : /three/.test(view) ? new V3(0.7, 0.15, 0.7) : new V3(0.12, 0.12, 1);
-  controls.target.set(0, near ? people[0].h - 0.14 : 0.92, 0); camera.position.copy(controls.target).addScaledVector(dir.normalize(), dist); controls.update();
-  if (near) for (const P of people) P.tag.style.display = 'none';
-  $('who').textContent = only ? '' : `${ids.length} figures, in chapter order`;
-  window.ready = true;
+// ── The two of them ──
+const POSES = [['rest', 'Side by side'], ['facing', 'Facing him'], ['scold', 'Being told off'], ['corner', 'In the corner'],
+  ['otk', 'Across the knee (chair)'], ['bed', 'Across the knee (bed)'], ['edge', 'Hands on the table'], ['table', 'Over the table'], ['after', 'Aftercare']];
+const BY_SESSION = { otk: 'otk', bed: 'otk:bed', edge: 'wall', table: 'table', after: 'otk' }, PROP_OF = { otk: 'chair', bed: 'bed', edge: 'edge', table: 'table', after: 'settle' };
+const NOTES = { rest: '', facing: 'She stands facing him; he’s at ease.', scold: 'He’s told her off, arms folded; she stands as she is with him: arms folded if defiant, hands clasped if submissive.',
+  corner: 'Facing away, hands on her head; he watches, arms folded.', otk: 'A correction, run here: the controls are on the right.', bed: 'A correction, run here: the controls are on the right.',
+  edge: 'A correction, run here: the controls are on the right.', table: 'A correction, run here: the controls are on the right.', after: 'The two of them sat on the settle, as after a correction.' };
+let F = null, C = null, ses = null, round = 0, total = 0, inRound = 0, status = '', needReset = false;
+const worn = () => ({ top: cfg.clothes[0], bottoms: cfg.clothes[1], under: cfg.clothes[2] }), dressed = { top: 'down', bottoms: 'up', under: 'up' };
+const desire = () => cfg.rel.desire;
+const relFor = () => ({ submission: cfg.rel.submission, comfort: cfg.rel.comfort, desire: desire(), defiance: cfg.rel.defiance });
+const correcting = () => !!BY_SESSION[cfg.pose] && cfg.pose !== 'after';
+function clear() {
+  for (const G of [F, C]) if (G) scene.remove(G.root);
+  if (ses) { for (const P of ses.people) scene.remove(P.f.root); scene.remove(ses.captain.root); }
+  F = C = ses = null;
+}
+function build() {
+  clear(); round = 0; total = 0; inRound = 0; status = ''; needReset = false;
+  const silas = { build: cfg.build };
+  if (BY_SESSION[cfg.pose]) {
+    ses = Session.create(STAGE, BAY, { captain: silas, position: BY_SESSION[cfg.pose], between: 'aside', queue: [{ id: cfg.who, sex: 'f', outfit: cfg.outfit }], witnesses: [],
+      rel: { [cfg.who]: relFor() }, sound: cfg.sound });
+    ses.on(onEvent); ses.start(); round = 1;
+    if (cfg.pose === 'after') ses.aftercare(cfg.who); else ses.current.f.setClothes(worn());
+    F = ses.people[0].f; C = ses.captain; ses.camera(0, 0); window.ses = ses;
+  } else {
+    F = Figure.make(Cast.figureSpec(cfg.who, 'f', cfg.outfit)); scene.add(F.root); F.setClothes(worn());
+    C = Figure.make(Cast.squireSpec(silas)); scene.add(C.root); C.setClothes(dressed);
+  }
+  for (const k in PROPS) PROPS[k].visible = k === PROP_OF[cfg.pose];
+  document.body.classList.toggle('correcting', correcting());
+  if (!correcting()) view(cfg.view);
+  refresh(); drawCams();
+}
+// The loop: a turn ended (Silas soothed her and dressed her), or she called her word: a moment, then another round, from where she is now (her
+// marks kept, what she feels fading as it would). Nothing she brings to it changes: each round starts from the sliders.
+// (After her word it waits: what she feels is past what she can take, so nothing more can be run until Reset lets it go.)
+function again() { const P = ses.people[0]; P.done = false; P.outcome = null; ses.st.results.length = 0; ses.setRel(cfg.who, relFor()); ses.start(); round++; inRound = 0; status = ''; needReset = false; refresh(); drawCams(); }
+function onEvent(type, d) {
+  if (type === 'hit') { total++; inRound++; }
+  if (type === 'word') status = `She called her word, “${d.word}”. It stops. Reset to go on.`;
+  if (type === 'turnEnd' && d.outcome !== 'word') status = 'The turn’s over.';
+  if (type === 'aftercareNow') needReset = true;
+  if (type === 'done' && ses) { const s = ses; setTimeout(() => { if (ses === s) again(); }, 1600); }
+  refresh();
+}
+// how she stands for being told off: arms folded if she's defiant, hands clasped if submissive (whichever's the stronger), else her hands at her sides
+const toldOff = () => { const r = cfg.rel; return r.defiance > 0.5 && r.defiance >= r.submission ? 'fold' : r.submission > 0.4 ? 'clasp' : null; };
+// The standing situations, posed each frame: side by side, or facing a stride apart (her on the left, Silas on the right); or in the corner,
+// her back to him
+function pose() {
+  const p = cfg.pose, P = Poses, side = p === 'rest', corner = p === 'corner';
+  const fAt = new V3(side ? -0.36 : -0.45, 0, 0), cAt = new V3(side ? 0.36 : 0.45, 0, 0), fYaw = side ? 0 : corner ? -Math.PI / 2 : Math.PI / 2, cYaw = side ? 0 : -Math.PI / 2;
+  if (p === 'rest') { P.stand(F, fAt, fYaw, { weight: -0.5 }); }
+  else if (p === 'facing') { P.stand(F, fAt, fYaw, { weight: 0.4, look: 0.12 }); if (cfg.rel.submission > 0.4) P.arms(F, 'clasp'); }
+  else if (p === 'scold') { P.stand(F, fAt, fYaw, { weight: 0.5, look: cfg.rel.defiance > 0.5 ? -0.05 : 0.22 }); const a = toldOff(); if (a) P.arms(F, a); }
+  else { P.stand(F, fAt, fYaw, { weight: 0.3, wide: 0.08, look: 0.15 }); P.arms(F, 'head'); }
+  if (p === 'rest') { P.stand(C, cAt, cYaw, { weight: 0.5 }); }
+  else if (p === 'facing') { P.stand(C, cAt, cYaw, { weight: 0.3, wide: 0.15 }); P.arms(C, 'rest'); }
+  else { P.stand(C, cAt, cYaw, { weight: 0.3, wide: 0.15 }); P.arms(C, 'fold'); }
+  C.setExpr(p === 'scold' || p === 'corner' ? 'stern' : 'calm');
+  for (const G of [F, C]) G.root.updateMatrixWorld(true);
+}
+
+// ── The camera's views: front, three-quarter, side, back, and close on her head ──
+const VIEWS = [['front', 'Front', 0], ['three', '¾', 0.6], ['side', 'Side', Math.PI / 2], ['back', 'Back', Math.PI], ['head', 'Head', 0.6]];
+function view(name) {
+  const v = VIEWS.find(x => x[0] === name) || VIEWS[1], a = v[2];
+  // (what to look at: the two of them standing, the lap, the table, the settle; or her head)
+  let T = { otk: [0.0, 0.62, 0.3, 3.1], bed: [0.0, 0.62, 0.1, 3.1], edge: [0.0, 0.85, 0.35, 3.3], table: [0.0, 0.85, 0.5, 3.4], after: [0.3, 0.8, 0.05, 3.0] }[cfg.pose] || [0, 0.95, 0, 4.4];
+  if (name === 'head' && F) { F.root.updateMatrixWorld(true); const h = F.bone.head.getWorldPosition(new V3()); T = [h.x, h.y + 0.05, h.z, 0.8]; }
+  const at = new V3(T[0], T[1], T[2]), pos = new V3(T[0] + Math.sin(a) * T[3], T[1] + (name === 'head' ? 0.02 : 0.25), T[2] + Math.cos(a) * T[3]);
+  const qa = q.get('at'), qc = q.get('cam'); if (qa) at.fromArray(qa.split(',').map(Number)); if (qc) pos.fromArray(qc.split(',').map(Number));
+  STAGE.go(pos, at, 0); cfg.view = name; refresh();
+}
+
+// ── The panel ──
+const seg = (id, items, cur, fn) => { const el = $(id); el.innerHTML = ''; for (const [v, label] of items) { const b = document.createElement('button'); b.textContent = label; b.className = v === cur ? 'on' : ''; b.onclick = () => fn(v); el.append(b); } };
+for (const id of Cast.IDS) { const r = Cast.ROSTER[id], o = document.createElement('option'); o.value = id; o.textContent = `${r.title === r.name ? r.name : r.name + ' · ' + r.title} · ${r.role}`; $('who').append(o); }
+function relSliders() {
+  const el = $('rel'); el.innerHTML = '';
+  for (const [k, nm] of [['defiance', 'Defiance'], ['submission', 'Submission'], ['desire', 'Desire'], ['comfort', 'Comfort']]) {
+    const l = document.createElement('label'); l.textContent = nm; const r = document.createElement('input'); r.type = 'range'; r.min = 0; r.max = 100; r.step = 1; r.value = Math.round(cfg.rel[k] * 100);
+    const o = document.createElement('span'); o.textContent = r.value + '%';
+    r.oninput = () => { cfg.rel[k] = r.value / 100; o.textContent = r.value + '%'; if (ses) ses.setRel(cfg.who, relFor()); };
+    el.append(l, r, o);
+  }
+}
+relSliders();
+{ const o = document.createElement('option'); o.value = 'auto'; o.textContent = 'auto (hers, or the correction’s)'; $('expr').append(o); }
+for (const e of Object.keys(Figure.EXPRS)) { const o = document.createElement('option'); o.value = e; o.textContent = e; $('expr').append(o); }
+$('who').onchange = () => { cfg.who = $('who').value; cfg.outfit = Cast.outfits(cfg.who)[0]; cfg.rel.defiance = Cast.ROSTER[cfg.who].meters.wilfulness; relSliders(); build(); };
+$('expr').onchange = () => { cfg.expr = $('expr').value; };
+$('resp').value = Math.round(cfg.resp * 100); $('respV').textContent = $('resp').value + '%';
+$('resp').oninput = () => { cfg.resp = $('resp').value / 100; cfg.respAuto = false; $('respV').textContent = $('resp').value + '%'; refresh(); };
+$('respAuto').onclick = () => { cfg.respAuto = !cfg.respAuto; refresh(); };
+// (the clothes: in a correction, Silas changes them, seen, as in the correction test; standing, at once)
+const flip = (i, a, b) => {
+  const k = ['top', 'bottoms', 'under'][i];
+  if (ses && cfg.pose !== 'after') { const s = ses.current && ses.current.f.state; if (s) ses.dress({ [k]: s[k] === a ? b : a }); return; }
+  cfg.clothes[i] = cfg.clothes[i] === a ? b : a; if (F && !ses) F.setClothes(worn()); refresh();
+};
+for (const [i, a, b, ids] of [[0, 'down', 'up', ['pTop', 'cTop']], [1, 'up', 'down', ['pBot', 'cBot']], [2, 'up', 'down', ['pUnd', 'cUnd']]]) for (const id of ids) $(id).onclick = () => flip(i, a, b);
+$('spin').onclick = () => { cfg.spin = !cfg.spin; refresh(); };
+$('hide').onclick = () => $('panel').classList.toggle('closed');
+// what the layers are called, for what she's wearing (and what state they're in)
+function clothesLabels() {
+  const P = Cast.WARDROBE[cfg.who][cfg.outfit], s = ses && ses.current && cfg.pose !== 'after' ? ses.current.f.state : worn();
+  return [(P.kind === 'kirtle' ? 'Kirtle: ' : 'Skirt: ') + (s.top === 'up' ? 'raised' : 'down'), P.legs === 'leggings' ? 'Leggings: ' + (s.bottoms === 'down' ? 'lowered' : 'up') : 'No leggings',
+    (P.under === 'smalls' ? 'Smalls: ' : 'Drawers: ') + (s.under === 'down' ? 'lowered' : 'up'), P.legs === 'leggings'];
+}
+function refresh() {
+  $('who').value = cfg.who; $('expr').value = cfg.expr;
+  seg('outfit', Cast.outfits(cfg.who).map(o => [o, o + (Cast.OUTFIT_NOTES[o] ? ' · ' + Cast.OUTFIT_NOTES[o] : '')]), cfg.outfit, v => { cfg.outfit = v; build(); });
+  seg('sbuild', [['lean', 'Lean'], ['average', 'Average'], ['heavy', 'Heavy']], cfg.build, v => { cfg.build = v; build(); });
+  seg('pose', POSES, cfg.pose, v => { const was = cfg.pose; cfg.pose = v; if (BY_SESSION[was] || BY_SESSION[v]) build(); else { for (const k in PROPS) PROPS[k].visible = false; view(cfg.view); } refresh(); });
+  $('poseNote').textContent = NOTES[cfg.pose] || '';
+  seg('views', VIEWS.map(v => [v[0], v[1]]), cfg.view, view);
+  const [t, b, u, legs] = clothesLabels();
+  $('pTop').textContent = $('cTop').textContent = t; $('pBot').textContent = $('cBot').textContent = b; $('pUnd').textContent = $('cUnd').textContent = u;
+  $('pBot').disabled = !legs; $('spin').classList.toggle('on', cfg.spin); $('respAuto').classList.toggle('on', cfg.respAuto);
+  $('respAuto').style.display = BY_SESSION[cfg.pose] ? '' : 'none';
+  // (the correction's HUD: as the correction test's, without the meter)
+  if (!ses || !correcting()) return;
+  const st = ses.st, c = ses.current, R = Cast.ROSTER[cfg.who];
+  $('whoNm').textContent = R.title === R.name ? R.name : `${R.name} · ${R.title}`; $('whoSub').textContent = `${POSES.find(p => p[0] === cfg.pose)[1]} · round ${round}`;
+  $('run').textContent = st.running ? 'Stop run' : 'Start run'; $('run').classList.toggle('on', st.running); $('run').disabled = !c || st.phase !== 'turn' || ses.busy;
+  for (const id of ['cTop', 'cBot', 'cUnd', 'soothe', 'end']) $(id).disabled = !c || st.phase !== 'turn' || !!st.ending || (id === 'soothe' && ses.busy);
+  if (!legs) $('cBot').disabled = true;
+  $('soothe').classList.toggle('on', st.soothe); $('paceV').textContent = times(st.pace); $('strengthV').textContent = times(st.strength);
+  $('sound').textContent = cfg.sound ? 'On' : 'Off'; $('sound').classList.toggle('on', cfg.sound);
+  const what = status || (st.ending ? 'Finishing: Silas soothes her, then dresses her.' : st.act || st.actQ.length ? 'Silas is changing her clothes.' : st.running ? 'Running.' : st.soothe ? 'Soothing.' : st.phase === 'turn' ? 'Ready.' : '');
+  $('info').innerHTML = `${what} <b>${inRound}</b> smacks this round · <b>${total}</b> since the marks were last cleared`;
+}
+
+// ── The correction's controls (as the correction test's) ──
+const P0 = { pace: [0.5, 2], strength: [0.5, 1.5] }, STEP = 0.25, times = v => (Number.isInteger(v) ? v.toFixed(0) : String(v)) + '×';
+document.querySelectorAll('[data-k]').forEach(b => b.onclick = () => bump(b.dataset.k, +b.dataset.d));
+function bump(k, d) { if (!ses) return; ses.set({ [k]: Math.round(Math.min(P0[k][1], Math.max(P0[k][0], ses.st[k] + d)) / STEP) * STEP }); refresh(); }
+const segH = (id, val, fn) => { const el = $(id); el.querySelectorAll('button').forEach(b => { b.classList.toggle('on', b.dataset.v === val); b.onclick = () => { el.querySelectorAll('button').forEach(x => x.classList.toggle('on', x === b)); fn(b.dataset.v); }; }); };
+segH('side', 'alt', v => ses && ses.set({ side: v })); segH('area', 'sitspot', v => ses && ses.set({ area: v }));
+const sound = () => { if (cfg.sound && window.GameAudio) GameAudio.init(); };
+$('run').onclick = () => { sound(); ses && ses.run(); refresh(); };
+$('soothe').onclick = () => { ses && ses.set({ soothe: !ses.st.soothe }); refresh(); };
+$('end').onclick = () => { ses && ses.endTurn(); refresh(); };
+$('sound').onclick = () => { cfg.sound = !cfg.sound; if (ses) ses.st.sound = cfg.sound; sound(); refresh(); };
+// (Reset: her marks cleared, and what she feels let go, so the next smacks land as on fresh skin; where she is, her clothes, the round, kept)
+function reset() {
+  if (!ses) return; for (const P of ses.people) { P.f.clearMarks(); P.pain.reset(); } total = 0;
+  if (needReset) { again(); return; }      // (after her word: a new round, from fresh)
+  status = 'Marks cleared.'; setTimeout(() => { if (status === 'Marks cleared.') status = ''; }, 1500); refresh();
+}
+$('reset').onclick = reset;
+const cyc = (k, list) => { const i = list.indexOf(ses.st[k]); const v = list[(i + 1) % list.length]; ses.set({ [k]: v }); $(k === 'side' ? 'side' : 'area').querySelectorAll('button').forEach(b => b.classList.toggle('on', b.dataset.v === v)); };
+function drawCams() {
+  const el = $('cams'); el.innerHTML = ''; if (!ses || !correcting()) return;
+  (ses.CAMS[ses.st.position] || []).forEach(([nm], i) => { const b = document.createElement('button'); b.textContent = nm.replace(/^Captain$/, 'Silas').replace(/^Their face$/, 'Her face'); b.className = ses.st.cam === i ? 'on box' : 'box'; b.onclick = () => { ses.camera(i); drawCams(); }; el.append(b); });
+}
+addEventListener('keydown', e => {
+  if (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT' || !ses || !correcting()) return; const k = e.key;
+  if (k === ' ') { e.preventDefault(); sound(); ses.run(); }
+  else if (k === '[') bump('pace', -STEP); else if (k === ']') bump('pace', STEP); else if (k === '-') bump('strength', -STEP); else if (k === '=' || k === '+') bump('strength', STEP);
+  else if (k === 'd' || k === 'D') cyc('side', ['alt', 'L', 'R']); else if (k === 'a' || k === 'A') cyc('area', ses.AREAS);
+  else if (k === 's' || k === 'S') ses.set({ soothe: !ses.st.soothe });
+  else if (k === 't' || k === 'T') $('cTop').click(); else if (k === 'b' || k === 'B') $('cBot').click(); else if (k === 'u' || k === 'U') $('cUnd').click();
+  else if (k === 'r' || k === 'R') reset(); else if (k === 'Enter') ses.endTurn(); else if (k === 'c' || k === 'C') { ses.camera(ses.st.cam + 1); drawCams(); }
+  refresh();
 });
-const _p = new V3();
-(function loop() {
-  requestAnimationFrame(loop); controls.update();
-  for (const P of people) { P.f.tick(0.016); _p.set(P.x, P.h + 0.12, 0).project(camera); P.tag.style.left = ((_p.x + 1) / 2 * innerWidth) + 'px'; P.tag.style.top = ((1 - _p.y) / 2 * innerHeight - 40) + 'px'; }
-  renderer.render(scene, camera);
-})();
-</script>
-</body>
-</html>
+
+// ── Run ──
+let last = performance.now(), hudT = 0;
+const loop = now => { frame(now); requestAnimationFrame(loop); };
+function frame(now) {
+  const dt = Math.min(0.05, (now - last) / 1000); last = now;
+  if (glide) { const k = Math.min(1, (now - glide.t0) / glide.ms), e = k * k * (3 - 2 * k); camera.position.lerpVectors(glide.p0, glide.p1, e); controls.target.lerpVectors(glide.l0, glide.l1, e); if (k >= 1) glide = null; }
+  if (ses) {
+    if (!cfg.respAuto) for (const P of ses.people) P.resp = cfg.resp;
+    ses.update(dt); if (cfg.expr !== 'auto') F.setExpr(cfg.expr);
+    if ((hudT += dt) > 0.2) { hudT = 0; refresh(); }
+  } else if (F) {
+    pose(); F.setExpr(cfg.expr === 'auto' ? Cast.ROSTER[cfg.who].base || 'calm' : cfg.expr);
+    F.setResponse(cfg.resp, { blush: Math.min(0.9, 1.4 * cfg.resp * desire()), chest: cfg.resp * desire() }); F.tick(dt); C.tick(dt);
+  }
+  controls.autoRotate = cfg.spin && !glide; controls.autoRotateSpeed = 2.4; controls.update(); renderer.render(scene, camera);
+}
+// (for a look without the animation running: ?still=1, then window.step(n))
+Figure.preload().then(() => {
+  build(); if (correcting() && q.get('view')) view(cfg.view);
+  if (q.get('still')) { window.step = n => { for (let i = 0; i < n; i++) { last = performance.now() - 50; frame(performance.now()); } }; window.step(2); }
+  else requestAnimationFrame(loop);
+  setTimeout(() => (window.ready = true), 300);
+});
+</script></body></html>

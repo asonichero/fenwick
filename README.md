@@ -5,7 +5,7 @@ A third-person narrative walking simulator with gated spatial progression, envir
 ## Run it
 
 ```
-npm run serve        # http://localhost:8123/ opens the correction test (session.html); /figures.html is the household line-up; /model.html the bodies and clothes
+npm run serve        # http://localhost:8123/ opens the correction test (session.html); /figures.html a heroine and Silas, posed or in a correction; /household.html the line-up; /model.html the bodies and clothes
 npm test             # the pain model, the scripted correction, conversations, the figures' rig, the cast and their lines, the estate, the guest bedroom
 ```
 
@@ -18,7 +18,7 @@ node tools/export-head.js                                     # the head the gam
 .blender/bin/python tools/blender/build_hair.py                # the hair styles and Silas's beard (seconds)
 ```
 
-`model.html` shows the bodies and clothes as a turnaround; `figures.html` shows the household, `?who=<id>&view=head-three` for a close look at someone's hair, `?<id>=<outfit>` for another outfit and `?clothes=up,down,down` for the layers raised and lowered.
+`model.html` shows the bodies and clothes as a turnaround; `household.html` lines everyone up (`?who=<id>&view=head-three` for a close look at someone's hair, `?<id>=<outfit>` for another outfit, `?clothes=up,down,down` for the layers raised and lowered).
 
 ## Clothes and hair
 
@@ -36,6 +36,15 @@ The guest bedroom of Chapter 1, where Silas finds Goldie asleep among half-eaten
 
 ![The guest bedroom, restored, at night](docs/correction-test.jpg)
 
+## Figures (`figures.html`)
+
+A heroine and Silas together in a plain space, as Meridian's figures page has them:
+- **What you can set:** any heroine in any of her outfits; her clothes raised or lowered; Silas's build; her defiance, submission, desire and comfort; her expression and her body's response; front, ¾, side, back or close on her head; a turntable.
+- **Standing poses:** side by side, facing him, being told off (her stance from the sliders), in the corner.
+- **Correction poses:** across the knee (on a chair or the edge of a bed), hands on a table, over a table, and the aftercare on a settle.
+- **The correction loop:** in the correction poses, the correction itself runs on props where a room's furniture would be. The controls are the correction test's (run, pace, strength, side, where, soothe, clothes, end turn, cameras), with no dialogue and no meter. Round follows round: end the turn and Silas soothes her, dresses her, and she's placed again. Her marks build up, and nothing she goes through changes the sliders. **Reset** (**R**) clears her marks and lets what she feels settle. After her safe word it waits for Reset.
+- **From the address:** `?who=&outfit=&clothes=&pose=&def=&sub=&des=&com=&expr=&resp=&view=&build=&spin=1`.
+
 ## Files
 
 | File | What it is |
@@ -48,6 +57,6 @@ The guest bedroom of Chapter 1, where Silas finds Goldie asleep among half-eaten
 | `js/figure.js`, `js/poses.js` | The figures (Blender-built bodies, clothes and hair, skeleton, skinning, toon shading, faces; the period garments' details and stockings drawn per pixel; a long braid) and posing |
 | `tools/blender/build_figures.py`, `tools/blender/build_hair.py`, `tools/export-head.js` | Building the bodies and clothes, and the hair, in Blender |
 | `js/pain.js`, `js/discipline.js`, `js/talk.js`, `js/audio.js`, `js/stage.js` | Ported from Meridian: the pain model, the scripted correction, conversations, synthesised sound (plus a hearth ambience), the renderer |
-| `session.html`, `figures.html`, `model.html` | The correction test, the household line-up, the models' turnaround |
+| `session.html`, `figures.html`, `household.html`, `model.html` | The correction test; a heroine and Silas, posed or in a looping correction; the household line-up; the models' turnaround |
 | `docs/gdd.md`, `docs/The_Manor_in_the_Woods_GDD.docx` | The design document |
 | `docs/alpha-plan.md` | The plan: stated, ported, drafted, open |

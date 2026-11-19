@@ -62,7 +62,8 @@ A third-person narrative walking simulator. Silas Fenwick, a practical woodsman,
 | `SuitBay.kit`, `Quarters.kit` | `js/kit.js` | The helpers (canvas textures, merging, which wall a thing is on) kept; the textures are new (limewash, oak panelling and boards, stone, brick, a Turkey rug, linen, a patchwork quilt, dust sheets, leaded windows, cobwebs) |
 | `js/capquarters.js` (the Captain's quarters) | `js/guestroom.js` | **New room on the same layout**: the chair, the bed's edge, the writing table, the settle and every camera where the Captain's quarters had them, so the tuned posing carries over. Re-dressed as a period guest bedroom with two states and Ch. 1's clues |
 | `session.html` | `session.html` | **New page** keeping Meridian's HUD, controls, dialogue box and aftercare flow; without the AI, bridge, check-in and day machinery |
-| `figures.html` | `figures.html` | **New**: the household line-up |
+| `figures.html` | `figures.html` | As Meridian's: a heroine and Silas, outfits, clothes, poses, the relationship sliders, expression, response and views; in the correction's positions, the correction runs on props, looping round after round with the correction test's controls (no dialogue, no meter, no change to the sliders) and a Reset that clears her marks |
+| (none) | `household.html` | **New**: the household line-up |
 | `model.html` | `model.html` | Ported (the bodies and garments as a turnaround sheet) |
 | `tests/` | `tests/` | `pain`, `discipline`, `talk`: unchanged. `figure`: adapted to the cast, plus the braids, the period wardrobe and the hair. **New**: `cast`, `estate`, `room`. `npm test` passes 58 of 58 |
 
