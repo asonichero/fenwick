@@ -1730,8 +1730,10 @@ const PHIDE = {
 };
 // (what each layer takes off a smack's sting when it's over the spot: js/session.js asks F.cushionOf)
 const PCUSH = { skirt: 0.45, leggings: 0.25, drawers: 0.16, smalls: 0.1 };
+// (spec.period.none: nothing at all, for looking at how the body moves (figures.html): no layers to change, no skin hidden, bare feet)
 function periodNames(F) {
   const P = F.spec.period || {}, st = F.state, kirtle = P.kind === 'kirtle';
+  if (P.none) return { top: null, bottoms: null, under: null, boots: null };
   return { top: (kirtle ? 'Kirtle' : P.sleeves === 'long' ? 'DressLong' : 'DressElbow') + (st.top === 'up' ? 'Up' : ''),
     bottoms: P.legs === 'leggings' ? (st.bottoms === 'down' ? 'LeggingsDown' : 'Leggings') : null,
     under: (P.under === 'smalls' ? 'Smalls' : 'Drawers') + (st.under === 'down' ? 'Down' : ''), boots: 'Boots' };
@@ -1772,8 +1774,8 @@ function dressPeriod(F) {
   for (const k of on) garmentPeriod(F, k);
   for (const k in F.gm) { const m = F.gm[k], v = on.has(k) && k !== hidden; m.visible = v; if (m.userData.hull) m.userData.hull.visible = v; }
   F.clothes = { top: F.gm[want.top], bottoms: want.bottoms ? F.gm[want.bottoms] : null, under: F.gm[want.under] }; F.bootL = F.bootR = F.gm.Boots;
-  F.layers = ['top', 'under'].concat(want.bottoms ? ['bottoms'] : []);
-  F.skirt = (F.spec.period || {}).kind === 'kirtle' ? 'short' : 'long';
+  F.layers = (F.spec.period || {}).none ? [] : ['top', 'under'].concat(want.bottoms ? ['bottoms'] : []);
+  F.skirt = (F.spec.period || {}).none ? null : (F.spec.period || {}).kind === 'kirtle' ? 'short' : 'long';
   let hide = 0; for (const k of on) for (const r of PHIDE[k] || []) hide |= 1 << R[r];
   F.skinMat.userData.u.uHide.value = hide;
   // (stockings under a dress, to above the knee; none under leggings)
@@ -1785,14 +1787,16 @@ function dressPeriod(F) {
 // smalls; and at her back, where Silas's other hand lies: over the roll, when the skirt's raised, or over the bodice and skirt)
 function liftPeriod(F) {
   const st = F.state, P = F.spec.period || {};
+  if (P.none) return 0.004;
   if (st.top === 'down') return P.kind === 'kirtle' ? 0.02 : 0.03;
   if (P.legs === 'leggings' && st.bottoms === 'up') return 0.009;
   if (st.under === 'up') return P.under === 'smalls' ? 0.006 : 0.014;
   return 0.004;
 }
-function backPeriod(F, where) { const raised = F.state.top === 'up'; return where === 'roll' ? (raised ? 0.06 : 0.026) : 0.012; }
+function backPeriod(F, where) { if ((F.spec.period || {}).none) return 0.004; const raised = F.state.top === 'up'; return where === 'roll' ? (raised ? 0.06 : 0.026) : 0.012; }
 function cushionPeriod(F, area) {
   const st = F.state, P = F.spec.period || {}; let left = 1;
+  if (P.none) return 0;
   if (st.top === 'down' && (P.kind !== 'kirtle' || area !== 'thighs')) left *= 1 - PCUSH.skirt;
   if (P.legs === 'leggings' && st.bottoms === 'up') left *= 1 - PCUSH.leggings;
   if (st.under === 'up' && (P.under !== 'smalls' || area !== 'thighs')) left *= 1 - (P.under === 'smalls' ? PCUSH.smalls : PCUSH.drawers);

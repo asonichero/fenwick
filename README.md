@@ -39,7 +39,7 @@ The guest bedroom of Chapter 1, where Silas finds Goldie asleep among half-eaten
 ## Figures (`figures.html`)
 
 A heroine and Silas together in a plain space, as Meridian's figures page has them:
-- **What you can set:** any heroine in any of her outfits; her clothes raised or lowered; Silas's build; her defiance, submission, desire and comfort; her expression and her body's response; front, ¾, side, back or close on her head; a turntable.
+- **What you can set:** any heroine in any of her outfits, or **None** (here only: nothing on, to see how the body moves without clothes masking it); her clothes raised or lowered; Silas's build; her defiance, submission, desire and comfort; her expression and her body's response; front, ¾, side, back or close on her head; a turntable.
 - **Standing poses:** side by side, facing him, being told off (her stance from the sliders), in the corner.
 - **Correction poses:** across the knee (on a chair or the edge of a bed), hands on a table, over a table, and the aftercare on a settle.
 - **The correction loop:** in the correction poses, the correction itself runs on props where a room's furniture would be. The controls are the correction test's (run, pace, strength, side, where, soothe, clothes, end turn, cameras), with no dialogue and no meter. Round follows round: end the turn and Silas soothes her, dresses her, and she's placed again. Her marks build up, and nothing she goes through changes the sliders. **Reset** (**R**) clears her marks and lets what she feels settle. After her safe word it waits for Reset.

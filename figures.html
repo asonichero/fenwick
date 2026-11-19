@@ -94,7 +94,10 @@ const cfg = { who: Cast.ROSTER[q.get('who')] ? q.get('who') : 'goldie', outfit: 
   clothes: (q.get('clothes') || 'down,up,up').split(','), build: q.get('build') || 'average', sound: false,
   rel: { defiance: num('def', null), submission: num('sub', 0), desire: num('des', 0), comfort: num('com', 0) } };
 if (cfg.rel.defiance == null) cfg.rel.defiance = Cast.ROSTER[cfg.who].meters.wilfulness;
-if (!Cast.outfits(cfg.who).includes(cfg.outfit)) cfg.outfit = Cast.outfits(cfg.who)[0];
+// (her outfits, and here only, None: nothing on, to see how the body moves without clothes masking it)
+const outfitsOf = id => Cast.outfits(id).concat(['none']);
+if (!outfitsOf(cfg.who).includes(cfg.outfit)) cfg.outfit = Cast.outfits(cfg.who)[0];
+const specFor = () => (cfg.outfit === 'none' ? Object.assign(Cast.figureSpec(cfg.who), { period: { none: true }, periodKey: 'none' }) : Cast.figureSpec(cfg.who, 'f', cfg.outfit));
 
 // ── The space: a soft backdrop and floor, lit from three sides ──
 const renderer = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true });
@@ -159,13 +162,13 @@ function build() {
   clear(); round = 0; total = 0; inRound = 0; status = ''; needReset = false;
   const silas = { build: cfg.build };
   if (BY_SESSION[cfg.pose]) {
-    ses = Session.create(STAGE, BAY, { captain: silas, position: BY_SESSION[cfg.pose], between: 'aside', queue: [{ id: cfg.who, sex: 'f', outfit: cfg.outfit }], witnesses: [],
+    ses = Session.create(STAGE, BAY, { captain: silas, position: BY_SESSION[cfg.pose], between: 'aside', queue: [{ id: cfg.who, sex: 'f', outfit: cfg.outfit, spec: specFor() }], witnesses: [],
       rel: { [cfg.who]: relFor() }, sound: cfg.sound });
     ses.on(onEvent); ses.start(); round = 1;
     if (cfg.pose === 'after') ses.aftercare(cfg.who); else ses.current.f.setClothes(worn());
     F = ses.people[0].f; C = ses.captain; ses.camera(0, 0); window.ses = ses;
   } else {
-    F = Figure.make(Cast.figureSpec(cfg.who, 'f', cfg.outfit)); scene.add(F.root); F.setClothes(worn());
+    F = Figure.make(specFor()); scene.add(F.root); F.setClothes(worn());
     C = Figure.make(Cast.squireSpec(silas)); scene.add(C.root); C.setClothes(dressed);
   }
   for (const k in PROPS) PROPS[k].visible = k === PROP_OF[cfg.pose];
@@ -246,20 +249,21 @@ $('spin').onclick = () => { cfg.spin = !cfg.spin; refresh(); };
 $('hide').onclick = () => $('panel').classList.toggle('closed');
 // what the layers are called, for what she's wearing (and what state they're in)
 function clothesLabels() {
+  if (cfg.outfit === 'none') return ['No clothes', 'No clothes', 'No clothes', false, true];
   const P = Cast.WARDROBE[cfg.who][cfg.outfit], s = ses && ses.current && cfg.pose !== 'after' ? ses.current.f.state : worn();
   return [(P.kind === 'kirtle' ? 'Kirtle: ' : 'Skirt: ') + (s.top === 'up' ? 'raised' : 'down'), P.legs === 'leggings' ? 'Leggings: ' + (s.bottoms === 'down' ? 'lowered' : 'up') : 'No leggings',
     (P.under === 'smalls' ? 'Smalls: ' : 'Drawers: ') + (s.under === 'down' ? 'lowered' : 'up'), P.legs === 'leggings'];
 }
 function refresh() {
   $('who').value = cfg.who; $('expr').value = cfg.expr;
-  seg('outfit', Cast.outfits(cfg.who).map(o => [o, o + (Cast.OUTFIT_NOTES[o] ? ' · ' + Cast.OUTFIT_NOTES[o] : '')]), cfg.outfit, v => { cfg.outfit = v; build(); });
+  seg('outfit', outfitsOf(cfg.who).map(o => [o, o === 'none' ? 'None · nothing on' : o + (Cast.OUTFIT_NOTES[o] ? ' · ' + Cast.OUTFIT_NOTES[o] : '')]), cfg.outfit, v => { cfg.outfit = v; build(); });
   seg('sbuild', [['lean', 'Lean'], ['average', 'Average'], ['heavy', 'Heavy']], cfg.build, v => { cfg.build = v; build(); });
   seg('pose', POSES, cfg.pose, v => { const was = cfg.pose; cfg.pose = v; if (BY_SESSION[was] || BY_SESSION[v]) build(); else { for (const k in PROPS) PROPS[k].visible = false; view(cfg.view); } refresh(); });
   $('poseNote').textContent = NOTES[cfg.pose] || '';
   seg('views', VIEWS.map(v => [v[0], v[1]]), cfg.view, view);
-  const [t, b, u, legs] = clothesLabels();
+  const [t, b, u, legs, bare] = clothesLabels();
   $('pTop').textContent = $('cTop').textContent = t; $('pBot').textContent = $('cBot').textContent = b; $('pUnd').textContent = $('cUnd').textContent = u;
-  $('pBot').disabled = !legs; $('spin').classList.toggle('on', cfg.spin); $('respAuto').classList.toggle('on', cfg.respAuto);
+  $('pBot').disabled = !legs; $('pTop').disabled = $('pUnd').disabled = !!bare; $('spin').classList.toggle('on', cfg.spin); $('respAuto').classList.toggle('on', cfg.respAuto);
   $('respAuto').style.display = BY_SESSION[cfg.pose] ? '' : 'none';
   // (the correction's HUD: as the correction test's, without the meter)
   if (!ses || !correcting()) return;
@@ -267,7 +271,7 @@ function refresh() {
   $('whoNm').textContent = R.title === R.name ? R.name : `${R.name} · ${R.title}`; $('whoSub').textContent = `${POSES.find(p => p[0] === cfg.pose)[1]} · round ${round}`;
   $('run').textContent = st.running ? 'Stop run' : 'Start run'; $('run').classList.toggle('on', st.running); $('run').disabled = !c || st.phase !== 'turn' || ses.busy;
   for (const id of ['cTop', 'cBot', 'cUnd', 'soothe', 'end']) $(id).disabled = !c || st.phase !== 'turn' || !!st.ending || (id === 'soothe' && ses.busy);
-  if (!legs) $('cBot').disabled = true;
+  if (!legs) $('cBot').disabled = true; if (bare) $('cTop').disabled = $('cUnd').disabled = true;
   $('soothe').classList.toggle('on', st.soothe); $('paceV').textContent = times(st.pace); $('strengthV').textContent = times(st.strength);
   $('sound').textContent = cfg.sound ? 'On' : 'Off'; $('sound').classList.toggle('on', cfg.sound);
   const what = status || (st.ending ? 'Finishing: Silas soothes her, then dresses her.' : st.act || st.actQ.length ? 'Silas is changing her clothes.' : st.running ? 'Running.' : st.soothe ? 'Soothing.' : st.phase === 'turn' ? 'Ready.' : '');
