@@ -934,6 +934,10 @@ function anchorsOn(F, geo) {
       F.anchor[k] = { i: best, bind: new V3(p.getX(best), p.getY(best), p.getZ(best)) };
     } }
   for (const [k, y] of [['back', yW], ['blades', F.H.blades]]) { const i = pick(j => (Math.abs(p.getX(j)) < 0.015 && n.getZ(j) < -0.7 ? -p.getZ(j) : -1e9), y); F.anchor[k] = { i, bind: new V3(p.getX(i), p.getY(i), p.getZ(i)) }; }
+  // (Fenwick: where a raised skirt's roll lies, just above her hips (her back, and each side); and her middle back, with her ribs at each side)
+  const L = F.L || {}, yRoll = L.rollY || yW - 0.07, yMid = (yW + F.H.blades) / 2;
+  for (const [k, y] of [['roll', yRoll], ['mid', yMid]]) { const i = pick(j => (Math.abs(p.getX(j)) < 0.015 && n.getZ(j) < -0.7 ? -p.getZ(j) : -1e9), y); F.anchor[k] = { i, bind: new V3(p.getX(i), p.getY(i), p.getZ(i)) }; }
+  for (const [k, sx, y] of [['rollL', 1, yRoll], ['rollR', -1, yRoll], ['ribL', 1, yMid], ['ribR', -1, yMid]]) { const i = pick(j => (sx * n.getX(j) > 0.75 ? sx * p.getX(j) : -1e9), y); F.anchor[k] = { i, bind: new V3(p.getX(i), p.getY(i), p.getZ(i)) }; }
 }
 // Expression and life: the face easing between expressions, blinking, breathing, the hands' grip, the rest pose, the flesh's give.
 function finish(F, spec) {
@@ -1675,6 +1679,7 @@ function makeGLB(spec, T) {
   F.state = { top: 'down', bottoms: 'up', under: 'up' };
   F.setClothes = st => { Object.assign(F.state, st || {}); if (F.spec.outfit === 'period') dressPeriod(F); else dressGLB(F); };
   F.cushionOf = area => (F.spec.outfit === 'period' ? cushionPeriod(F, area) : null);
+  F.liftOf = () => (F.spec.outfit === 'period' ? liftPeriod(F) : null); F.backOf = where => (F.spec.outfit === 'period' ? backPeriod(F, where) : null);
   F.setPeriod = period => { spec.period = period; spec.outfit = 'period'; for (const k in F.gm) { const m = F.gm[k]; for (const x of [m, m.userData.hull]) if (x) x.parent.remove(x); } F.gm = {}; F.underMat = null; F.setClothes(); };
   F.setOutfit = (outfit, dept) => { spec.outfit = outfit; if (dept) spec.dept = dept; for (const k in F.gm) { const m = F.gm[k]; for (const x of [m, m.userData.hull]) if (x) x.parent.remove(x); } F.gm = {}; F.setClothes(); };
   F.setClothes();
@@ -1776,6 +1781,16 @@ function dressPeriod(F) {
   if (P.stockings && P.legs !== 'leggings') { const c = srgb(P.stockings); F.skinMat.userData.u.uStock.value.set(c.r, c.g, c.b, F.L.knee + 0.105); }
   if (F.spot) for (const k of SPOTS) F.mark(k, 0);
 }
+// (how far out from her skin her clothes are over her seat, the outermost layer that covers it: the skirt, the kirtle, leggings, drawers or
+// smalls; and at her back, where Silas's other hand lies: over the roll, when the skirt's raised, or over the bodice and skirt)
+function liftPeriod(F) {
+  const st = F.state, P = F.spec.period || {};
+  if (st.top === 'down') return P.kind === 'kirtle' ? 0.02 : 0.03;
+  if (P.legs === 'leggings' && st.bottoms === 'up') return 0.009;
+  if (st.under === 'up') return P.under === 'smalls' ? 0.006 : 0.014;
+  return 0.004;
+}
+function backPeriod(F, where) { const raised = F.state.top === 'up'; return where === 'roll' ? (raised ? 0.06 : 0.026) : 0.012; }
 function cushionPeriod(F, area) {
   const st = F.state, P = F.spec.period || {}; let left = 1;
   if (st.top === 'down' && (P.kind !== 'kirtle' || area !== 'thighs')) left *= 1 - PCUSH.skirt;
@@ -1879,6 +1894,14 @@ function tickPresence(F, dt) {
   H.u.uHoloK.value = (H.glitch > 0 ? 0.55 + 0.45 * Math.random() : 1) * (0.94 + 0.06 * Math.sin(H.u.uHoloT.value * 9.0));
 }
 
-const api = { presence, tickPresence, need, adoptHair, hairStyles: () => Object.keys(GLB.hair || {}), tmat, ink, dqs, grip, FINGERS, make, preload, adopt, models: () => Object.keys(GLB.sex), EXPRS, MOUTHS, HEAD_SCALE, OUTFITS, SPOTS, ik2, aim, setWorldQuat, mat, paint, srgb, shade, R };
+// The top of someone's hair, in the world: the highest point of the Blender-built style over the crown (or of the head itself), for a hand to
+// rest on.
+function hairTop(F) {
+  const m = F.hairMesh || null, H = F.head; if (!H) return null;
+  if (m && !m.geometry.boundingBox) m.geometry.computeBoundingBox();
+  const b = m ? m.geometry.boundingBox : null, p = new V3(0, b ? b.max.y : 2.12, b ? (b.min.z + b.max.z) * 0.5 * 0.4 : 0);
+  H.updateMatrixWorld(true); return H.localToWorld(p);
+}
+const api = { presence, tickPresence, need, adoptHair, hairTop, hairStyles: () => Object.keys(GLB.hair || {}), tmat, ink, dqs, grip, FINGERS, make, preload, adopt, models: () => Object.keys(GLB.sex), EXPRS, MOUTHS, HEAD_SCALE, OUTFITS, SPOTS, ik2, aim, setWorldQuat, mat, paint, srgb, shade, R };
 root.Figure = api;
 })(typeof window !== 'undefined' ? window : globalThis);

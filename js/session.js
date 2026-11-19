@@ -595,7 +595,8 @@ function create(stage, bay, opts) {
   // ── Silas's hands ──
   const sv = { p: new V3(), n: new V3() };
   function spotOf(side, area) { return area + side; }
-  function lift() { const S_ = cur.f.state; return S_.bottoms === 'up' ? 0.022 : S_.under === 'up' ? 0.01 : 0.004; }
+  // (how far the hand stays off her skin over the seat: what's over it; a figure in period dress says, by its layers (Figure: liftOf))
+  function lift() { const own = cur.f.liftOf && cur.f.liftOf(); if (own != null) return own; const S_ = cur.f.state; return S_.bottoms === 'up' ? 0.022 : S_.under === 'up' ? 0.01 : 0.004; }
   // the contact: palm flat on the spot, fingers running across the seat away from Silas
   function contactFor(spotKey) {
     cur.f.surface(spotKey, sv, lift());
@@ -610,10 +611,13 @@ function create(stage, bay, opts) {
     // the left hand: across the knee, resting on the small of their back, the fingers on toward their hips and round the far side, the forearm
     // lying along their back (the elbow down on it, toward their shoulders); at the wall, the arm along their shoulders, the hand on the far one
     const back = W_(cur.f, 'spine'), bn = toWorldDir(cur.f, 0, 0, -1).normalize(), cloth = lift() * 0.6;
+    // (Fenwick, in period dress (Figure: backOf): across the knee, the hand resting on the roll her raised skirt is gathered in, just above her
+    // hips (there over her skirt, while it's down): the palm over it, the fingers over its far side and a little toward her hips)
+    const rollOut = cur.f.backOf ? cur.f.backOf('roll') : null;
     if (st.position === 'otk') {
-      const bk = cur.f.surface('back', { p: new V3(), n: new V3() }, cloth), far = otkX.clone().negate(), s_ = sc(cur.f);
-      const fing = otkU.clone().negate().addScaledVector(far, 0.6); fing.addScaledVector(bk.n, -fing.dot(bk.n)).normalize();
-      const palmAt = bk.p.clone().addScaledVector(otkU, -0.05 * s_).addScaledVector(far, 0.04 * s_).addScaledVector(bk.n, 0.016);
+      const onRoll = rollOut != null, bk = cur.f.surface(onRoll ? 'roll' : 'back', { p: new V3(), n: new V3() }, onRoll ? rollOut : cloth), far = otkX.clone().negate(), s_ = sc(cur.f);
+      const fing = otkU.clone().negate().multiplyScalar(onRoll ? 0.35 : 1).addScaledVector(far, onRoll ? 1 : 0.6); fing.addScaledVector(bk.n, -fing.dot(bk.n)).normalize();
+      const palmAt = bk.p.clone().addScaledVector(otkU, onRoll ? 0 : -0.05 * s_).addScaledVector(far, (onRoll ? 0.03 : 0.04) * s_).addScaledVector(bk.n, 0.016);
       const LW = palmAt.clone().addScaledVector(fing, -0.06 * cs), pn = bk.n.clone().negate();
       const elbowAt = bk.p.clone().addScaledVector(otkU, 0.22 * s_).addScaledVector(otkX, 0.03 * s_).addScaledVector(bk.n, 0.05), sh = W_(F, 'upperArmL');
       // (holding their far wrist at the small of their back: the hand over it from above, the fingers round it toward their feet)
@@ -623,7 +627,16 @@ function create(stage, bay, opts) {
         LW.lerp(wr.addScaledVector(wf, -0.05 * cs), pK); fing.lerp(wf, pK).normalize();
       }
       reach(F, 'L', LW, elbowAt.sub(sh.clone().lerp(LW, 0.5)).normalize(), pn, fing);
-      F.grip('L', lerp(0.22, 0.62, pK), 0.15, lerp(0.2, 0.5, pK));
+      F.grip('L', lerp(onRoll ? 0.38 : 0.22, 0.62, pK), 0.15, lerp(0.2, 0.5, pK));
+    } else if (st.position === 'table' && rollOut != null) {
+      // (Fenwick: over the table, his hand on her middle back, the fingers curled round her ribs on the far side, away from him; the elbow up
+      // on his side)
+      const ex = cur.f.backOf('mid'), mid = cur.f.surface('mid', { p: new V3(), n: new V3() }, ex), rib = cur.f.surface('ribR', { p: new V3(), n: new V3() }, ex), s_ = sc(cur.f);
+      const fing = rib.p.clone().sub(mid.p); fing.addScaledVector(mid.n, -fing.dot(mid.n)).normalize();
+      const palmAt = mid.p.clone().addScaledVector(fing, 0.055 * s_).addScaledVector(mid.n, 0.016), LW = palmAt.clone().addScaledVector(fing, -0.06 * cs);
+      const elbowAt = mid.p.clone().addScaledVector(fing, -0.26 * s_).addScaledVector(mid.n, 0.16), sh = W_(F, 'upperArmL');
+      reach(F, 'L', LW, elbowAt.sub(sh.clone().lerp(LW, 0.5)).normalize(), mid.n.clone().negate(), fing);
+      F.grip('L', 0.62, 0.08, 0.35);
     } else if (st.position === 'table') {
       // (bent over the table: as across the knee, the hand on the small of their back, the fingers toward their hips and round the far side)
       const U = toWorldDir(cur.f, 0, 0, 1), X = toWorldDir(cur.f, 1, 0, 0), far = X.clone().negate(), s_ = sc(cur.f);
@@ -635,10 +648,12 @@ function create(stage, bay, opts) {
       F.grip('L', 0.22, 0.15, 0.2);
     } else {
       // (the hand on their waist, the near side: the palm on it, the fingers over the top toward their spine, the elbow out and down at his side)
-      const wa = cur.f.surface('sideL', { p: new V3(), n: new V3() }, cloth), sp_ = cur.f.surface('back', { p: new V3(), n: new V3() }, cloth).p;
+      // (Fenwick, in period dress: holding the roll in place at her near hip, the fingers over it toward her spine, closed on the gathered cloth)
+      const hold = rollOut != null, lf = hold ? rollOut : cloth;
+      const wa = cur.f.surface(hold ? 'rollL' : 'sideL', { p: new V3(), n: new V3() }, lf), sp_ = cur.f.surface(hold ? 'roll' : 'back', { p: new V3(), n: new V3() }, lf).p;
       const fing = sp_.sub(wa.p).addScaledVector(toWorldDir(cur.f, 0, 0, 1), 0.04); fing.addScaledVector(wa.n, -fing.dot(wa.n)).normalize();
-      reach(F, 'L', wa.p.clone().addScaledVector(wa.n, 0.014).addScaledVector(fing, -0.07 * cs), toWorldDir(F, 0.7, -0.6, -0.3).normalize(), wa.n.clone().negate(), fing);
-      F.grip('L', 0.3, 0.1, 0.3);
+      reach(F, 'L', wa.p.clone().addScaledVector(wa.n, 0.014).addScaledVector(fing, (hold ? -0.05 : -0.07) * cs), toWorldDir(F, 0.7, -0.6, -0.3).normalize(), wa.n.clone().negate(), fing);
+      F.grip('L', hold ? 0.55 : 0.3, 0.1, hold ? 0.45 : 0.3);
     }
     // the right: by the swing, or soothing, or resting just above the seat
     const key = spotOf(sw ? sw.side : (st.side === 'alt' ? st.nextSide : st.side), st.area), c = contactFor(key);

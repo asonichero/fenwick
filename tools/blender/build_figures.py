@@ -1275,16 +1275,46 @@ def period_garments(sex, torso, leg, arm, body, label, rig):
         Tb = Cloth(torso, lambda y: 0.0075 - 0.003 * ss(L['neck'] - 0.03, L['neck'] + 0.01, y), slope=0.5, below=L['armpit'] + 0.04)
         bod = lambda P: np.where(P[:, 1] > yw - 0.03, Tb.f(P), -1.0)
         return bod, sleeve, cuffs
+    # (the roll a raised skirt is gathered in: just above her hips, on the top of her seat, its ends turning forward and down into the front's fall)
+    ROLL_Y = L['seatTop'] + 0.018; L['rollY'] = ROLL_Y
+    def side_x(y, z):
+        lo, hi = 0.0, 0.3
+        for _ in range(30):
+            m = (lo + hi) / 2
+            if TS.f(np.array([[m, y, z]]))[0] > 0: lo = m
+            else: hi = m
+        return lo
+    zs = czw + 0.012; xside = side_x(ROLL_Y, zs)
+    RX = np.linspace(-0.13, 0.13, 27); zroll = np.array([back_z(TS, ROLL_Y, x) for x in RX])
     def dress(name, sleeves, hem, flare, ease0, folds, back_full, under_f, under_top, faces):
         bod, sleeve, cuffs = bodice_and_sleeves(sleeves, under_f, under_top)
         sk = skirt(hem, flare, ease0, folds, back_full, under_f, under_top)
-        def top(P):
-            k = 0.001 + 0.022 * ss(L['armpit'] - 0.07, L['armpit'] + 0.01, P[:, 1])
-            a, b = np.maximum(bod(P), sk(P)), sleeve(P); hh = np.maximum(k - np.abs(a - b), 0) / k
-            return np.maximum(a, b) + hh * hh * k * 0.25
-        is_sl = lambda X: sleeve(X) > np.maximum(bod(X), sk(X))
+        # (kept clear of her arms, which hang close by her hips: below the armpit the body of the dress is carved back from the sleeve and the arm
+        # in it by a few millimetres, so the two never run together into one surface, nor the skirt take the arm's weights)
+        def carve(a, P):
+            return np.where(P[:, 1] < L['armpit'] - 0.06, np.minimum(a, -sleeve(P) - 0.007), a)
+        xe = xside + ease0 + 0.006
+        def roll(P):
+            x, y, z = P[:, 0], P[:, 1], P[:, 2]; ax = np.abs(x)
+            zb = np.interp(np.clip(x, -0.13, 0.13), RX, zroll)
+            t = ss(0.12, xe, ax)                                                   # (0 across her back; 1 at her sides, where it turns into the front)
+            zc = (zb - 0.03) * (1 - t) + zs * t; yc = ROLL_Y - 0.03 * t
+            r = (0.034 + 0.004 * np.sin(x * 95 + 0.6)) * (1 - 0.35 * t)
+            return np.where(ax < xe + 0.01, r - np.hypot(y - yc, (z - zc) * 0.85), -1.0)
+        def body(P, up):
+            a = np.maximum(bod(P), sk(P))
+            if up: a = smax(a, roll(P), 0.012)
+            return carve(a, P)
+        def top_of(up):
+            def top(P):
+                k = 0.001 + 0.022 * ss(L['armpit'] - 0.07, L['armpit'] + 0.01, P[:, 1])
+                a, b = body(P, up), sleeve(P); hh = np.maximum(k - np.abs(a - b), 0) / k
+                return np.maximum(a, b) + hh * hh * k * 0.25
+            return top
+        is_sl = lambda X: sleeve(X) > body(X, True)
         neck = [((0, L['neckline'], 0.0), (0, math.cos(0.42), math.sin(0.42)))]
-        # (the skirt's own weights: the pelvis over the hips, then the thighs, either side blended across the middle; toward the hem, the shins)
+        # (the skirt's own weights: the pelvis over the hips (and the roll, gathered there), then the thighs, either side blended across the middle;
+        # toward the hem, the shins)
         def skirt_w(X, G, names):
             x, y = X[:, 0], X[:, 1]; ix = {n: names.index(n) for n in ('hips', 'thighL', 'thighR', 'shinL', 'shinR')}
             h = ss(y_hw + 0.02, CROTCH_Y - 0.11, y); s = ss(-0.07, 0.07, x); kb = 0.6 * ss(K + 0.14, K - 0.12, y)
@@ -1294,21 +1324,13 @@ def period_garments(sex, torso, leg, arm, body, label, rig):
             return G * (1 - c[:, None]) + C * c[:, None]
         for up in (False, True):
             planes = [((0, hem, 0), down_, lambda X: ~is_sl(X))] + [(c[0], c[1], is_sl) for c in cuffs] + neck
-            fn = top
             if up:
-                # (raised: the skirt's back taken up, its front left hanging; the back gathered in a roll at the small of the back, a fold of it
-                # bunched over each hip, where the front's edges are)
-                zs = czw + 0.012
-                planes.append(((0, 0, zs), (0, 0, -1.0), lambda X: (X[:, 1] < yw - 0.035) & ~is_sl(X)))
-                def roll(P):
-                    x, y, z = P[:, 0], P[:, 1], P[:, 2]; ax = np.abs(x)
-                    zb = np.interp(np.clip(x, -0.22, 0.22), np.linspace(-0.22, 0.22, 45), zback)
-                    yc = yw + 0.016 + 0.012 * np.cos(np.clip(x / 0.2, -1, 1) * np.pi / 2) - 0.03 * ss(0.12, 0.2, ax)
-                    zc = zb - 0.034 + 0.02 * ss(0.1, 0.2, ax)
-                    r = (0.038 + 0.004 * np.sin(x * 95)) * np.sqrt(np.clip(1 - (ax / 0.215) ** 2, 0, 1))
-                    return np.where(z < czw + 0.02, r - np.hypot(y - yc, (z - zc) * 0.85), -1.0)
-                fn = lambda P, top=top, roll=roll: smax(top(P), roll(P), 0.012)
-            make(name + ('Up' if up else ''), fn, (-0.42, hem - 0.035, -0.33), (0.42, L['collar'] + 0.03, 0.3), faces if not up else int(faces * 0.85), planes, TORSO_L, h=0.0034,
+                # (raised: the skirt's back taken up from the hem to just above her hips and gathered there in the roll, its ends turning down at her
+                # sides into the front, which is left hanging; above the roll the skirt still covers the small of her back. The cut takes away
+                # the back below the roll, and spares the roll)
+                in_roll = lambda X: roll(X) > np.maximum(bod(X), sk(X)) - 0.004
+                planes.append(((0, 0, zs), (0, 0, -1.0), lambda X: (X[:, 1] < ROLL_Y) & ~is_sl(X) & ~in_roll(X)))
+            make(name + ('Up' if up else ''), top_of(up), (-0.42, hem - 0.035, -0.33), (0.42, L['collar'] + 0.03, 0.3), faces if not up else int(faces * 0.9), planes, TORSO_L, h=0.0034,
                  split=(is_sl, ARMS_L + ['torso']), custom=skirt_w)
     dress('DressLong', 'long', SKIRT_HEM, 0.13, 0.012, 1.0, 1.22, drawers_f, L['trouserTop'], 16000)
     dress('DressElbow', 'elbow', SKIRT_HEM, 0.13, 0.012, 1.0, 1.22, drawers_f, L['trouserTop'], 16000)

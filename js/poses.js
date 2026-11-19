@@ -55,11 +55,12 @@ function stand(F, at, yaw, o) {
 function arms(F, how) {
   const chest = W_(F, 'chest'), fwd = toWorldDir(F, 0, 0, 1), side = toWorldDir(F, 1, 0, 0), s = sc(F);
   if (how === 'fold') {
-    // the forearms crossed in front of the chest, each hand tucked toward the other arm, the elbows a little out
+    // the forearms crossed in front of the chest, each hand tucked toward the other arm, the elbows a little out; the palms facing back, against
+    // the other arm and the side of the chest, the fingers curling round (Fenwick: they faced out, the hands turned over)
     for (const [sd, sx] of [['L', 1], ['R', -1]]) {
       const T = chest.clone().addScaledVector(fwd, 0.19 * s).addScaledVector(UP, (sx > 0 ? -0.05 : -0.025) * s).addScaledVector(side, -sx * 0.12 * s);
-      reach(F, sd, T, side.clone().multiplyScalar(sx).addScaledVector(UP, -0.5).normalize(), side.clone().multiplyScalar(sx).addScaledVector(fwd, 0.5).normalize(), side.clone().multiplyScalar(-sx));
-      F.grip(sd, 0.5, 0, 0.5);
+      reach(F, sd, T.addScaledVector(side, sx * 0.02 * s), side.clone().multiplyScalar(sx).addScaledVector(UP, -0.5).normalize(), fwd.clone().negate().addScaledVector(UP, -0.25).normalize(), side.clone().multiplyScalar(-sx).addScaledVector(fwd, -0.35).normalize());
+      F.grip(sd, 0.78, 0.05, 0.6);
     }
   } else if (how === 'rest') {
     const hip = W_(F, 'hips');
@@ -89,10 +90,12 @@ function seat(F, at, yaw, o) {
 }
 
 // Hands on the head (waiting in the corner): fingers laced over the crown, elbows out.
+// (Fenwick: the palms down on the crown, resting on top of her hair, however much of it there is (Figure: hairTop): they sank into a fuller style)
 function handsOnHead(F) {
-  const head = W_(F, 'head'), side = toWorldDir(F, 1, 0, 0), fwd = toWorldDir(F, 0, 0, 1);
+  const head = W_(F, 'head'), side = toWorldDir(F, 1, 0, 0), fwd = toWorldDir(F, 0, 0, 1), top = Fg.hairTop ? Fg.hairTop(F) : null;
+  const up = top ? Math.max(0.15 * sc(F), top.y - head.y + 0.018) : 0.15 * sc(F);
   for (const [sd, sx] of [['L', 1], ['R', -1]]) {
-    reach(F, sd, head.clone().addScaledVector(UP, 0.15 * sc(F)).addScaledVector(side, sx * 0.045).addScaledVector(fwd, -0.01), side.clone().multiplyScalar(sx).addScaledVector(UP, -0.15).normalize(), UP.clone(), side.clone().multiplyScalar(-sx).addScaledVector(fwd, 0.3).normalize());
+    reach(F, sd, head.clone().addScaledVector(UP, up).addScaledVector(side, sx * 0.05).addScaledVector(fwd, -0.01), side.clone().multiplyScalar(sx).addScaledVector(UP, -0.15).normalize(), UP.clone().negate(), side.clone().multiplyScalar(-sx).addScaledVector(fwd, 0.3).normalize());
     F.grip(sd, 0.3, 0, 0.2);
   }
 }

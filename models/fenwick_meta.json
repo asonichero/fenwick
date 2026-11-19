@@ -56,7 +56,8 @@
    "drawersLeg": 0.5412677161293292,
    "drawersDown": 0.6562677161293292,
    "sleeveE": 0.3306939244798223,
-   "period": 1.0
+   "period": 1.0,
+   "rollY": 0.9894525474525477
   },
   "joints": {
    "hips": [
