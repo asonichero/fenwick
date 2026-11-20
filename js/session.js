@@ -49,7 +49,7 @@ function create(stage, bay, opts) {
   const V = Object.assign({ place: (id, k) => L.place(id, k), captain: (k, id) => L.captain(k, id), react: (id, k) => L.react(id, k) }, opts.voice || {});
   const people = [];
   const addPerson = (p, role) => {
-    const f = Fg.make(p.spec || C.figureSpec(p.id, p.sex, p.outfit)); scene.add(f.root); f.clothNear = [captain];      // (Fenwick: her skirt falls over his legs, not through them)
+    const f = Fg.make(p.spec || C.figureSpec(p.id, p.sex, p.outfit)); scene.add(f.root);
     if (p.presence) Fg.presence(f, p.presence);
     const r = p.profile || C.ROSTER[p.id], pain = S.createPain(r.pain || {});
     const P = { id: p.id, sex: p.sex, f, role, pain, r, done: false, outcome: null, hits: 0, peak: 0, marks: 0, said: {}, bandSeen: 0, pitch: p.pitch || C.pitch(p.id, p.sex), spot: null, resp: 0,
@@ -840,9 +840,7 @@ function create(stage, bay, opts) {
     if (!st.act && st.actQ.length && !st.swing) st.act = Object.assign(st.actQ.shift(), { t: 0, dur: 2.0, swapped: false });
     const a = st.act; if (!a) return;
     a.t += dt; const u = a.t / a.dur;
-    // (Fenwick: a skirt on its cloth changes as soon as the hand has its hem, and the cloth goes up (or down) with it; the rest midway)
-    const swapAt = a.key === 'top' && cur.f.skirt && cur.f.cloth !== undefined ? 0.3 : 0.55;
-    if (!a.swapped && u >= swapAt) { a.swapped = true; cur.f.setClothes({ [a.key]: a.to }); emit('state'); }
+    if (!a.swapped && u >= 0.55) { a.swapped = true; cur.f.setClothes({ [a.key]: a.to }); emit('state'); }
     if (u >= 1) { st.act = null; emit('state'); }
   }
   // where the hand goes for each: the edge's path along their back, from where it is to where it's going
