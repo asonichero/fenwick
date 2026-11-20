@@ -25,7 +25,8 @@ from mathutils.bvhtree import BVHTree
 HERE = os.path.dirname(os.path.abspath(__file__)); REPO = os.path.dirname(os.path.dirname(HERE))
 MODELS = os.environ.get('FENWICK_MODELS') or os.path.join(REPO, 'models'); OUT = os.environ.get('FENWICK_OUT') or os.path.join(MODELS, 'drapes')
 POSES_DOWN = ['otk', 'bed', 'edge', 'table', 'after']; POSES_UP = ['otk', 'bed', 'edge', 'table']      # (raised only in a correction)
-FRAMES = int(os.environ.get('FENWICK_FRAMES') or 100); QUALITY = [5, 3, 0];      # (steps, collision steps, her drawers left out) LIFT = (6, 22, 40)      # (raised: out over her by the second frame of these, at her waist by the third)
+FRAMES = int(os.environ.get('FENWICK_FRAMES') or 100); QUALITY = [5, 3, 0]      # (steps, collision steps, her drawers left out)
+LIFT = (6, 22, 40)      # (raised: out over her by the second frame of these, at her waist by the third)
 ARM = ('clav', 'upperArm', 'foreArm', 'hand', 'index', 'middle', 'ring', 'pinky', 'thumb')
 
 # ── the models, read straight from the GLBs: points, skinning, triangles and shape keys ──
