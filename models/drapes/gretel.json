@@ -1,0 +1,28 @@
+{
+ "scale": 32767.0,
+ "garments": {
+  "Kirtle": {
+   "count": 5301,
+   "n": 2309,
+   "verts": 0,
+   "poses": {
+    "edge": {
+     "off": 4620,
+     "skin": 18476
+    },
+    "otk:up": {
+     "off": 25404,
+     "skin": 39260
+    },
+    "table": {
+     "off": 46188,
+     "skin": 60044
+    },
+    "table:up": {
+     "off": 66972,
+     "skin": 80828
+    }
+   }
+  }
+ }
+}

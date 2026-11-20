@@ -1,0 +1,28 @@
+{
+ "scale": 32767.0,
+ "garments": {
+  "DressLong": {
+   "count": 7948,
+   "n": 3909,
+   "verts": 0,
+   "poses": {
+    "edge:up": {
+     "off": 7820,
+     "skin": 31276
+    },
+    "otk": {
+     "off": 43004,
+     "skin": 66460
+    },
+    "otk:up": {
+     "off": 78188,
+     "skin": 101644
+    },
+    "table": {
+     "off": 113372,
+     "skin": 136828
+    }
+   }
+  }
+ }
+}
