@@ -25,7 +25,7 @@ from mathutils.bvhtree import BVHTree
 HERE = os.path.dirname(os.path.abspath(__file__)); REPO = os.path.dirname(os.path.dirname(HERE))
 MODELS = os.environ.get('FENWICK_MODELS') or os.path.join(REPO, 'models'); OUT = os.environ.get('FENWICK_OUT') or os.path.join(MODELS, 'drapes')
 POSES_DOWN = ['otk', 'bed', 'edge', 'table', 'after']; POSES_UP = ['otk', 'bed', 'edge', 'table']      # (raised only in a correction)
-FRAMES = int(os.environ.get('FENWICK_FRAMES') or 100); LIFT = (6, 22, 40)      # (raised: out over her by the second frame of these, at her waist by the third)
+FRAMES = int(os.environ.get('FENWICK_FRAMES') or 100); QUALITY = [5, 3]; LIFT = (6, 22, 40)      # (raised: out over her by the second frame of these, at her waist by the third)
 ARM = ('clav', 'upperArm', 'foreArm', 'hand', 'index', 'middle', 'ring', 'pinky', 'thumb')
 
 # ── the models, read straight from the GLBs: points, skinning, triangles and shape keys ──
@@ -185,10 +185,10 @@ def bake(F_, M_, G, rec, gname, up, legs):
     vg = ob.vertex_groups.new(name='pin')
     for i in np.where(pinw > 0)[0]: vg.add([int(i)], 1.0, 'REPLACE')
     md = ob.modifiers.new('Cloth', 'CLOTH'); s = md.settings
-    s.quality = 5; s.mass = 0.25; s.air_damping = 1.5; s.vertex_group_mass = 'pin'
+    s.quality = QUALITY[0]; s.mass = 0.25; s.air_damping = 1.5; s.vertex_group_mass = 'pin'
     s.tension_stiffness = 8; s.compression_stiffness = 1.5; s.shear_stiffness = 3; s.bending_stiffness = 0.2 if up else 0.45      # (gathered, it folds over on itself freely)
     s.tension_damping = 5; s.compression_damping = 5; s.shear_damping = 5; s.bending_damping = 0.3
-    cs = md.collision_settings; cs.distance_min = 0.004; cs.collision_quality = 3
+    cs = md.collision_settings; cs.distance_min = 0.004; cs.collision_quality = QUALITY[1]
     cs.use_self_collision = bool(up); cs.self_distance_min = 0.004
     md.point_cache.frame_start = 1; md.point_cache.frame_end = FRAMES
     t0 = time.time()
@@ -210,14 +210,22 @@ def bake(F_, M_, G, rec, gname, up, legs):
             print('    x%.0f  armw %.2f/%.2f pin %d/%d  bind %s / %s  start %s end %s / start %s end %s' % (r[e], armw[a], armw[b], pinw[a], pinw[b], np.round(Pg[U][a], 3), np.round(Pg[U][b], 3),
                   np.round(Xs0[a], 2), np.round(Xs[a], 2), np.round(Xs0[b], 2), np.round(Xs[b], 2)), flush=True)
     # each point that moves: given to the part of her it lies on, and its offset from the garment as built
-    mv = np.where(~pin[ix])[0]; Xm = Xs[ix[mv]]
+    mv = np.where(~pin[ix])[0]
+    # (a point flung off (the cloth blew up somewhere): the drape tried again, more finely; failing that, any point still far from her put
+    # back where it started)
+    far = np.array([solids[0][0].find_nearest(Vector(Xs[i]), 0.5)[0] is None for i in range(len(Xs))]) & ~pin
+    if far.any():
+        if QUALITY[0] < 10: print('  %d points flung off: again, more finely' % int(far.sum()), flush=True); QUALITY[:] = [10, 6]; r = bake(F_, M_, G, rec, gname, up, legs); QUALITY[:] = [5, 3]; return r
+        print('  %d points still flung off: put back where they started' % int(far.sum()), flush=True); Xs[far] = Xs0[far]
+    Xm = Xs[ix[mv]]
     # (her trunk and legs only: a skirt never goes with her arms, which move beside it)
     dom = np.array([body['joints'][body['J'][v][int(np.argmax(body['W'][v]))]] for v in range(len(body['P']))])
     keepf = np.array([not any(dom[v].startswith(ARM) for v in f_) for f_ in body['I']])
     bvh = BVHTree.FromPolygons([tuple(v) for v in Xb], [tuple(int(i) for i in f) for f in body['I'][keepf]]); Ik = body['I'][keepf]
     bix = {n: i for i, n in enumerate(G)}; hips = bix['hips']; J2 = np.zeros((len(mv), 2), int); W2 = np.zeros((len(mv), 2))
     for k, p in enumerate(Xm):
-        loc, n, fi, dist = bvh.find_nearest(Vector(p), 1.0)
+        loc, n, fi, dist = bvh.find_nearest(Vector(p), 2.0)
+        if fi is None: J2[k] = [hips, hips]; W2[k] = [1.0, 0.0]; continue
         f_ = Ik[fi]; v = f_[int(np.argmin(np.linalg.norm(Xb[f_] - p, axis=1)))]
         w = {}
         for j, wt in zip(body['J'][v], body['W'][v]):
