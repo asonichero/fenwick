@@ -37,7 +37,7 @@ kbd { font: 10px ui-monospace, monospace; color: var(--dim); }
 }
 @media (hover: none) { kbd { display: none; } button { min-height: 34px; } }
 </style></head>
-<body><div id="view"></div>
+<body><div id="view"></div><div id="fade" style="position:fixed;inset:0;background:#05070a;opacity:0;pointer-events:none;transition:opacity 0.3s ease;z-index:5"></div>
 <div id="panel" class="box">
   <h1>Figures</h1>
   <h2>Heroine</h2><select id="who"></select>
@@ -136,7 +136,8 @@ const BAY = { group: new THREE.Group(), name: 'Figures', private: true, spots: {
   watch: [{ at: new V3(4, 0, -4), yaw: 0 }], corner: { at: new V3(4.5, 0, 4), yaw: 0 } } };
 // (and the stage it's told about: the scene, the camera, and a way to move it, glided)
 let glide = null;
-const STAGE = { scene, camera, go(pos, look, ms) { if (!ms) { camera.position.copy(pos); controls.target.copy(look); controls.update(); glide = null; return; }
+const STAGE = { scene, camera, fade(fn) { if (q.get('still')) return fn(); const f = document.getElementById('fade'); f.style.opacity = 1;
+    setTimeout(() => { fn(); f.style.opacity = 0; }, 320); }, go(pos, look, ms) { if (!ms) { camera.position.copy(pos); controls.target.copy(look); controls.update(); glide = null; return; }
   glide = { t0: performance.now(), ms, p0: camera.position.clone(), p1: pos.clone(), l0: controls.target.clone(), l1: look.clone() }; } };
 function resize() { renderer.setSize(innerWidth, innerHeight); camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix(); }
 addEventListener('resize', resize); resize();

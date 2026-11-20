@@ -239,6 +239,9 @@ $('hide').onclick = () => $('setup').classList.toggle('closed');
 // ── The stage ──
 if (q.get('low')) cfg.graphics = q.get('low') === '0' ? 'full' : 'low';
 const stage = Stage.create($('view'), { keep: !!q.get('still'), low: cfg.graphics === 'low' });
+// (through black: a change made in the dark, then the scene back: her skirt raised or lowered, draped as she lies. At once, held still)
+stage.fade = fn => { if (q.get('still')) return fn(); const f = $('fade'); f.style.transition = 'opacity 0.3s ease'; f.style.opacity = 1;
+  setTimeout(() => { fn(); f.style.transition = 'opacity 0.4s ease'; f.style.opacity = 0; setTimeout(() => { f.style.transition = ''; f.style.opacity = ''; }, 450); }, 320); };
 // (the grade a little warmer than Meridian's steel: candle and limewash, not bulkheads)
 if (stage.grade && stage.grade.uniforms) { stage.grade.uniforms.uShadow.value.set(0.94, 0.95, 1.0); stage.grade.uniforms.uHigh.value.set(1.08, 1.0, 0.86); }
 const bay = GuestRoom.build(stage.scene);

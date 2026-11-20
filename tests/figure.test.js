@@ -198,6 +198,23 @@ test('her skin’s painted detail and her feet, where the model puts them; the c
   assert.equal(U(silas).uNip.value.w, 0); assert.equal(U(silas).uFootF.value.z, 0);
 });
 
+test('her skirt draped as she lies, from Blender: each pose its own, down or raised; her own copy, not another’s; as built when she stands', async () => {
+  await loaded;
+  const j = JSON.parse(fs.readFileSync(path.join(MODELS, 'fenwick_drapes.json'))), b = fs.readFileSync(path.join(MODELS, 'fenwick_drapes.bin'));
+  F.adoptDrapes(j, b.buffer.slice(b.byteOffset, b.byteOffset + b.byteLength));
+  for (const g of ['DressLong', 'DressElbow', 'Kirtle']) {
+    assert.deepEqual(Object.keys(j.meshes[g].poses).sort(), ['after', 'bed', 'edge', 'otk', 'table'], g);
+    assert.deepEqual(Object.keys(j.meshes[g + 'Up'].poses).sort(), ['bed', 'edge', 'otk', 'table'], g + 'Up');
+  }
+  const belle = gfig('belle'), other = gfig('belle'), pos = f => Float32Array.from(f.gm[f.topName].geometry.attributes.position.array);
+  const rest = pos(belle); belle.setDrape('otk'); const otk = pos(belle);
+  let moved = 0; for (let i = 0; i < rest.length; i++) moved = Math.max(moved, Math.abs(otk[i] - rest[i]));
+  assert.ok(moved > 0.1, `across the knee, its hem falls away (${moved.toFixed(2)} m)`);
+  assert.deepEqual(Array.from(pos(other)), Array.from(rest), 'another in the same dress is as she was');
+  belle.setClothes({ top: 'up' }); assert.equal(belle.topName, 'DressLongUp'); assert.equal(belle.gm.DressLongUp.userData.drapeKey, 'DressLongUp|otk');
+  belle.setClothes({ top: 'down' }); belle.setDrape(null); assert.deepEqual(Array.from(pos(belle)), Array.from(rest), 'standing, as built');
+});
+
 test('the Blender-built hair: every style the household wears, coloured per point, fitted to the head; his beard', async () => {
   const hb = fs.readFileSync(path.join(MODELS, 'fenwick_hair.glb')); await F.adoptHair(hb.buffer.slice(hb.byteOffset, hb.byteOffset + hb.byteLength));
   const styles = F.hairStyles();

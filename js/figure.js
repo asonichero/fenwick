@@ -1491,10 +1491,19 @@ function preload(base) {
   if (!THREE.GLTFLoader || typeof fetch === 'undefined') return (GLB.ready = Promise.resolve(false));
   // (Fenwick: the hair too, built in Blender to fit the head: tools/blender/build_hair.py. Without it, the hair is built in code, as before.)
   const hair = fetch(base + 'fenwick_hair.glb').then(r => r.arrayBuffer()).then(adoptHair).catch(e => { console.warn('Figure: no Blender-built hair; building it in code.', e); });
+  // (Fenwick: her skirts as they lie in each pose, draped in Blender: tools/blender/bake_drapes.py. Without them, a skirt keeps its shape)
+  const drapes = Promise.all([fetch(base + 'fenwick_drapes.json').then(r => r.json()), fetch(base + 'fenwick_drapes.bin').then(r => r.arrayBuffer())])
+    .then(([j, b]) => adoptDrapes(j, b)).catch(() => {});
   GLB.ready = fetch(base + 'fenwick_meta.json').then(r => r.json())
     .then(meta => Promise.all(['f', 'm'].map(sx => fetch(base + 'fenwick_' + sx + '.glb').then(r => r.arrayBuffer()).then(buf => adopt(meta, sx, buf)))))
-    .then(() => hair).then(() => true).catch(e => { console.warn('Figure: the Blender-built models did not load; building the figures in code.', e); GLB.sex = {}; return false; });
+    .then(() => hair).then(() => drapes).then(() => true).catch(e => { console.warn('Figure: the Blender-built models did not load; building the figures in code.', e); GLB.sex = {}; return false; });
   return GLB.ready;
+}
+// (the drapes: an index, each garment's point count and where each pose's offsets start, and the offsets, int16 at the index's scale)
+function adoptDrapes(index, buf) { GLB.drapes = { index, data: new Int16Array(buf) }; return GLB.drapes; }
+function drapeOf(name, pose) {
+  const D = GLB.drapes, e = D && pose && D.index.meshes[name], at = e && e.poses[pose];
+  return at == null ? null : { off: D.data.subarray(at / 2, at / 2 + e.count * 3), scale: D.index.scale, count: e.count };
 }
 // The hair styles: each a mesh in head units (the head group's space), with its colour per point (darker at the roots) to multiply into the
 // hair's own; shared by everyone who wears the style.
@@ -1765,6 +1774,7 @@ function makeGLB(spec, T) {
   F.gm = {}; F.clothes = {};
   F.state = { top: 'down', bottoms: 'up', under: 'up' };
   F.setClothes = st => { Object.assign(F.state, st || {}); if (F.spec.outfit === 'period') dressPeriod(F); else dressGLB(F); };
+  F.drapePose = null; F.setDrape = pose => { F.drapePose = pose || null; if (F.spec.outfit === 'period') applyDrape(F, F.topName); };
   F.cushionOf = area => (F.spec.outfit === 'period' ? cushionPeriod(F, area) : null);
   F.liftOf = () => (F.spec.outfit === 'period' ? liftPeriod(F) : null); F.backOf = where => (F.spec.outfit === 'period' ? backPeriod(F, where) : null);
   F.setPeriod = period => { spec.period = period; spec.outfit = 'period'; for (const k in F.gm) { const m = F.gm[k]; for (const x of [m, m.userData.hull]) if (x) x.parent.remove(x); } F.gm = {}; F.underMat = null; F.setClothes(); };
@@ -1827,7 +1837,7 @@ function periodNames(F) {
 }
 function garmentPeriod(F, name) {
   if (F.gm[name]) return F.gm[name];
-  const P = F.spec.period || {}, L = F.L, geo = F.model.mesh[name] && F.model.mesh[name].geo; if (!geo) return null;
+  const P = F.spec.period || {}, L = F.L; let geo = F.model.mesh[name] && F.model.mesh[name].geo; if (!geo) return null;
   const opt = (pat, col, o) => tmat(col, Object.assign({ skin: true, morph: true, side: THREE.DoubleSide, rim: '#3a3028', rimK: 0.55, pattern: pat, bindAttr: true, unique: true }, o || {}));
   let m;
   if (/^(Dress|Kirtle)/.test(name)) {
@@ -1848,10 +1858,34 @@ function garmentPeriod(F, name) {
     m = opt('shoeG', P.shoe || '#4a3424', { rimK: 0.4, rim: '#3a4048' }); const U = m.userData.u; U.uParam.value.set(sh, F.H.ankle, 0, 0);
     if (sh) { U.uPat0.value.copy(srgb(P.sole || '#2a2018')); U.uPat1.value.copy(srgb(P.trimShoe || P.sole || '#2a2018')); U.uPat2.value.copy(srgb(P.stockings || P.legCol || '#d8d0c0')); }
   }
+  if (/^(Dress|Kirtle)/.test(name)) geo = ownGeo(geo);      // (her own copy of where its points are: draped as she's posed)
   const depth = /^(Drawers|Smalls)/.test(name) ? 2 : /^Leggings/.test(name) ? 1 : 0;
   if (depth) { m.polygonOffset = true; m.polygonOffsetFactor = depth; m.polygonOffsetUnits = 2 * depth; }
   const sm = skinned(F, geo, m); sm.castShadow = true; sm.receiveShadow = false; ink(sm, INK_W, F, null, HEM_R);
+  if (geo.userData.built) sm.userData.drapeKey = name + '|';      // (as built: no drape yet)
   F.gm[name] = sm; return sm;
+}
+// ── Fenwick: her skirt draped as she's posed (F.setDrape(pose): 'otk', 'bed', 'edge', 'table', 'after', or none). Draped in Blender for
+// each pose, down and raised (tools/blender/bake_drapes.py); here each point of the skirt as built is moved by its offset for the pose, and
+// its normals and outline made again. Nothing moves it between: the scene's cut to black when it changes. ──
+function ownGeo(geo) {
+  const g = new THREE.BufferGeometry(); g.setIndex(geo.index); g.name = geo.name;
+  for (const k in geo.attributes) g.setAttribute(k, k === 'position' || k === 'normal' ? geo.attributes[k].clone() : geo.attributes[k]);
+  g.morphAttributes = geo.morphAttributes; g.morphTargetsRelative = geo.morphTargetsRelative;
+  g.userData = Object.assign({}, geo.userData, { shared: false, hull: undefined, built: geo }); return g;
+}
+function applyDrape(F, name) {
+  const m = name && F.gm[name], key = name + '|' + (F.drapePose || ''); if (!m || m.userData.drapeKey === key) return;
+  const g = m.geometry, B = g.userData.built; if (!B) return;
+  const P = g.attributes.position, P0 = B.attributes.position, D = drapeOf(name, F.drapePose);
+  if (D && D.count === P.count) {
+    for (let i = 0; i < P.count; i++) P.setXYZ(i, P0.getX(i) + D.off[i * 3] / D.scale, P0.getY(i) + D.off[i * 3 + 1] / D.scale, P0.getZ(i) + D.off[i * 3 + 2] / D.scale);
+    g.computeVertexNormals();
+  } else { P.array.set(P0.array); g.attributes.normal.array.set(B.attributes.normal.array); g.attributes.normal.needsUpdate = true; }
+  P.needsUpdate = true;
+  // (its outline made again, round it as it now lies)
+  const h = m.userData.hull; if (h) { h.parent.remove(h); h.geometry.dispose(); }
+  const nh = ink(m, INK_W, F, null, HEM_R); nh.visible = m.visible; m.userData.drapeKey = key;
 }
 function dressPeriod(F) {
   const want = periodNames(F), on = new Set(Object.values(want).filter(Boolean));
@@ -1861,6 +1895,7 @@ function dressPeriod(F) {
   for (const k of on) garmentPeriod(F, k);
   for (const k in F.gm) { const m = F.gm[k], v = on.has(k) && k !== hidden; m.visible = v; if (m.userData.hull) m.userData.hull.visible = v; }
   F.clothes = { top: F.gm[want.top], bottoms: want.bottoms ? F.gm[want.bottoms] : null, under: F.gm[want.under] }; F.bootL = F.bootR = F.gm.Boots;
+  F.topName = want.top; applyDrape(F, want.top);
   F.layers = (F.spec.period || {}).none ? [] : ['top', 'under'].concat(want.bottoms ? ['bottoms'] : []);
   F.skirt = (F.spec.period || {}).none ? null : (F.spec.period || {}).kind === 'kirtle' ? 'short' : 'long';
   let hide = 0; for (const k of on) for (const r of PHIDE[k] || []) hide |= 1 << R[r];
@@ -1993,6 +2028,6 @@ function hairTop(F) {
   const b = m ? m.geometry.boundingBox : null, p = new V3(0, b ? b.max.y : 2.12, b ? (b.min.z + b.max.z) * 0.5 * 0.4 : 0);
   H.updateMatrixWorld(true); return H.localToWorld(p);
 }
-const api = { presence, tickPresence, need, adoptHair, hairTop, hairStyles: () => Object.keys(GLB.hair || {}), tmat, ink, dqs, grip, FINGERS, make, preload, adopt, models: () => Object.keys(GLB.sex), EXPRS, MOUTHS, HEAD_SCALE, OUTFITS, SPOTS, ik2, aim, setWorldQuat, mat, paint, srgb, shade, R };
+const api = { presence, tickPresence, need, adoptHair, adoptDrapes, drapeOf, hairTop, hairStyles: () => Object.keys(GLB.hair || {}), tmat, ink, dqs, grip, FINGERS, make, preload, adopt, models: () => Object.keys(GLB.sex), EXPRS, MOUTHS, HEAD_SCALE, OUTFITS, SPOTS, ik2, aim, setWorldQuat, mat, paint, srgb, shade, R };
 root.Figure = api;
 })(typeof window !== 'undefined' ? window : globalThis);

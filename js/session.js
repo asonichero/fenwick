@@ -680,7 +680,7 @@ function create(stage, bay, opts) {
       const a = st.t * 2.1, tang = new V3().crossVectors(c2.n, c2.f).normalize(), r = 0.03 * (1 - glide);
       W = c2.W.clone().addScaledVector(c2.f, r * Math.cos(a)).addScaledVector(tang, r * Math.sin(a)).addScaledVector(c2.n, -0.004);
       handPose.n.lerp(c2.n, 0.25); handPose.f.lerp(c2.f, 0.25); cock = 0; curl = 0.06;
-    } else if (st.act && cur) {
+    } else if (st.act && cur && !st.act.fade) {
       // dressing: to the garment's edge (the first quarter), a grip, the edge carried along them (arcing out over the seat), let go, and back
       const a = st.act, u = clamp(a.t / a.dur, 0, 1), pth = dressPath(a), go = pth.to.clone().sub(pth.from).normalize(), carry = ease(clamp((u - 0.32) / 0.5, 0, 1));
       const at = pth.via ? pth.from.clone().multiplyScalar((1 - carry) * (1 - carry)).addScaledVector(pth.via, 2 * carry * (1 - carry)).addScaledVector(pth.to, carry * carry)
@@ -782,13 +782,21 @@ function create(stage, bay, opts) {
   // ── Turns ──
   let afterWith = null;
   const placeKey = () => (st.position === 'wall' ? (sup.kind === 'rail' ? 'wall' : lineKind) : st.position);      // (what Silas says to place them)
+  // (Fenwick: her skirt as it lies in the pose she's in: Figure's setDrape. Changed at the cuts: a turn, a position, the aftercare)
+  const drapeKey = () => (st.position === 'otk' ? (st.seat === 'bed' ? 'bed' : 'otk') : st.position === 'wall' ? 'edge' : st.position === 'table' ? 'table' : null);
+  function drapes() {
+    for (const P of people) {
+      const want = P === cur && st.phase === 'turn' ? drapeKey() : P === afterWith && st.phase === 'after' ? 'after' : null;
+      if (P.f.setDrape && P.f.drapePose !== want) P.f.setDrape(want);
+    }
+  }
   function beginTurn(i) {
     st.turn = i; cur = queue[i]; st.word = false; st.swing = null; st.running = false; st.soothe = false; st.phase = 'turn';
     J.kick = 0; J.stamp = 0; for (const k in sp) { sp[k].x = 0; sp[k].v = 0; }
     cur.rx = freshReact(); cur.def = cur.def0; cur.gain = { compliance: 0, resentment: 0 };
     // (the defiant are slow to settle as they're placed: up off the knee, or upright at the rail, looking back, till he puts them down)
     if (cur.def0 > 0.4) { cur.rx.up = { t: -0.2, dur: 2.6 + 1.6 * cur.def0, said: false, start: true }; cur.rx.glance = 1.6; cur.rx.n.ups++; }
-    cur.f.setClothes({ top: 'down', bottoms: 'up', under: 'up' }); cur.f.setExpr(cur.r.base || 'calm');
+    cur.f.setClothes({ top: 'down', bottoms: 'up', under: 'up' }); cur.f.setExpr(cur.r.base || 'calm'); drapes();
     emit('turn', { i, id: cur.id }); emit('state');
     setTimeout(() => { say('captain', V.place(cur.id, placeKey())); setTimeout(() => say('subject', V.react(cur.id, cur.def0 > 0.5 && !/defiant|stern/.test(cur.r.base) ? 'defy' : 'start'), cur), 1600); }, 300);      // (their own way in, unless they're far more defiant than they usually are)
   }
@@ -837,7 +845,12 @@ function create(stage, bay, opts) {
     emit('state');
   }
   function dressing(dt) {
-    if (!st.act && st.actQ.length && !st.swing) st.act = Object.assign(st.actQ.shift(), { t: 0, dur: 2.0, swapped: false });
+    if (!st.act && st.actQ.length && !st.swing) {
+      st.act = Object.assign(st.actQ.shift(), { t: 0, dur: 2.0, swapped: false });
+      // (Fenwick: a skirt, draped as she lies, isn't animated up or down: the scene goes through black and it's changed there)
+      const a = st.act;
+      if (a.key === 'top' && cur.f.skirt && stage.fade) { a.fade = true; a.dur = 1.0; stage.fade(() => { a.swapped = true; cur.f.setClothes({ top: a.to }); emit('state'); }); }
+    }
     const a = st.act; if (!a) return;
     a.t += dt; const u = a.t / a.dur;
     if (!a.swapped && u >= 0.55) { a.swapped = true; cur.f.setClothes({ [a.key]: a.to }); emit('state'); }
@@ -914,7 +927,7 @@ function create(stage, bay, opts) {
     st.phase = 'after'; afterWith = people.find(p => p.id === id); cur = afterWith;
     away = other || null; awayFit = away ? fittingsOf(away) : null;
     after = away ? (away.spots.after || { at: away.spots.bench.at, yaw: away.spots.bench.yaw || 0, seatY: away.spots.bench.seatY, beside: away.spots.bench.beside }) : afterOf(); makeCams();
-    afterWith.f.setClothes({ top: 'down', bottoms: 'up', under: 'up' }); emit('state');
+    afterWith.f.setClothes({ top: 'down', bottoms: 'up', under: 'up' }); drapes(); emit('state');
   }
 
   // ── Cameras ──
@@ -1105,7 +1118,7 @@ function create(stage, bay, opts) {
     position(p) { const q = posOf(p); if ((st.position === q.position && st.seat === q.seat) || (q.position === 'table' && !table)) return;
       st.position = q.position; st.seat = q.seat; st.swing = null; st.running = false;
       if (bench !== benchOf(st.seat)) { bench = benchOf(st.seat); seatOTK(); after = afterOf(); makeCams(); }
-      if (cur) { say('captain', V.place(cur.id, placeKey())); } camera(0); emit('state'); },
+      if (cur) { say('captain', V.place(cur.id, placeKey())); } drapes(); camera(0); emit('state'); },
     positions: ['otk', 'wall'].concat(table ? ['table'] : [], Object.keys(bay.spots.seats || {}).map(k => 'otk:' + k)), support: sup.kind,
     dress(o) { if (cur && st.phase === 'turn' && !st.ending) dressTo(o); },
     endTurn: () => endTurn('done'), callWord, camera, aftercare, update, back() { if (!away) return; away = null; awayFit = null; after = afterOf(); makeCams(); },
