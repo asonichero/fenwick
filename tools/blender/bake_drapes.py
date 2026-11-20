@@ -25,7 +25,7 @@ from mathutils.bvhtree import BVHTree
 HERE = os.path.dirname(os.path.abspath(__file__)); REPO = os.path.dirname(os.path.dirname(HERE))
 MODELS = os.environ.get('FENWICK_MODELS') or os.path.join(REPO, 'models'); OUT = os.environ.get('FENWICK_OUT') or os.path.join(MODELS, 'drapes')
 POSES_DOWN = ['otk', 'bed', 'edge', 'table', 'after']; POSES_UP = ['otk', 'bed', 'edge', 'table']      # (raised only in a correction)
-FRAMES = int(os.environ.get('FENWICK_FRAMES') or 100); QUALITY = [5, 3]; LIFT = (6, 22, 40)      # (raised: out over her by the second frame of these, at her waist by the third)
+FRAMES = int(os.environ.get('FENWICK_FRAMES') or 100); QUALITY = [5, 3, 0];      # (steps, collision steps, her drawers left out) LIFT = (6, 22, 40)      # (raised: out over her by the second frame of these, at her waist by the third)
 ARM = ('clav', 'upperArm', 'foreArm', 'hand', 'index', 'middle', 'ring', 'pinky', 'thumb')
 
 # ── the models, read straight from the GLBs: points, skinning, triangles and shape keys ──
@@ -130,10 +130,10 @@ def bake(F_, M_, G, rec, gname, up, legs):
         ob = mesh_obj(name, toB(X), I, True, friction); ob.collision.thickness_outer = thick
         solids.append((BVHTree.FromPolygons([tuple(v) for v in X], [tuple(int(i) for i in f) for f in I]), thick))
     # her body, and what's under the skirt
-    body = F_['meshes']['Body']; Xb = skin_mesh(body, mats, S, keys); solid('Body', Xb, no_arms(body, body['I']), 1.5, 0.011 if legs else 0.004)      # (over leggings, their thickness too)
+    body = F_['meshes']['Body']; Xb = skin_mesh(body, mats, S, keys); solid('Body', Xb, no_arms(body, body['I']), 1.5, 0.011 if legs else 0.014 if QUALITY[2] else 0.004)      # (over leggings, their thickness too; or her drawers', in their place)
     # (what's under the skirt only where it stands well off her: drawers, not leggings, which lie too close to her for two colliders to
     # agree on which way to push the cloth between them)
-    under = None if legs or os.environ.get('FENWICK_NOUNDER') else 'Drawers'
+    under = None if legs or QUALITY[2] or os.environ.get('FENWICK_NOUNDER') else 'Drawers'
     if under and under in F_['meshes']: solid(under, skin_mesh(F_['meshes'][under], mats, S, keys), F_['meshes'][under]['I'])
     # Silas, as he is: his body, with room for what he's wearing over it (his clothes are open at their edges, so not solids themselves)
     sr = rec['silas']; smats = {n: np.array(m).reshape(4, 4).T for n, m in sr['bones'].items()}; m = M_['Body']
@@ -214,8 +214,21 @@ def bake(F_, M_, G, rec, gname, up, legs):
     # (a point flung off (the cloth blew up somewhere): the drape tried again, more finely; failing that, any point still far from her put
     # back where it started)
     far = np.array([solids[0][0].find_nearest(Vector(Xs[i]), 0.5)[0] is None for i in range(len(Xs))]) & ~pin
+    if far.any() and os.environ.get('FENWICK_DEBUG'):
+        fi_ = np.where(far)[0]; near = {}
+        for i in fi_[:400]:
+            for k, (b, _) in enumerate(solids):
+                d = b.find_nearest(Vector(Xs0[i]), 0.05)[3]
+                if d is not None: near[k] = near.get(k, 0) + 1
+            for k, (Mw, Mi, half) in enumerate(boxes):
+                q = Mi @ np.array([*Xs0[i], 1.0]); 
+                if (np.abs(q[:3]) < half + 0.05).all(): near['box%d' % k] = near.get('box%d' % k, 0) + 1
+        print('  flung: started near %s; start y %.2f..%.2f; bind y %.2f..%.2f' % (near, Xs0[fi_, 1].min(), Xs0[fi_, 1].max(), Pg[U][fi_, 1].min(), Pg[U][fi_, 1].max()), flush=True)
+        print('  solids:', [nm for nm in ['Body', 'Drawers', 'Silas'] [:len(solids)]], flush=True)
     if far.any():
-        if QUALITY[0] < 10: print('  %d points flung off: again, more finely' % int(far.sum()), flush=True); QUALITY[:] = [10, 6]; r = bake(F_, M_, G, rec, gname, up, legs); QUALITY[:] = [5, 3]; return r
+        # (where her drawers lie close to her, the cloth caught between them and her body can be thrown about: again, with her body alone,
+        # thickened by her drawers', standing for both)
+        if not QUALITY[2] and not legs and not os.environ.get('FENWICK_NORETRY'): print('  %d points flung off: again, without her drawers' % int(far.sum()), flush=True); QUALITY[2] = 1; r = bake(F_, M_, G, rec, gname, up, legs); QUALITY[2] = 0; return r
         print('  %d points still flung off: put back where they started' % int(far.sum()), flush=True); Xs[far] = Xs0[far]
     Xm = Xs[ix[mv]]
     # (her trunk and legs only: a skirt never goes with her arms, which move beside it)
