@@ -169,7 +169,7 @@ function build() {
     F = ses.people[0].f; C = ses.captain; ses.camera(0, 0); window.ses = ses;
   } else {
     F = Figure.make(specFor()); scene.add(F.root); F.setClothes(worn());
-    C = Figure.make(Cast.squireSpec(silas)); scene.add(C.root); C.setClothes(dressed);
+    C = Figure.make(Cast.squireSpec(silas)); scene.add(C.root); C.setClothes(dressed); F.clothNear = [C];
   }
   for (const k in PROPS) PROPS[k].visible = k === PROP_OF[cfg.pose];
   document.body.classList.toggle('correcting', correcting());

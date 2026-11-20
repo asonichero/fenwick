@@ -287,19 +287,33 @@ def build_style(name, sex):
                            sway=(lambda t: np.array([0, 0, -0.35])) if side else None)
             S.lock(P, w0=0.34 + 0.08 * R.random(), t0=0.08, taper=1.3)
     elif name == 'curls':
-        # golden curls: a mass of them over the crown, small ones at the forehead, and ringlets falling round the sides and back to the jaw
-        S.shell(hairline(front=1.15, temple=0.66, sideburn=0.32, over_ear=0.45, behind=-0.45, nape=-0.85), off=0.08, thick=0.08)
-        for k in range(46):
-            a = (k * 2.39996) % (2 * math.pi); f = math.sqrt((k + 0.5) / 46) * 0.95
-            d = nrm(np.array([0, 1, -0.15]) + np.array([math.sin(a), 0, math.cos(a)]) * 1.1 * f)
-            if d[2] > 0.55 and d[1] < 0.55: continue
-            curl_lock(S, h.on(d, 0.12 + 0.1 * R.random()), d, r=0.2 + 0.06 * R.random(), turns=1.2, length=0.7, tube=0.17)
+        # golden curls over the whole head: a mass of them from the crown down the back of the head to the nape, small ones along the
+        # hairline over the forehead, and ringlets in rows, falling round the sides and down the back from high on the head to below the jaw
+        hl = hairline(front=1.15, temple=0.66, sideburn=0.32, over_ear=0.45, behind=-0.45, nape=-0.85)
+        S.shell(hl, off=0.08, thick=0.08, shade=0.6)
+        n = 230
+        for k in range(n):
+            yv = 1 - 2 * (k + 0.5) / n; rr = math.sqrt(max(0.0, 1 - yv * yv)); a = k * 2.39996
+            d = np.array([rr * math.sin(a), yv, rr * math.cos(a)])
+            if d[2] > 0.55 and d[1] < 0.55: continue                          # (not over the face)
+            if hl(h.on(d, 0.0)) < 0.14: continue                               # (inside the hairline)
+            back = ss(0.2, -0.6, d[2])
+            curl_lock(S, h.on(d, 0.12 + 0.1 * R.random()), d, r=0.19 + 0.06 * R.random(), turns=1.2, length=0.62, tube=0.17,
+                      down=0.35 * back, spin=R.uniform(-0.9, 0.9))
         for k in range(26):
             a = -2.6 + 5.2 * k / 25
             if abs(a) < 0.75: continue
             y0 = float(np.interp(abs(a), [0.75, 1.2, 1.6, 2.2, 2.6], [0.75, 0.55, 0.5, 0.1, -0.3]))
             root = h.on(np.array([math.sin(a), y0, math.cos(a)]), 0.16)
             ringlet(S, root, length=1.6 + 0.9 * ss(0.8, 2.4, abs(a)) + 0.3 * R.random(), r=0.17, tube=0.15, turns=3.2 + R.random(), out=0.18)
+        # (further rows behind the ears and down the back, rooted higher on the head, so the back of it is ringlets all the way up)
+        for row, (lift, a_lo, cnt) in enumerate([(0.42, 1.45, 16), (0.84, 1.9, 11)]):
+            for k in range(cnt):
+                sd = 1 if k % 2 == 0 else -1; a = sd * (a_lo + (np.pi - a_lo) * (k // 2) / max(1, (cnt - 1) // 2)) + R.uniform(-0.06, 0.06)
+                yb = float(np.interp(abs(a), [0.75, 1.2, 1.6, 2.2, 2.6, np.pi], [0.75, 0.55, 0.5, 0.1, -0.3, -0.3]))
+                tip = h.on(np.array([math.sin(a), yb, math.cos(a)]), 0.16)[1] - 1.6 - 0.9 * ss(0.8, 2.4, abs(a))      # (ending where the row below does)
+                root = h.on(np.array([math.sin(a), yb + lift, math.cos(a)]), 0.2)
+                ringlet(S, root, length=root[1] - tip + 0.25 * R.random(), r=0.18, tube=0.15, turns=3.4 + R.random(), out=0.22)
         for k in range(7):      # (small curls at the hairline, over the forehead)
             x = -0.85 + 1.7 * k / 6; d = nrm(np.array([x, 1.2 - 0.25 * abs(x), 1.2]))
             curl_lock(S, h.on(d, 0.1), d, r=0.16, turns=1.1, length=0.45, tube=0.13, down=0.6)
@@ -330,9 +344,10 @@ def coil(S, C, axis, r0, r1, turns, tube, n, mess=0.0):
     P = np.array([C + (e1 * math.cos(ai) + e2 * math.sin(ai)) * ri + axis * (0.22 * ti) + RNG.normal(0, mess, 3) for ai, ri, ti in zip(a, r, t)])
     Up = np.array([nrm(p - C + axis * 0.4) for p in P])
     S.lock(P, w0=tube * 1.2, t0=tube * 0.8, taper=6.0, root_w=0.5, up=Up, shade=lambda x: 0.8 + 0.2 * ss(0.1, 0.9, x))
-def curl_lock(S, root, d, r, turns, length, tube, down=0.0):
-    """A short curl over the crown: a lock that leaves the head and turns over on itself."""
+def curl_lock(S, root, d, r, turns, length, tube, down=0.0, spin=0.0):
+    """A short curl over the crown: a lock that leaves the head and turns over on itself (its way turned round d by spin)."""
     t_ = nrm(np.cross(d, [0.3, 0.1, 1.0])); n = 18
+    if spin: t_ = nrm(t_ * math.cos(spin) + np.cross(nrm(d), t_) * math.sin(spin))
     P = []
     for i in range(n):
         u = i / (n - 1); a = u * turns * 2 * np.pi

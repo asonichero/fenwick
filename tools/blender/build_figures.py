@@ -1439,19 +1439,49 @@ def period_garments(sex, torso, leg, arm, body, label, rig):
     iw = max(hip_rows, key=lambda i: Hh[i].mean()); y_hw = float(TS.y[iw]); cxw, czw = float(TS.cx[iw]), float(TS.cz[iw]); R0 = Hh[iw]
     zback = np.array([back_z(TS, yw + 0.012, x) for x in np.linspace(-0.22, 0.22, 45)])
     print(sex, 'skirt hangs from', round(y_hw, 3), 'radius', round(float(R0.mean()), 3))
+    L['skirtC'] = [cxw, czw, y_hw]      # (Fenwick: the skirt's axis and the ring its hanging part is pinned at, for the game's cloth)
+    # (Fenwick) The skirt falls from the waist, where it's gathered into the waistband (and where an apron ties). Below, it goes down over the
+    # belly, hips and seat as cloth hanging from the waist does: taut from the waist to each side's fullest point, bridging every hollow
+    # between (the small of the back, under the belly) rather than following it in; from that point it hangs straight, flaring only a
+    # little to the hem (there are no petticoats under it). Its folds are fine gathers at the waist that open into a dozen broader folds
+    # toward the hem, and lie flatter where it rests on the hips. All of it as a radius round the hips' centre, for each angle and height.
+    def ring_about(i):
+        X = TS.cx[i] + Hh[i] * np.cos(ANG); Z = TS.cz[i] + Hh[i] * np.sin(ANG)
+        a = np.arctan2(Z - czw, X - cxw); d = np.hypot(X - cxw, Z - czw); o = np.argsort(a)
+        return np.interp(ANG, a[o], d[o], period=2 * np.pi)
+    ROWS_S = [i for i, y in enumerate(TS.y) if CROTCH_Y <= y <= yw + 0.0015]
+    YS = np.array([TS.y[i] for i in ROWS_S]); RB = np.stack([ring_about(i) for i in ROWS_S], 1)      # [angle, row], low to high
+    def upper_hull(x, y):
+        """The least concave function over the points (x ascending): the line a taut cloth takes over them."""
+        H = []
+        for p in zip(x, y):
+            while len(H) >= 2 and (H[-1][0] - H[-2][0]) * (p[1] - H[-2][1]) - (H[-1][1] - H[-2][1]) * (p[0] - H[-2][0]) >= 0: H.pop()
+            H.append(p)
+        H = np.array(H); return lambda q: np.interp(q, H[:, 0], H[:, 1])
     def skirt(hem, flare, ease0, folds, back_full, under_f, under_top):
-        Tk = Cloth(torso, lambda y: ease0, slope=0.0, below=y_hw)      # (over the hips, fitted; from their widest down it doesn't come in)
+        YG = np.arange(hem - 0.04, yw + 0.03, 0.002); R = np.zeros((NA, len(YG)))
+        ease = lambda y: ease0 * 0.6 + ease0 * 0.4 * ss(yw, yw - 0.1, y)        # (a little closer at the waistband)
+        apex_y = np.zeros(NA)
+        for j in range(NA):
+            r = RB[j] + ease(YS); k = int(np.argmax(r)); ya, ra = YS[k], r[k]; apex_y[j] = ya
+            env = upper_hull(YS[k:], r[k:])
+            behind = max(0.0, -math.sin(ANG[j]))
+            t = np.clip((ya - YG) / max(1e-6, ya - hem), 0, 1)
+            R[j] = np.where(YG >= ya, env(np.minimum(YG, yw)), ra + flare * t ** 1.15 * (1 + (back_full - 1) * behind))
+        # the folds: gathers at the waist, flat over the hips, broad below
+        T_ = np.clip((yw - YG) / (yw - hem), 0, 1)[None, :]; PH = ANG[:, None]
+        hang = ss(0.0, 0.12, apex_y[:, None] - YG[None, :])
+        R = R + folds * (0.0028 * (1 - ss(0.0, 0.3, T_)) * np.sin(30 * PH + 0.4 * np.sin(7 * PH))
+                         + (0.0012 + 0.011 * hang * T_ ** 0.9) * np.sin(12 * PH + 0.9 * np.sin(3 * PH) + 2.0 * T_))
+        y0, dy = YG[0], YG[1] - YG[0]
         def f(P):
             x, y, z = P[:, 0], P[:, 1], P[:, 2]
             dx, dz = x - cxw, z - czw; d = np.hypot(dx, dz); phi = np.arctan2(dz, dx)
-            k = (phi + np.pi) / (2 * np.pi) * NA; k0 = np.floor(k).astype(int) % NA; v = k - np.floor(k); r0 = R0[k0] * (1 - v) + R0[(k0 + 1) % NA] * v
-            t = np.clip((y_hw - y) / (y_hw - hem), 0, 1)                  # (0 at the hips' widest, 1 at the hem)
-            behind = np.clip(-np.sin(phi), 0, 1)
-            R = r0 + ease0 + flare * t ** 1.15 * (1 + (back_full - 1) * behind)
-            R = R * (1 + 0.045 * folds * t ** 0.8 * np.sin(12 * phi + 0.9 * np.sin(3 * phi) + 2.0 * t))
-            bell = np.where((y <= y_hw) & (y >= hem - 0.03), R - d, -1.0)
-            fit = np.where((y > y_hw) & (y < yw + 0.02), Tk.f(P), -1.0)
-            return np.maximum(np.maximum(bell, fit), over(under_f, 0.008, under_top)(P))
+            k = (phi + np.pi) / (2 * np.pi) * NA; k0 = np.floor(k).astype(int) % NA; k1 = (k0 + 1) % NA; v = k - np.floor(k)
+            u = np.clip((y - y0) / dy, 0, len(YG) - 1.001); i0 = np.floor(u).astype(int); w = u - i0
+            r = (R[k0, i0] * (1 - w) + R[k0, i0 + 1] * w) * (1 - v) + (R[k1, i0] * (1 - w) + R[k1, i0 + 1] * w) * v
+            sk = np.where((y >= hem - 0.03) & (y <= yw + 0.02), r - d, -1.0)
+            return np.maximum(sk, over(under_f, 0.008, under_top)(P))
         return f
     # (her bodice: fitted; joined to its sleeves over the shoulder and round the armhole, as the uniform's jacket was)
     def bodice_and_sleeves(sleeves, under_f, under_top):
@@ -1526,9 +1556,9 @@ def period_garments(sex, torso, leg, arm, body, label, rig):
                 planes.append(((0, 0, zs), (0, 0, -1.0), lambda X: (X[:, 1] < ROLL_Y) & ~is_sl(X) & ~in_roll(X)))
             make(name + ('Up' if up else ''), top_of(up), (-0.42, hem - 0.035, -0.33), (0.42, L['collar'] + 0.03, 0.3), faces if not up else int(faces * 0.9), planes, TORSO_L, h=0.0034,
                  split=(is_sl, ARMS_L + ['torso']), custom=skirt_w)
-    dress('DressLong', 'long', SKIRT_HEM, 0.13, 0.012, 1.0, 1.22, drawers_f, L['trouserTop'], 16000)
-    dress('DressElbow', 'elbow', SKIRT_HEM, 0.13, 0.012, 1.0, 1.22, drawers_f, L['trouserTop'], 16000)
-    dress('Kirtle', 'elbow', KIRTLE_HEM, 0.06, 0.01, 0.7, 1.12, leggings_f, L['trouserTop'], 12000)
+    dress('DressLong', 'long', SKIRT_HEM, 0.035, 0.012, 1.0, 1.25, drawers_f, L['trouserTop'], 16000)
+    dress('DressElbow', 'elbow', SKIRT_HEM, 0.035, 0.012, 1.0, 1.25, drawers_f, L['trouserTop'], 16000)
+    dress('Kirtle', 'elbow', KIRTLE_HEM, 0.022, 0.01, 0.8, 1.15, leggings_f, L['trouserTop'], 12000)
     # ── boots, as the men's: round the foot and up the shin ──
     Lk = [Cloth(leg, lambda y: 0.0095 + 0.003 * ss(0.12, 0.2, y), sx) for sx in (1, -1)]
     ft = [foot_part(sx, leg)[0].last for sx in (1, -1)]      # (round the last: no toes through the leather)
