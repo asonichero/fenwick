@@ -1713,12 +1713,12 @@ function setKeys(mesh, keys) {
   const dict = mesh.geometry.userData.keys || {}, inf = mesh.morphTargetInfluences;
   if (inf) for (const k in dict) inf[dict[k]] = keys[k] || 0;
 }
-// ── Fenwick: a skirt's cloth. Her skirt hangs from her waist (where an apron ties) on SKC chains of SKK links each, down to the hem,
-// simulated in the figure's own space (verlet). Gravity pulls them down; each link keeps its length; each ring keeps at least most of its
-// size and opens out no further than the gathered cloth allows; and they're kept outside her (above her legs, outside the skirt's own shape
-// at rest, which lies over her belly, hips and seat; below, outside her thighs and shins), off the floor, and outside the legs of anyone near
-// her (F.clothNear: Silas, with her over his lap). Each chain point carries a bone the skirt is weighted to, so it's still skinned on the
-// GPU: the cloth costs a few dozen points a frame. Raised, the back's hem is brought up to the waistline and the cloth between gathered in a
+// ── Fenwick: a skirt's cloth. Her skirt hangs from her waist (where an apron ties) on SKC chains of SKK points each, down to the hem. It's a
+// shape followed, not a simulation: over her hips each point lies where it does at rest, turned with them; below, the skirt hangs straight
+// down from there (gravity's way, however she's turned), as far out as at rest; each frame the points ease toward that, a little
+// behind, so it moves softly and never swings or overshoots; then they're put outside her thighs and shins, her seat, the floor, and
+// the legs of anyone near her (F.clothNear: Silas, with her over his lap), so it never trails inside them. Each chain point carries a bone
+// the skirt is weighted to, so it's still skinned on the GPU: the cloth costs a few dozen points a frame. Raised, the back's hem is brought up to the waistline and the cloth between gathered in a
 // band there; the sides follow, rising toward the back; the front still hangs. ──
 const SKC = 16, SKK = 6, ARMB = /^(clav|upperArm|foreArm|hand|index|middle|ring|pinky|thumb)/;
 function skirtBones(F) {
@@ -1776,16 +1776,10 @@ function clothFor(F, name) {
   const g = name && /^(Dress|Kirtle)/.test(name) && F.gm[name]; if (!g) { F.cloth = null; for (const b of F.skirtB) { b.position.set(0, 0, 0); b.quaternion.identity(); } return; }
   const up = F.state.top === 'up';
   if (F.cloth && F.cloth.base === name) { F.cloth.up = up; F.cloth.mesh = g; return; }
-  const hem = skirtHem(F, name), R = skirtRest(F, F.model.mesh[name].geo, hem), N = SKC * (SKK + 1), C = { base: name, up, mesh: g, R, X: new Float32Array(R), O: new Float32Array(R), fresh: true };
-  const d = (q1, q2) => Math.hypot(R[q1 * 3] - R[q2 * 3], R[q1 * 3 + 1] - R[q2 * 3 + 1], R[q1 * 3 + 2] - R[q2 * 3 + 2]), at = (j, k) => ((j + SKC) % SKC) * (SKK + 1) + k;
-  // (links: the two points, the shortest and longest they may be, and how firmly each is kept. Down a chain, its length. Round a ring, from a
-  // little less than at rest to as much as the gathered cloth there opens out to, more toward the hem. Two down a chain, kept from closing up)
-  C.links = []; const FULL = [1, 1.1, 1.25, 1.4, 1.5, 1.6, 1.7];
-  for (let j = 0; j < SKC; j++) for (let k = 0; k <= SKK; k++) {
-    if (k < SKK) { const L = d(at(j, k), at(j, k + 1)); C.links.push([at(j, k), at(j, k + 1), L, L, 1, 1]); }
-    const L = d(at(j, k), at(j + 1, k)); C.links.push([at(j, k), at(j + 1, k), L * 0.9, L * FULL[k], 0.9, 0.6]);
-    if (k < SKK - 1) C.links.push([at(j, k), at(j, k + 2), d(at(j, k), at(j, k + 2)) * 0.92, 1e9, 0, 0.5]);
-  }
+  const hem = skirtHem(F, name), R = skirtRest(F, F.model.mesh[name].geo, hem), N = SKC * (SKK + 1), C = { base: name, up, mesh: g, R, X: new Float32Array(R), fresh: true };
+  const at = (j, k) => ((j + SKC) % SKC) * (SKK + 1) + k;
+  // (the rows that lie over her hips, to just above where they're fullest, go with her hips; the rest hang from the lowest of them)
+  C.kh = 0; for (let k = 1; k <= SKK; k++) if (R[at(0, k) * 3 + 1] >= F.L.skirtC[2]) C.kh = k;
   // (raised, the back's hem at the waistline and the cloth between in a band there, each row a little lower and further out: the back is the
   // chains from her sides round behind her)
   const [cx, cz] = F.L.skirtC; C.back = new Uint8Array(N); C.band = new Float32Array(N * 3);
@@ -1800,11 +1794,11 @@ function clothFor(F, name) {
   F.cloth = C;
 }
 // her legs as capsules (root-local), for the cloth: thighs and shins, each end's radius (her drawers, over her thighs, under a dress)
-function legCapsules(G, out, inv, k, own, pad) {
+function legCapsules(G, out, inv, k, own, pad, padShin) {
   const W = n => G.bone[n].getWorldPosition(new V3()).applyMatrix4(inv), r = G.clothR || (G.spec && G.spec.sex === 'm' ? [0.094, 0.066, 0.062, 0.046] : [0.078, 0.052, 0.05, 0.034]);
   for (const sd of ['L', 'R']) {
     const h = W('thigh' + sd), kn = W('shin' + sd), an = W('foot' + sd);
-    out.push([h, kn, r[0] * k + pad, r[1] * k + pad, own], [kn, an, r[2] * k, r[3] * k, own]);
+    out.push([h, kn, r[0] * k + pad, r[1] * k + pad, own], [kn, an, r[2] * k + (padShin || 0), r[3] * k + (padShin || 0), own]);
   }
 }
 function tickCloth(F, dt) {
@@ -1812,15 +1806,18 @@ function tickCloth(F, dt) {
   F.root.updateMatrixWorld(true);
   const inv = _cm.copy(F.root.matrixWorld).invert(), T = new THREE.Matrix4().multiplyMatrices(inv, F.bone.hips.matrixWorld).multiply(F.hipsRestInv), Ti = T.clone().invert();
   T.decompose(_cp, _cq, _cs); const qT = _cq.clone();
-  const X = C.X, O = C.O, R = C.R, N = SKC * (SKK + 1), sc = F.root.scale.x, [cx, cz] = F.L.skirtC, crotch = F.L.crotch;
+  const X = C.X, R = C.R, N = SKC * (SKK + 1), sc = F.root.scale.x, [cx, cz] = F.L.skirtC, crotch = F.L.crotch, kh = C.kh;
   // what it can't go through
-  const caps = []; legCapsules(F, caps, inv, 1, true, (F.spec.period || {}).kind === 'kirtle' ? 0.006 : 0.03);
+  // (her thighs with room for her drawers (or smalls) over them, her shins with some, so the cloth between two of its chains, which cuts in
+  // a little across a leg, still clears it)
+  const kirtle = (F.spec.period || {}).kind === 'kirtle', caps = []; legCapsules(F, caps, inv, 1, true, kirtle ? 0.022 : 0.065, kirtle ? 0.018 : 0.042);
   for (const G of F.clothNear || []) { if (G && G.bone && G.root.visible !== false) { G.root.updateMatrixWorld(true); legCapsules(G, caps, inv, G.root.scale.x / sc, false, 0); } }
   const seat = F.seatBalls.map(([c, r, b]) => [c.clone().applyMatrix4(_cm2.multiplyMatrices(inv, F.bone[b].matrixWorld).multiply(F.restInv[b])), r]);
-  const up = new V3(0, 1, 0).transformDirection(inv), fl = new V3(0, 0.006, 0).applyMatrix4(inv), g = up.clone().multiplyScalar(-9.8 / sc), M = 0.013;      // (M: the cloth's own thickness, and its folds)
+  const up = new V3(0, 1, 0).transformDirection(inv), fl = new V3(0, 0.006, 0).applyMatrix4(inv), M = 0.016;      // (M: the cloth's own thickness, and its folds)
   const p = new V3(), o = new V3(), t = new V3(), ax = new V3(), nOut = new V3();
-  // (a skirt is always outside her legs: a point of it that's got into one of them is put back on the side its own chain faces (front, back
-  // or side, as her hips are turned), not out of whichever side is nearest; and out of anyone else's on her side of them)
+  // (a point of it in a leg goes out the nearest way: eased from where it was, it's already on the right side, and stays there as the leg
+  // moves. Only when it's new, with nowhere it was, it goes out on the side its own chain faces (front, back or side, as her hips are
+  // turned), and out of anyone else's legs on her side of them)
   const FACE = []; for (let j = 0; j < SKC; j++) { const ph = -Math.PI + j * 2 * Math.PI / SKC; FACE.push(new V3(Math.cos(ph), 0, Math.sin(ph)).transformDirection(T)); }
   const cen = new V3(cx, F.L.waist - 0.15, cz).applyMatrix4(T);
   const outOf = (p, q) => {
@@ -1829,7 +1826,7 @@ function tickCloth(F, dt) {
       o.copy(a).addScaledVector(ax, u); const r = ra + (rb - ra) * u + M; t.copy(p).sub(o); const d = t.length();
       if (d >= r) continue;
       if (d > 1e-9) t.multiplyScalar(1 / d); else t.set(0, 0, 1);
-      if (q != null) {
+      if (C.fresh) {
         if (own) nOut.copy(FACE[Math.floor(q / (SKK + 1))]); else nOut.copy(cen).sub(o);
         if (l2 > 0) nOut.addScaledVector(ax, -nOut.dot(ax) / l2);
         if (nOut.lengthSq() > 1e-10) { nOut.normalize(); const k = t.dot(nOut); if (k < 0) t.addScaledVector(nOut, -2 * k); }
@@ -1837,76 +1834,58 @@ function tickCloth(F, dt) {
       p.copy(o).addScaledVector(t, r);
     }
     // (above her legs, outside the skirt's own shape at rest, as her hips are now: her belly, hips and seat under it)
-    if (q != null) {
-      _c1.copy(p).applyMatrix4(Ti); const j = Math.floor(q / (SKK + 1)), q0 = j * (SKK + 1);
-      if (_c1.y > crotch - 0.02) {
-        const kk = clamp((R[q0 * 3 + 1] - _c1.y) / (R[q0 * 3 + 1] - R[(q0 + 1) * 3 + 1]), 0, SKK), k0 = Math.min(Math.floor(kk), SKK - 1), f = kk - k0;
-        const rad = (1 - f) * Math.hypot(R[(q0 + k0) * 3] - cx, R[(q0 + k0) * 3 + 2] - cz) + f * Math.hypot(R[(q0 + k0 + 1) * 3] - cx, R[(q0 + k0 + 1) * 3 + 2] - cz);
-        const dx = _c1.x - cx, dz = _c1.z - cz, d = Math.hypot(dx, dz), need = Math.min(rad, Math.hypot(R[(q0 + 1) * 3] - cx, R[(q0 + 1) * 3 + 2] - cz) + 0.02) - 0.004;
-        if (d < need && d > 1e-6) { _c1.x = cx + dx * need / d; _c1.z = cz + dz * need / d; p.copy(_c1.applyMatrix4(T)); }
-      }
+    _c1.copy(p).applyMatrix4(Ti); const j = Math.floor(q / (SKK + 1)), q0 = j * (SKK + 1);
+    if (_c1.y > crotch - 0.02) {
+      const kk = clamp((R[q0 * 3 + 1] - _c1.y) / (R[q0 * 3 + 1] - R[(q0 + 1) * 3 + 1]), 0, SKK), k0 = Math.min(Math.floor(kk), SKK - 1), f = kk - k0;
+      const rad = (1 - f) * Math.hypot(R[(q0 + k0) * 3] - cx, R[(q0 + k0) * 3 + 2] - cz) + f * Math.hypot(R[(q0 + k0 + 1) * 3] - cx, R[(q0 + k0 + 1) * 3 + 2] - cz);
+      const dx = _c1.x - cx, dz = _c1.z - cz, d = Math.hypot(dx, dz), need = Math.min(rad, Math.hypot(R[(q0 + kh) * 3] - cx, R[(q0 + kh) * 3 + 2] - cz) + 0.02) - 0.004;
+      if (d < need && d > 1e-6) { _c1.x = cx + dx * need / d; _c1.z = cz + dz * need / d; p.copy(_c1.applyMatrix4(T)); }
     }
+    for (const [c, r] of seat) { t.copy(p).sub(c); const d = t.length(); if (d < r + M && d > 1e-9) p.copy(c).addScaledVector(t, (r + M) / d); }
+    const hgt = t.copy(p).sub(fl).dot(up); if (hgt < 0) p.addScaledVector(up, -hgt);
     return p;
   };
+  // where each point would be: over her hips, where it lies at rest, turned with them; below, hanging straight down from there (gravity's
+  // way, as she's turned now), as far out as at rest. Standing, that's the skirt as it was made. Raised, the back's in its band.
   const banded = q => C.up && C.back[q] && q % (SKK + 1) > 0;
-  const pinned = q => q % (SKK + 1) === 0 || banded(q);
-  // where the pinned points go: the waist with her hips; raised, the back into its band (drawn up there over a second or so, as the hand
-  // takes it up)
-  const PIN = new Float32Array(N * 3), ease = 1 - Math.exp(-dt * 3.5);
-  for (let q = 0; q < N; q++) {
-    if (!pinned(q)) continue;
-    if (banded(q)) { p.fromArray(X, q * 3).lerp(o.fromArray(C.band, q * 3).applyMatrix4(T), C.fresh ? 1 : ease); }
-    else p.fromArray(R, q * 3).applyMatrix4(T);
-    p.toArray(PIN, q * 3);
-  }
-  // (new, or her hips have jumped (she's been put somewhere else): the cloth hung straight down from the waist, each chain as long as it is
-  // and as far out as at rest, then put outside her, to settle from there)
-  const jump = C.lastPin && Math.hypot(PIN[0] - C.lastPin[0], PIN[1] - C.lastPin[1], PIN[2] - C.lastPin[2]) > 0.12;
-  if (C.fresh || jump) {
-    for (let j = 0; j < SKC; j++) {
-      const q0 = j * (SKK + 1), fh = t.copy(FACE[j]).addScaledVector(up, -FACE[j].dot(up)).normalize().clone(); let drop = 0;
-      for (let k = 1; k <= SKK; k++) {
-        const q = q0 + k; if (pinned(q)) continue;
-        drop += Math.hypot(R[q * 3] - R[q * 3 - 3], R[q * 3 + 1] - R[q * 3 - 2], R[q * 3 + 2] - R[q * 3 - 1]);
-        const dr = Math.hypot(R[q * 3] - cx, R[q * 3 + 2] - cz) - Math.hypot(R[q0 * 3] - cx, R[q0 * 3 + 2] - cz);
-        p.fromArray(PIN, q0 * 3).addScaledVector(up, -drop).addScaledVector(fh, dr); outOf(p, q); p.toArray(X, q * 3); p.toArray(O, q * 3);
-      }
-    }
-    C.fresh = false;
-  }
-  C.lastPin = PIN.slice(0, 3);
-  const n = Math.min(8, Math.ceil(dt * 120)), h = Math.min(dt, 1 / 15) / n;
-  for (let s = 0; s < n; s++) {
-    for (let q = 0; q < N; q++) {
-      if (pinned(q)) { p.fromArray(PIN, q * 3); p.toArray(X, q * 3); p.toArray(O, q * 3); continue; }
-      p.fromArray(X, q * 3); o.fromArray(O, q * 3); t.copy(p).sub(o).multiplyScalar(0.985).addScaledVector(g, h * h);
-      p.toArray(O, q * 3); p.add(t).toArray(X, q * 3);
-    }
-    for (let it = 0; it < 4; it++) {
-      for (const [a, b, Lmin, Lmx, kOut, kIn] of C.links) {
-        if (C.up && Lmx > 1e8 && C.back[a]) continue;      // (gathered, the back's chains fold)
-        if (C.up && C.back[a] !== C.back[b]) continue;      // (raised, the front hangs on its own: the gathered back's ends turn down at her sides into it)
-        const Lmax = Lmx;
-        p.fromArray(X, a * 3); o.fromArray(X, b * 3); t.copy(o).sub(p); const d = t.length(); if (d < 1e-9) continue;
-        const L = d > Lmax ? Lmax : d < Lmin ? Lmin : d; if (L === d) continue; const k = d > L ? kOut : kIn; if (!k) continue;
-        const pa = pinned(a), pb = pinned(b); if (pa && pb) continue;
-        const e = (d - L) / d * k, wa = pa ? 0 : pb ? 1 : 0.5, wb = pb ? 0 : pa ? 1 : 0.5;
-        p.addScaledVector(t, e * wa).toArray(X, a * 3); o.addScaledVector(t, -e * wb).toArray(X, b * 3);
-      }
-      for (let q = 0; q < N; q++) {
-        if (pinned(q)) continue;
-        outOf(p.fromArray(X, q * 3), q);
-        for (const [c, r] of seat) { t.copy(p).sub(c); const d = t.length(); if (d < r + M && d > 1e-9) p.copy(c).addScaledVector(t, (r + M) / d); }
-        const hgt = t.copy(p).sub(fl).dot(up); if (hgt < 0) p.addScaledVector(up, -hgt);
-        p.toArray(X, q * 3);
-      }
+  const follow = C.fresh ? 1 : 1 - Math.exp(-dt / 0.15), band = C.fresh ? 1 : 1 - Math.exp(-dt * 3.5);
+  const TG = C.TG || (C.TG = new Float32Array(N * 3)), D = C.D || (C.D = new Float32Array(N * 3)), D2 = C.D2 || (C.D2 = new Float32Array(N * 3));
+  for (let j = 0; j < SKC; j++) {
+    const q0 = j * (SKK + 1), qh = q0 + kh, A = new V3().fromArray(R, qh * 3).applyMatrix4(T), fh = FACE[j].clone().addScaledVector(up, -FACE[j].dot(up)).normalize();
+    const rh = Math.hypot(R[qh * 3] - cx, R[qh * 3 + 2] - cz);
+    for (let k = 0; k <= SKK; k++) {
+      const q = q0 + k;
+      if (k <= kh) p.fromArray(R, q * 3).applyMatrix4(T);
+      else p.copy(A).addScaledVector(up, -(R[qh * 3 + 1] - R[q * 3 + 1])).addScaledVector(fh, Math.hypot(R[q * 3] - cx, R[q * 3 + 2] - cz) - rh);
+      if (banded(q)) p.copy(o.fromArray(C.band, q * 3).applyMatrix4(T));
+      p.toArray(TG, q * 3);
+      // (eased toward from where it was, a little behind: soft, never overshooting; the band drawn up more slowly; then out of her legs and
+      // anything else, so it never trails inside them)
+      if (k > 0) { p.lerp(o.fromArray(X, q * 3), 1 - (banded(q) ? band : follow)); if (!banded(q)) outOf(p, q); }
+      p.toArray(X, q * 3);
     }
   }
+  // (cloth with some body: where a leg's pushed a point of it out, the points round it go out too, so it bulges broadly rather than tenting
+  // at a point; then out of her legs again)
+  for (let q = 0; q < N * 3; q++) D[q] = X[q] - TG[q];
+  const at = (j, k) => ((j + SKC) % SKC) * (SKK + 1) + k;
+  for (let pass = 0; pass < 3; pass++) {
+    for (let j = 0; j < SKC; j++) for (let k = 1; k <= SKK; k++) {
+      const q = at(j, k), nb = [at(j - 1, k), at(j + 1, k), at(j, k - 1)].concat(k < SKK ? [at(j, k + 1)] : []);
+      for (let e = 0; e < 3; e++) { let m = 0; for (const r of nb) m += D[r * 3 + e]; D2[q * 3 + e] = banded(q) ? D[q * 3 + e] : 0.5 * D[q * 3 + e] + 0.5 * m / nb.length; }
+    }
+    for (let j = 0; j < SKC; j++) for (let k = 1; k <= SKK; k++) { const q = at(j, k); for (let e = 0; e < 3; e++) D[q * 3 + e] = D2[q * 3 + e]; }
+  }
+  for (let j = 0; j < SKC; j++) for (let k = 1; k <= SKK; k++) {
+    const q = at(j, k); if (banded(q)) continue;
+    p.set(TG[q * 3] + D[q * 3], TG[q * 3 + 1] + D[q * 3 + 1], TG[q * 3 + 2] + D[q * 3 + 2]); outOf(p, q); p.toArray(X, q * 3);
+  }
+  C.fresh = false;
   // each chain point's bone: turned as her hips are, then swung to lie along its chain as it is now, about the point itself
   let i = 0;
   for (let j = 0; j < SKC; j++) for (let k = 1; k <= SKK; k++, i++) {
-    const q = j * (SKK + 1) + k, qa = j * (SKK + 1) + Math.min(k + 1, SKK), qb = q - 1 - (k === SKK ? 0 : 0);
-    t.fromArray(X, qa * 3).sub(o.fromArray(X, (k === SKK ? q - 1 : q - 1) * 3));
+    const q = j * (SKK + 1) + k, qa = j * (SKK + 1) + Math.min(k + 1, SKK);
+    t.fromArray(X, qa * 3).sub(o.fromArray(X, (q - 1) * 3));
     const d0 = _c2.copy(C.down[i]).applyQuaternion(qT);
     if (t.lengthSq() < 1e-10) t.copy(d0); else t.normalize();
     _cq2.setFromUnitVectors(d0, t).multiply(qT);
