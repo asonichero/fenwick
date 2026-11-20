@@ -205,7 +205,7 @@ function build(scene) {
     seats: {
       // (or perched on the edge of the bed, facing into the room: she lies along it in front, her head toward the pillows, the near arm up
       // on the mattress; and the aftercare stays on the bed, side by side on its edge)
-      bed: { at: new V3(-1.6, 0, BZ + 0.13), yaw: Math.PI, turn: 0, seatY: MT - 0.02, rest: { y: MT, edge: 0.11 },
+      bed: { at: new V3(-1.6, 0, BZ + 0.13), yaw: Math.PI, turn: 0, seatY: MT - 0.02, rest: { y: MT, edge: 0.11, mesh: [bed, rucked] },
         cams: otkCams([[0.42, 0.36, 1.05], [0.24, 0.55, 0.36]]).map(c => c[0] === 'Side' ? ['Side', [-1.8, 1.25, 1.7], [0.05, 0.76, 0.3]] : c[0] === 'Room' ? ['Room', [-1.6, 1.95, 1.9], [0.1, 0.7, 0.25]] : c),
         after: { at: new V3(-1.3, 0, BZ + 0.11), yaw: Math.PI, seatY: MT - 0.02, beside: new V3(-1.92, 0, BZ + 0.11),
           cams: [['Two-shot', [-1.3, 1.05, 1.6], [0.3, 0.85, 0.0]], ['Close', [-0.75, 1.05, 1.05], [0.3, 0.95, 0.0]]] } },

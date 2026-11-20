@@ -180,7 +180,9 @@ test('her clothes drawn on: lacing, chemise, apron, print, patches; the leggings
   await loaded;
   const u = (f, k) => f.gm[k].material.userData.u;
   const goldie = gfig('goldie'); assert.ok(goldie.gm.DressElbow);
-  assert.equal(u(goldie, 'DressElbow').uParam.value.w, 1, 'an apron'); assert.equal(u(goldie, 'DressElbow').uL0.value.z, 1, 'a print'); assert.equal(u(goldie, 'DressElbow').uParam.value.z, 1, 'elbow sleeves');
+  assert.equal(u(goldie, 'DressElbow').uParam.value.w, 1, 'an apron'); assert.equal(u(goldie, 'DressElbow').uL0.value.z, 0, 'the uniform: plain'); assert.equal(u(goldie, 'DressElbow').uParam.value.z, 1, 'elbow sleeves');
+  assert.deepEqual(Cast.WARDROBE.goldie.maid.main, Cast.WARDROBE.cinderella.maid.main, 'the maids in the same uniform');
+  const eleanor = F.make(Cast.figureSpec('cinderella', 'f', 'dayoff')); assert.equal(u(eleanor, 'DressElbow').uL0.value.z, 1, 'her days-off dress: a print'); assert.equal(u(eleanor, 'DressElbow').uParam.value.w, 0, 'no apron');
   const snow = gfig('snow'); assert.equal(u(snow, 'DressLong').uL0.value.w, 1, 'her bodice its own colour'); assert.equal(u(snow, 'DressLong').uParam.value.w, 0, 'no apron');
   const gretel = gfig('gretel'); assert.equal(u(gretel, 'Kirtle').uL1.value.w, 1, 'patches'); assert.equal(u(gretel, 'Leggings').uL0.value.x, 1, 'darned');
   const silas = gfig('silas'), top = Object.keys(silas.gm).find(k => /^(Tunic|Shirt)/.test(k) && silas.gm[k].visible); assert.equal(top, 'Shirt');
@@ -198,21 +200,35 @@ test('her skin’s painted detail and her feet, where the model puts them; the c
   assert.equal(U(silas).uNip.value.w, 0); assert.equal(U(silas).uFootF.value.z, 0);
 });
 
-test('her skirt draped as she lies, from Blender: each pose its own, down or raised; her own copy, not another’s; as built when she stands', async () => {
+test('her skirt draped as she lies, from Blender: her own, each pose, down or raised (the whole skirt, its back lifted); each draped point with the part of her it lies on; another of her as she was', async () => {
   await loaded;
-  const j = JSON.parse(fs.readFileSync(path.join(MODELS, 'fenwick_drapes.json'))), b = fs.readFileSync(path.join(MODELS, 'fenwick_drapes.bin'));
-  F.adoptDrapes(j, b.buffer.slice(b.byteOffset, b.byteOffset + b.byteLength));
-  for (const g of ['DressLong', 'DressElbow', 'Kirtle']) {
-    assert.deepEqual(Object.keys(j.meshes[g].poses).sort(), ['after', 'bed', 'edge', 'otk', 'table'], g);
-    assert.deepEqual(Object.keys(j.meshes[g + 'Up'].poses).sort(), ['bed', 'edge', 'otk', 'table'], g + 'Up');
+  const D = id => { const j = JSON.parse(fs.readFileSync(path.join(MODELS, 'drapes', id + '.json'))), b = fs.readFileSync(path.join(MODELS, 'drapes', id + '.bin')); F.adoptDrapes(id, j, b.buffer.slice(b.byteOffset, b.byteOffset + b.byteLength)); return j; };
+  for (const id of Cast.IDS) {
+    const j = D(id);
+    for (const g in j.garments) assert.deepEqual(Object.keys(j.garments[g].poses).sort(), ['after', 'bed', 'bed:up', 'edge', 'edge:up', 'otk', 'otk:up', 'table', 'table:up'], id + ' ' + g);
   }
-  const belle = gfig('belle'), other = gfig('belle'), pos = f => Float32Array.from(f.gm[f.topName].geometry.attributes.position.array);
-  const rest = pos(belle); belle.setDrape('otk'); const otk = pos(belle);
+  const belle = gfig('belle'), other = gfig('belle'), geo = f => f.gm[f.topName].geometry, pos = f => Float32Array.from(geo(f).attributes.position.array);
+  const rest = pos(belle), si0 = Uint16Array.from(geo(belle).attributes.skinIndex.array); belle.setDrape('otk'); const otk = pos(belle);
   let moved = 0; for (let i = 0; i < rest.length; i++) moved = Math.max(moved, Math.abs(otk[i] - rest[i]));
   assert.ok(moved > 0.1, `across the knee, its hem falls away (${moved.toFixed(2)} m)`);
-  assert.deepEqual(Array.from(pos(other)), Array.from(rest), 'another in the same dress is as she was');
-  belle.setClothes({ top: 'up' }); assert.equal(belle.topName, 'DressLongUp'); assert.equal(belle.gm.DressLongUp.userData.drapeKey, 'DressLongUp|otk');
+  let rebound = 0; const si = geo(belle).attributes.skinIndex.array; for (let i = 0; i < si.length; i++) if (si[i] !== si0[i]) rebound++;
+  assert.ok(rebound > 100, 'its draped points go with what they lie on');
+  assert.deepEqual(Array.from(pos(other)), Array.from(rest), 'another of her in the same dress is as she was');
+  belle.setClothes({ top: 'up' }); assert.equal(belle.topName, 'DressLong', 'raised: the whole skirt'); assert.equal(belle.gm.DressLong.userData.drapeKey, 'DressLong|otk:up');
+  assert.equal((belle.skinMat.userData.u.uHide.value >> F.R.SEAT) & 1, 0, 'her seat not hidden under it');
   belle.setClothes({ top: 'down' }); belle.setDrape(null); assert.deepEqual(Array.from(pos(belle)), Array.from(rest), 'standing, as built');
+});
+
+test('Silas at night (his nightshirt over linen drawers, barefoot) and with nothing on; no stockings drawn on him', async () => {
+  await loaded;
+  const shown = f => Object.entries(f.gm).filter(([, m]) => m.visible).map(([k]) => k).sort();
+  const night = F.make(Cast.squireSpec({ outfit: 'night' })); assert.deepEqual(shown(night), ['Drawers', 'NightShirt']); assert.equal(night.clothes.top, night.gm.NightShirt);
+  assert.equal((night.skinMat.userData.u.uHide.value >> F.R.FOOT) & 1, 0, 'barefoot');
+  const none = F.make(Cast.squireSpec({ outfit: 'none' })); assert.deepEqual(shown(none), []); assert.equal(none.skinMat.userData.u.uHide.value, 0);
+  assert.equal(none.skinMat.userData.u.uStock.value.w, 0, 'no stockings drawn on his legs');
+  // (hers: each in her nightclothes, barefoot: a chemise, or a night-dress)
+  const g = F.make(Cast.figureSpec('goldie', 'f', 'night')), b = F.make(Cast.figureSpec('belle', 'f', 'night'));
+  assert.ok(g.gm.Chemise && g.gm.Chemise.visible && !g.gm.Boots, 'Goldie: her chemise, barefoot'); assert.ok(b.gm.NightDress && b.gm.NightDress.visible, 'Belle: her night-dress');
 });
 
 test('the Blender-built hair: every style the household wears, coloured per point, fitted to the head; his beard', async () => {

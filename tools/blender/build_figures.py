@@ -1372,12 +1372,13 @@ def back_z(Sf, y, x=0.0):
         if Sf.f(np.array([[x, y, m]]))[0] > 0: lo = m
         else: hi = m
     return lo
-def period_garments(sex, torso, leg, arm, body, label, rig):
+def period_garments(sex, torso, leg, arm, body, label, rig, only=None):
+    """(only: just these garments, by name: Silas's nightclothes are made here too)"""
     L = landmarks(sex, torso); BD = body_data(body); out = []
     L['seatPeak'], L['seatFold'], L['seatTop'] = seat_marks(body_field(torso, leg, arm, sex), L['hipX'] * 0.8)
     # (her landmarks for the period wardrobe: the neckline lower and rounder than a shirt's; the skirt's and kirtle's hems; the drawers' and
     # smalls' leg openings; where lowered drawers come to rest above the knees; no high-cut briefs any more, so no briefCut)
-    L['neckline'] = L['neck'] - 0.026; L['skirtHem'] = SKIRT_HEM; L['kirtleHem'] = KIRTLE_HEM; L['drawersLeg'] = DRAWERS_LEG; L['briefLeg'] = SMALLS_LEG
+    L['neckline'] = L['neck'] - 0.026; L['skirtHem'] = SKIRT_HEM; L['kirtleHem'] = KIRTLE_HEM; L['chemiseHem'] = KNEE_Y - 0.03; L['nightHem'] = ANKLE_Y + 0.07; L['nightShirtHem'] = KNEE_Y - 0.04; L['drawersLeg'] = DRAWERS_LEG; L['briefLeg'] = SMALLS_LEG
     L['drawersDown'] = KNEE_Y + 0.165; L['sleeveE'] = L['rollA'] + 0.012;      # (an elbow sleeve ends just past where the forearm's skin is hidden from: no gap)
     L['period'] = 1.0; L.pop('briefCut', None)
     legs_ = lambda Ls: (lambda P: np.maximum(Ls[0].f(P), Ls[1].f(P)))
@@ -1386,6 +1387,7 @@ def period_garments(sex, torso, leg, arm, body, label, rig):
     dr = DELT_R[sex] * float(np.interp(0.06, [r['y'] for r in arm], [r['rx'] for r in arm])) / 0.0397
     names_ = [g.name for g in body.vertex_groups]
     def make(name, fn, lo, hi, faces, planes, allowed, h=0.003, split=None, custom=None):
+        if only and name not in only: return None
         V, Fc = march(lambda P: (fn(P), None), h=h, lo=lo, hi=hi)
         ob = mesh_from(name, V, Fc, faces); cut(ob, planes); dress_from(ob, body, BD, label, allowed, rig, split, custom)
         print(sex, name, len(ob.data.vertices), 'verts'); out.append(ob); return ob
@@ -1410,7 +1412,7 @@ def period_garments(sex, torso, leg, arm, body, label, rig):
     make('SmallsDown', lambda P: smax(legs_(Lsd)(P), sling(yb - 0.002, 0.012, 0.034, 0.008, 0.0038)(P), 0.008), (-0.24, yb - 0.1, -0.16), (0.24, yb + 0.03, 0.16), 3000,
          [((0, yb + 0.006, 0), up_), ((0, yb - 0.05, 0), down_)], LEGS_L, h=0.0025)
     Td = Cloth(torso, lambda y: 0.011, slope=0.9, below=CROTCH_Y + 0.12)
-    dleg = lambda y: 0.014 + 0.016 * ss(CROTCH_Y - 0.1, DRAWERS_LEG + 0.02, y) + 0.01 * gauss(y - (DRAWERS_LEG + 0.014), 0.009) + 0.0025 * math.sin(y * 210)
+    dleg = lambda y: 0.014 + 0.016 * ss(CROTCH_Y - 0.1, DRAWERS_LEG + 0.02, y) + (0.01 * gauss(y - (DRAWERS_LEG + 0.014), 0.009) + 0.0025 * math.sin(y * 210) if sex == 'f' else 0.0)      # (his plain: no frill)
     Ldw = [Cloth(leg, dleg, sx) for sx in (1, -1)]
     drawers_f = lerp_crotch(Td, legs_(Ldw))
     make('Drawers', drawers_f, (-0.27, DRAWERS_LEG - 0.03, -0.2), (0.27, L['trouserTop'] + 0.03, 0.2), 7000, [((0, L['trouserTop'], 0), up_), ((0, DRAWERS_LEG, 0), down_)], TORSO_L)
@@ -1458,18 +1460,41 @@ def period_garments(sex, torso, leg, arm, body, label, rig):
             while len(H) >= 2 and (H[-1][0] - H[-2][0]) * (p[1] - H[-2][1]) - (H[-1][1] - H[-2][1]) * (p[0] - H[-2][0]) >= 0: H.pop()
             H.append(p)
         H = np.array(H); return lambda q: np.interp(q, H[:, 0], H[:, 1])
-    def skirt(hem, flare, ease0, folds, back_full, under_f, under_top):
-        YG = np.arange(hem - 0.04, yw + 0.03, 0.002); R = np.zeros((NA, len(YG)))
-        ease = lambda y: ease0 * 0.6 + ease0 * 0.4 * ss(yw, yw - 0.1, y)        # (a little closer at the waistband)
-        apex_y = np.zeros(NA)
+    def under_radius(under_f, y0, y1, dy=0.006, dr=0.004):
+        """(Fenwick) What's under the skirt (her drawers, or leggings): how far out it reaches from the hips' centre at each angle and height,
+        the outermost crossing along each ray, with its ruffles evened out (smoothed up and down and round): the skirt hangs over that."""
+        ys = np.arange(y0, y1 + dy, dy); rs = np.arange(0.0, 0.36, dr)
+        A, Yy, Rr = np.meshgrid(ANG, ys, rs, indexing='ij')
+        P = np.stack([(cxw + Rr * np.cos(A)).ravel(), Yy.ravel(), (czw + Rr * np.sin(A)).ravel()], 1)
+        ins = (under_f(P) > 0).reshape(A.shape)
+        last = np.where(ins.any(2), len(rs) - 1 - np.argmax(ins[:, :, ::-1], 2), -1)
+        U = np.where(last >= 0, rs[np.maximum(last, 0)] + dr * 0.5, 0.0)
+        k = np.exp(-0.5 * (np.arange(-4, 5) * dy / 0.012) ** 2); k /= k.sum()
+        U = np.apply_along_axis(lambda v: np.convolve(np.pad(v, 4, mode='edge'), k, mode='valid'), 1, U)
+        ka = np.exp(-0.5 * (np.arange(-3, 4) / 1.5) ** 2); ka /= ka.sum()
+        U = np.apply_along_axis(lambda v: np.convolve(np.pad(v, 3, mode='wrap'), ka, mode='valid'), 0, U)
+        return ys, U
+    def skirt(hem, flare, ease0, folds, back_full, under_f, under_top, top=None):
+        # (Fenwick: from the waist (a dress's skirt), or from higher (`top`: a shift, hanging from her bust and shoulder blades))
+        top = top or yw; ys, rb = (YS, RB) if top == yw else (lambda rows: (np.array([TS.y[i] for i in rows]), np.stack([ring_about(i) for i in rows], 1)))([i for i, y in enumerate(TS.y) if CROTCH_Y <= y <= top + 0.0015])
+        YG = np.arange(hem - 0.04, top + 0.03, 0.002); R = np.zeros((NA, len(YG)))
+        ease = lambda y: ease0 * 0.6 + ease0 * 0.4 * ss(top, top - 0.1, y)        # (a little closer at the waistband)
+        uy, UR = under_radius(under_f, max(hem, CROTCH_Y - 0.35), yw + 0.02)
+        apex_y = np.zeros(NA); lo = CROTCH_Y - 0.3
         for j in range(NA):
-            r = RB[j] + ease(YS); k = int(np.argmax(r)); ya, ra = YS[k], r[k]; apex_y[j] = ya
-            env = upper_hull(YS[k:], r[k:])
+            # (what it hangs over at each height: her body above the crotch, and what's under the skirt, with room for the cloth)
+            body = np.where(YG >= ys[0], np.interp(YG, ys, rb[j]), 0.0) + ease(YG)
+            und = np.interp(YG, uy, UR[j], left=0.0, right=0.0); und = np.where(und > 0, und + 0.009, 0.0)
+            S_ = np.maximum(body, und)
+            band = (YG >= lo) & (YG <= top); kk = np.where(band)[0]; k = int(kk[np.argmax(S_[kk])]); ya, ra = YG[k], S_[k]; apex_y[j] = ya
+            up_ = (YG >= ya) & (YG <= top + 0.03); env = upper_hull(YG[up_], S_[up_])
             behind = max(0.0, -math.sin(ANG[j]))
             t = np.clip((ya - YG) / max(1e-6, ya - hem), 0, 1)
-            R[j] = np.where(YG >= ya, env(np.minimum(YG, yw)), ra + flare * t ** 1.15 * (1 + (back_full - 1) * behind))
+            # (below its fullest, it falls straight, flaring a little; and never in over anything it's already come down past)
+            hang = np.maximum.accumulate(np.where(YG <= ya, S_, 0.0)[::-1])[::-1]
+            R[j] = np.where(YG >= ya, env(np.minimum(YG, top)), np.maximum(ra + flare * t ** 1.15 * (1 + (back_full - 1) * behind), hang))
         # the folds: gathers at the waist, flat over the hips, broad below
-        T_ = np.clip((yw - YG) / (yw - hem), 0, 1)[None, :]; PH = ANG[:, None]
+        T_ = np.clip((top - YG) / (top - hem), 0, 1)[None, :]; PH = ANG[:, None]
         hang = ss(0.0, 0.12, apex_y[:, None] - YG[None, :])
         R = R + folds * (0.0028 * (1 - ss(0.0, 0.3, T_)) * np.sin(30 * PH + 0.4 * np.sin(7 * PH))
                          + (0.0012 + 0.011 * hang * T_ ** 0.9) * np.sin(12 * PH + 0.9 * np.sin(3 * PH) + 2.0 * T_))
@@ -1480,11 +1505,10 @@ def period_garments(sex, torso, leg, arm, body, label, rig):
             k = (phi + np.pi) / (2 * np.pi) * NA; k0 = np.floor(k).astype(int) % NA; k1 = (k0 + 1) % NA; v = k - np.floor(k)
             u = np.clip((y - y0) / dy, 0, len(YG) - 1.001); i0 = np.floor(u).astype(int); w = u - i0
             r = (R[k0, i0] * (1 - w) + R[k0, i0 + 1] * w) * (1 - v) + (R[k1, i0] * (1 - w) + R[k1, i0 + 1] * w) * v
-            sk = np.where((y >= hem - 0.03) & (y <= yw + 0.02), r - d, -1.0)
-            return np.maximum(sk, over(under_f, 0.008, under_top)(P))
+            return np.where((y >= hem - 0.03) & (y <= top + 0.02), r - d, -1.0)      # (clear of what's under it by its shape, not shaped by it)
         return f
     # (her bodice: fitted; joined to its sleeves over the shoulder and round the armhole, as the uniform's jacket was)
-    def bodice_and_sleeves(sleeves, under_f, under_top):
+    def bodice_and_sleeves(sleeves, under_f, under_top, top=None, bease=0.0075):
         a_end = L['cuffA'] if sleeves == 'long' else L['sleeveE']
         puff = lambda a: 0.007 * gauss(a - 0.045, 0.03)
         sl_ease = (lambda a: 0.008 + puff(a) + 0.003 * ss(0.15, ARM_LEN, a) + 0.004 * ss(a_end - 0.05, a_end, a)) if sleeves == 'long' else (lambda a: 0.009 + puff(a) + 0.016 * ss(a_end - 0.09, a_end, a) ** 1.5)
@@ -1496,8 +1520,8 @@ def period_garments(sex, torso, leg, arm, body, label, rig):
             return f
         cuffs = []
         for sx in (1, -1): J, d, e1 = arm_axis(sx); cuffs.append((tuple(arm_at(sx, a_end)), tuple(d)))
-        Tb = Cloth(torso, lambda y: 0.0075 - 0.003 * ss(L['neck'] - 0.03, L['neck'] + 0.01, y), slope=0.5, below=L['armpit'] + 0.04)
-        bod = lambda P: np.where(P[:, 1] > yw - 0.03, Tb.f(P), -1.0)
+        Tb = Cloth(torso, lambda y: bease - 0.003 * ss(L['neck'] - 0.03, L['neck'] + 0.01, y), slope=0.5, below=L['armpit'] + 0.04)
+        bod = lambda P: np.where(P[:, 1] > (top or yw) - 0.03, Tb.f(P), -1.0)
         return bod, sleeve, cuffs
     # (the roll a raised skirt is gathered in: just above her hips, on the top of her seat, its ends turning forward and down into the front's fall)
     ROLL_Y = L['seatTop'] + 0.018; L['rollY'] = ROLL_Y
@@ -1510,9 +1534,10 @@ def period_garments(sex, torso, leg, arm, body, label, rig):
         return lo
     zs = czw + 0.012; xside = side_x(ROLL_Y, zs)
     RX = np.linspace(-0.13, 0.13, 27); zroll = np.array([back_z(TS, ROLL_Y, x) for x in RX])
-    def dress(name, sleeves, hem, flare, ease0, folds, back_full, under_f, under_top, faces):
-        bod, sleeve, cuffs = bodice_and_sleeves(sleeves, under_f, under_top)
-        sk = skirt(hem, flare, ease0, folds, back_full, under_f, under_top)
+    def dress(name, sleeves, hem, flare, ease0, folds, back_full, under_f, under_top, faces, top=None, bease=0.0075, raised=True):
+        if only and name not in only: return
+        bod, sleeve, cuffs = bodice_and_sleeves(sleeves, under_f, under_top, top, bease)
+        sk = skirt(hem, flare, ease0, folds, back_full, under_f, under_top, top)
         # (kept clear of her arms, which hang close by her hips: below the armpit the body of the dress is carved back from the sleeve and the arm
         # in it by a few millimetres, so the two never run together into one surface, nor the skirt take the arm's weights)
         def carve(a, P):
@@ -1546,7 +1571,7 @@ def period_garments(sex, torso, leg, arm, body, label, rig):
             C[:, ix['thighL']] = h * s * (1 - kb); C[:, ix['thighR']] = h * (1 - s) * (1 - kb); C[:, ix['shinL']] = h * s * kb; C[:, ix['shinR']] = h * (1 - s) * kb
             c = ss(yw - 0.01, yw - 0.07, y) * (~is_sl(X))      # (blended in below the waist; the bodice and sleeves keep the skin's)
             return G * (1 - c[:, None]) + C * c[:, None]
-        for up in (False, True):
+        for up in ((False, True) if raised else (False,)):
             planes = [((0, hem, 0), down_, lambda X: ~is_sl(X))] + [(c[0], c[1], is_sl) for c in cuffs] + neck
             if up:
                 # (raised: the skirt's back taken up from the hem to just above her hips and gathered there in the roll, its ends turning down at her
@@ -1559,6 +1584,13 @@ def period_garments(sex, torso, leg, arm, body, label, rig):
     dress('DressLong', 'long', SKIRT_HEM, 0.035, 0.012, 1.0, 1.25, drawers_f, L['trouserTop'], 16000)
     dress('DressElbow', 'elbow', SKIRT_HEM, 0.035, 0.012, 1.0, 1.25, drawers_f, L['trouserTop'], 16000)
     dress('Kirtle', 'elbow', KIRTLE_HEM, 0.022, 0.01, 0.8, 1.15, leggings_f, L['trouserTop'], 12000)
+    # (Fenwick: what she sleeps in: a chemise, the linen shift worn under the dresses, gathered at the neck, elbow-sleeved, to just below the
+    # knee; or a night-dress, long-sleeved and to the ankle. Both loose: hanging from her bust and shoulder blades, not fitted to the waist.
+    # Raised, as the dresses are on their drapes: their backs lifted, so no raised mesh of their own)
+    dress('Chemise', 'elbow', L['chemiseHem'], 0.03, 0.016, 0.9, 1.15, drawers_f, L['trouserTop'], 13000, top=L['armpit'] + 0.02, bease=0.014, raised=False)
+    dress('NightDress', 'long', L['nightHem'], 0.05, 0.016, 1.0, 1.2, drawers_f, L['trouserTop'], 16000, top=L['armpit'] + 0.02, bease=0.014, raised=False)
+    # (his: a long nightshirt, long-sleeved, loose, to the knee, over his drawers)
+    if sex == 'm': dress('NightShirt', 'long', L['nightShirtHem'], 0.03, 0.016, 0.9, 1.1, drawers_f, L['trouserTop'], 14000, top=L['armpit'] + 0.02, bease=0.016, raised=False)
     # ── boots, as the men's: round the foot and up the shin ──
     Lk = [Cloth(leg, lambda y: 0.0095 + 0.003 * ss(0.12, 0.2, y), sx) for sx in (1, -1)]
     ft = [foot_part(sx, leg)[0].last for sx in (1, -1)]      # (round the last: no toes through the leather)
@@ -1592,6 +1624,10 @@ if __name__ == '__main__':
     for sex in only:
         body, rig, J, (torso, leg, arm, label) = build(sex)
         clothes, LM = (period_garments if sex == 'f' else garments)(sex, torso, leg, arm, body, label, rig)      # (hers: Fenwick's period wardrobe; his: Meridian's shirt, trousers and boots)
+        if sex == 'm':      # (Fenwick: and his nightclothes, from her wardrobe's making: undyed linen drawers to the knee, a long nightshirt)
+            c2, L2 = period_garments(sex, torso, leg, arm, body, label, rig, only={'Drawers', 'NightShirt'}); clothes += c2
+            for k in ('nightShirtHem', 'drawersLeg', 'trouserTop', 'neckline'): LM.setdefault(k, L2[k])
+            LM['nightShirtHem'] = L2['nightShirtHem']; LM['drawersLeg'] = L2['drawersLeg']
         export(sex, [body, rig] + clothes)
         meta = json.load(open(meta_path)); meta[sex] = {'landmarks': LM, 'joints': {n: list(p) for n, (par, p) in J.items()}, 'parents': {n: par for n, (par, p) in J.items()}}
         json.dump(meta, open(meta_path, 'w'), indent=1)

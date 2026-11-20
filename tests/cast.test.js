@@ -81,11 +81,17 @@ test('figure specs: each heroine’s own build and look, in her period clothes; 
     assert.equal(s.sex, 'f'); assert.ok(s.height > 1.5 && s.height < 1.8, id); assert.ok(s.hairStyle, id);
     assert.equal(s.outfit, 'period'); assert.equal(s.period, W[Cast.outfits(id)[0]], id + ' in her usual');
     for (const [k, o] of Object.entries(W)) {
-      assert.ok(['dress', 'kirtle'].includes(o.kind) && ['long', 'elbow'].includes(o.sleeves), id + ' ' + k);
-      for (const c of ['main', 'chemise', 'underCol', 'shoe']) assert.match(o[c], /^#[0-9a-f]{6}$/, id + ' ' + k + ' ' + c);
+      assert.ok(['dress', 'kirtle', 'chemise', 'nightdress'].includes(o.kind) && ['long', 'elbow'].includes(o.sleeves), id + ' ' + k);
+      for (const c of ['main', 'chemise', 'underCol']) assert.match(o[c], /^#[0-9a-f]{6}$/, id + ' ' + k + ' ' + c);
+      if (k === 'night') { assert.ok(!o.shoes && !o.stockings, id + ' barefoot to bed'); continue; }
+      assert.match(o.shoe, /^#[0-9a-f]{6}$/, id + ' ' + k + ' shoe');
       // (leggings and a kirtle together, with smalls under them; a dress with drawers and stockings)
       if (o.legs === 'leggings') { assert.equal(o.kind, 'kirtle', id + ' ' + k); assert.equal(o.under, 'smalls'); } else { assert.equal(o.kind, 'dress', id + ' ' + k); assert.equal(o.under, 'drawers'); assert.ok(o.stockings, id + ' ' + k); }
     }
+    // (what she sleeps in: the elbow-sleeved in their chemise and drawers; Gretel a rough one and her smalls; the others a night-dress)
+    const N = W.night; assert.ok(N, id + ' has nightclothes');
+    assert.equal(N.kind, { goldie: 'chemise', red: 'chemise', cinderella: 'chemise', gretel: 'chemise', belle: 'nightdress', rapunzel: 'nightdress', snow: 'nightdress' }[id], id);
+    assert.equal(N.under, id === 'gretel' ? 'smalls' : 'drawers', id);
     assert.ok(Cast.ROSTER[id].period, id + ' has her wardrobe described');
   }
   // (leggings are Gretel's own, and Red's for walking the estate; everyone else in dresses)

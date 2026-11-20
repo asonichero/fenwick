@@ -202,6 +202,24 @@ function create(stage, bay, opts) {
 
   // Nothing through the floor: the lowest of a foot (the ball of it and the tip) and of a hand's fingers, as posed; where they'd go under it, the
   // leg or the arm is drawn up by that much and posed again.
+  // (Fenwick: the hips put at the height that makes the legs straight to where the feet are planted (ankle targets, in the world): both, or
+  // only lowered (`lowerOnly`) where a short one's hips are held up by what she's bent over)
+  function straightLegs(F, ankles, lowerOnly) {
+    const s = sc(F), L = (F.bone.shinL.position.length() + F.bone.footL.position.length()) * s * 0.995; let dy = Infinity;
+    for (const [side, A] of ankles) { const h = W_(F, 'thigh' + side), dh = Math.hypot(h.x - A.x, h.z - A.z); dy = Math.min(dy, A.y + Math.sqrt(Math.max(0, L * L - dh * dh)) - h.y); }
+    if (!isFinite(dy) || (lowerOnly && dy > 0)) return;
+    F.bone.hips.position.y += dy / s; F.root.updateMatrixWorld(true);
+  }
+  // (the top of what a seat's arm rests on, under a point: the bed and its quilt, found by a ray down onto `rest.mesh`, what's shown of it;
+  // else the rest's own height)
+  const _restRay = new THREE.Raycaster(), DOWN = new V3(0, -1, 0);
+  function restTop(p) {
+    const r = bench.rest; if (!r || !r.mesh) return r ? r.y : 0;
+    _restRay.set(new V3(p.x, p.y + 0.6, p.z), DOWN); _restRay.far = 1.0;
+    const shown = o => { for (; o; o = o.parent) if (!o.visible) return false; return true; };
+    const h = _restRay.intersectObjects([].concat(r.mesh), true).find(x => shown(x.object));
+    return h ? Math.max(r.y, h.point.y) : r.y;
+  }
   function footLow(F, side) { const s = sc(F), ft = W_(F, 'foot' + side), to = W_(F, 'toe' + side), tip = to.clone().addScaledVector(to.clone().sub(ft).normalize(), 0.065 * s); return Math.min(to.y - 0.022 * s, tip.y - 0.012 * s); }
   function handLow(F, side) { const s = sc(F), m1 = W_(F, 'middle1' + side), m2 = W_(F, 'middle2' + side), tip = m2.clone().addScaledVector(m2.clone().sub(m1).normalize(), 0.035 * s); return Math.min(m1.y, m2.y, tip.y) - 0.009 * s; }
   // A knee bent further than the leg's pose has it: the lower leg turned about the hinge (their own left–right), the foot with it.
@@ -287,7 +305,8 @@ function create(stage, bay, opts) {
   function placeCaptain(fit, up_, rz) {
     const F = captain, s_ = sc(cur.f), hipZ = cur.f.bone.hips.position.z * s_;
     const at = local(cur.f, (0.44 - fit.inn) * s_, 0, hipZ + 0.04 - fit.back * s_); at.y = 0;
-    const a = -0.1 + (fit.turn || 0), face = toWorldDir(cur.f, -Math.cos(a), 0, Math.sin(a)).normalize(), yaw = Math.atan2(face.x, face.z);      // (turned toward their legs as he steps back)
+    // (turned toward their legs as he steps back; at the end of a table, turned in toward it, so his near foot is outside its leg, not under it)
+    const a = -0.1 + (fit.turn || 0) + (st.position === 'table' ? 0.5 : 0), face = toWorldDir(cur.f, -Math.cos(a), 0, Math.sin(a)).normalize(), yaw = Math.atan2(face.x, face.z);
     stand(F, at, yaw, { weight: 0.25, wide: 0.22 + 0.08 * fit.crouch, crouch: 0.22 + fit.crouch - 0.06 * up_, lean: 0.34 + fit.lean - 0.08 * rz - 0.26 * up_, look: 0.45 + 0.2 * fit.lean - 0.15 * up_, headYaw: 0.1 + 0.15 * up_, arms: null });
     F.bone.spine.rotation.y += 0.1 - 0.12 * rz; F.bone.chest.rotation.y += 0.06 - 0.08 * rz;
     F.root.updateMatrixWorld(true);
@@ -305,7 +324,13 @@ function create(stage, bay, opts) {
     const them = ['head', 'neck', 'chest'].map(b => W_(cur.f, b)), clear = 0.32 * cs;
     const cost = fit => { placeCaptain(fit, 0, 0); const sh = W_(F, 'upperArmR'), short = Math.max(...spots.map(T => sh.distanceTo(T) - arm)), hd = W_(F, 'head');
       const near = them.reduce((m, p) => Math.max(m, clear - hd.distanceTo(p)), 0);
-      return 10 * Math.max(0, short) + 8 * near + 0.6 * fit.lean + 0.3 * fit.crouch + 0.15 * fit.back + 0.15 * fit.turn + 0.5 * fit.inn; };      // (a step back and round first, then down at the knees, then over)
+      // (Fenwick: and at a table, his feet clear of it: outside its legs, not under its top)
+      let under = 0;
+      if (st.position === 'table' && table) for (const sd of ['L', 'R']) {
+        const q = W_(F, 'foot' + sd).sub(table.at).applyQuaternion(yawQ(-(table.yaw || 0)));
+        under += Math.max(0, Math.min(table.w / 2 + 0.1 - Math.abs(q.x), q.z - (table.d - 0.12)));
+      }
+      return 10 * Math.max(0, short) + 8 * near + 30 * under + 0.6 * fit.lean + 0.3 * fit.crouch + 0.15 * fit.back + 0.15 * fit.turn + 0.5 * fit.inn; };      // (a step back and round first, then down at the knees, then over)
     // (from a short step back and his own stance, a little more of whichever helps most, till nothing does)
     const STEP = { back: 0.06, turn: 0.1, lean: 0.08, crouch: 0.08, inn: 0.04 }, MAX = { back: 0.7, turn: 0.8, lean: 0.6, crouch: 1.0, inn: 0.14 };
     // (from beside them, and from further back and round toward their legs, since a step back only pays once he's turned with it: the best of each)
@@ -461,10 +486,16 @@ function create(stage, bay, opts) {
         let rest = null;
         if (side === 'L' && bench.rest) {
           const fB = new V3(Math.sin(bench.yaw || 0), 0, Math.cos(bench.yaw || 0)), edge = bench.at.clone().addScaledVector(fB, bench.rest.edge), al = new V3(otkU.x, 0, otkU.z).normalize();
-          const L1 = F.bone.foreArmL.position.length() * s, L2 = F.bone.handL.position.length() * s, ey = bench.rest.y + 0.035 * s, aE = 0.6 * L1;
-          const E = shd.clone().addScaledVector(al, aE).addScaledVector(fB, -Math.sqrt(Math.max(L1 * L1 - (shd.y - ey) ** 2 - aE * aE, 4e-4))); E.y = ey;
-          const inE = edge.clone().sub(E).dot(fB); if (inE < 0.06) E.addScaledVector(fB, inE - 0.06);
-          const H = E.clone().addScaledVector(fB, edge.clone().sub(E).dot(fB) - 0.045 * s); H.y = bench.rest.y + 0.028 * s + 0.012 * Math.max(0, up);
+          // (Fenwick: on whatever's there, the quilt tidy or rucked: what's under the elbow and the hand, found by looking down onto the bed)
+          const L1 = F.bone.foreArmL.position.length() * s, L2 = F.bone.handL.position.length() * s, aE = 0.6 * L1;
+          let ey = bench.rest.y + 0.035 * s, E;
+          for (let pass = 0; pass < 2; pass++) {
+            E = shd.clone().addScaledVector(al, aE).addScaledVector(fB, -Math.sqrt(Math.max(L1 * L1 - (shd.y - ey) ** 2 - aE * aE, 4e-4))); E.y = ey;
+            const inE = edge.clone().sub(E).dot(fB); if (inE < 0.06) E.addScaledVector(fB, inE - 0.06);
+            ey = restTop(E) + 0.035 * s;
+          }
+          E.y = ey;
+          const H = E.clone().addScaledVector(fB, edge.clone().sub(E).dot(fB) - 0.045 * s); H.y = restTop(H) + 0.028 * s + 0.012 * Math.max(0, up);
           H.addScaledVector(al, Math.sqrt(Math.max(L2 * L2 - H.distanceToSquared(E), 4e-4)));
           rest = { E, fB, al }; Wt.copy(H);
         }
@@ -498,7 +529,7 @@ function create(stage, bay, opts) {
       // weight). Defiant, they push up off it on their hands till they're put back.
       setRoot(F, table.at, table.yaw);
       const toe = sp.toe.to(0, dt), fwd = Math.max(0, fl), stamp = sp.stamp.to(0, dt);
-      const hipZ = table.d - 0.12 * s + 0.01 * fwd, hipY = (H(F).hips - 0.02 + 0.035 * Math.max(0, toe)) * s;
+      let hipZ = table.d - 0.12 * s + 0.01 * fwd, hipY = (H(F).hips - 0.02 + 0.035 * Math.max(0, toe)) * s;
       F.bone.hips.position.set(0, hipY / s, hipZ / s);
       // (bent as far as it takes for the chest to lie on the top: past level for the tall, short of it for the short)
       const Lt = (F.bone.spine.position.length() + F.bone.chest.position.length() + F.bone.neck.position.length() * 0.4) * s;
@@ -508,10 +539,14 @@ function create(stage, bay, opts) {
       F.bone.spine.rotation.set(0.03 - 0.04 * ar, 0.06 * gK, 0); F.bone.chest.rotation.set(0.02 - 0.05 * ar, 0.1 * gK, 0);
       F.bone.neck.rotation.set(-0.5 + 0.35 * sub - 0.5 * hd - 0.15 * ar - 0.2 * dfy - 0.2 * gK - 0.25 * rise, -0.7 * (1 - 0.6 * sub) + 1.0 * gK + 0.05 * Math.sin(t * 1.3 + ph[0]) * dd * R.ff, 0.12 - 0.2 * gK);
       F.root.updateMatrixWorld(true);
+      // (Fenwick: the feet planted a fixed distance back from the table's edge, whatever the rest of her does; her legs straight to them,
+      // the hips lowered for it if they'd have to reach)
+      const footZ = table.d - 0.22 * s;
+      straightLegs(F, [['L', local(F, 0.21 * s, ankleY(F) + 0.03 * Math.max(0, toe), footZ)], ['R', local(F, -0.21 * s, ankleY(F) + 0.03 * Math.max(0, toe), footZ)]], true);
       for (const [side, sx] of [['L', 1], ['R', -1]]) {
         const st_ = side === J.side ? Math.max(0, stamp) : 0, pd = side === 'L' ? Math.max(0, pedal) : Math.max(0, -pedal);
         const lift_ = 0.03 * Math.max(0, toe) + (P.sex === 'm' ? 0 : 0.14 * st_ + 0.08 * pd);
-        const at_ = local(F, sx * 0.21 * s, ankleY(F) + lift_, hipZ - 0.1 * s - 0.06 * st_), pole_ = toWorldDir(F, sx * 0.12, 0.1, 1).normalize(), heel = clamp(toe * 1.2 + st_ + pd, 0, 1);
+        const at_ = local(F, sx * 0.21 * s, ankleY(F) + lift_, footZ - 0.06 * st_), pole_ = toWorldDir(F, sx * 0.12, 0.1, 1).normalize(), heel = clamp(toe * 1.2 + st_ + pd, 0, 1);
         legTo(F, side, at_, pole_); footFlat(F, side, toWorldDir(F, sx * 0.12, 0, 1).normalize(), heel);
         const low = footLow(F, side); if (low < 0) { at_.y -= low; legTo(F, side, at_, pole_); footFlat(F, side, toWorldDir(F, sx * 0.12, 0, 1).normalize(), heel); }
         flexKnee(F, side, Math.min(1.5, 1.4 * Math.max(0, lk[side])));
@@ -547,15 +582,24 @@ function create(stage, bay, opts) {
       F.bone.hips.rotation.x -= 0.25 * rise;
       F.root.updateMatrixWorld(true);
       // (a step in, if their arms won't reach what they're to hold from where they stand: the short and the long-bodied alike keep their
-      // hands on it)
-      let stepIn = 0;
-      { const tw = toWorldDir(F, 0, 0, 1), arm = (F.bone.foreArmL.position.length() + F.bone.handL.position.length()) * s * 0.92;
+      // hands on it. Fenwick: worked out once, as they stand at their most upright (defiant), and kept: their feet stay planted however
+      // they move above them, and when they're bent further the slack is in their elbows)
+      let stepIn = P.stance && P.stance.key === sup.kind + wall.at.x + wall.at.z ? P.stance.stepIn : null;
+      if (stepIn == null) {
+        const keep = ['hips', 'spine', 'chest', 'neck'].map(b => [b, F.bone[b].rotation.clone()]);
+        F.bone.hips.rotation.set((sup.bend || 0.72) - 0.3, 0, 0); F.bone.spine.rotation.set(0.06, 0, 0); F.bone.chest.rotation.set(0, 0, 0); F.bone.neck.rotation.set(0, 0, 0);
+        F.root.updateMatrixWorld(true);
+        const tw = toWorldDir(F, 0, 0, 1), arm = (F.bone.foreArmL.position.length() + F.bone.handL.position.length()) * s * 0.9; stepIn = 0;
         for (const [side, sx] of [['L', 1], ['R', -1]]) {
           const sh = W_(F, 'upperArm' + side), T = local(F, sx * 0.24 * s, sup.y, sup.d - (sup.kind === 'wall' ? 0.06 : 0.07)), dv = T.y - sh.y;
           const dh = T.clone().sub(sh).dot(tw), dl = T.clone().sub(sh).addScaledVector(tw, -dh).setY(0).length(), want = Math.sqrt(Math.max(0, arm * arm - dv * dv - dl * dl));
           stepIn = Math.max(stepIn, dh - want);
         }
-        stepIn = clamp(stepIn, 0, 0.4); if (stepIn > 0) { F.root.position.addScaledVector(tw, stepIn); F.root.updateMatrixWorld(true); } }
+        stepIn = clamp(stepIn, 0, 0.4); P.stance = { key: sup.kind + wall.at.x + wall.at.z, stepIn };
+        for (const [b, r] of keep) F.bone[b].rotation.copy(r); F.root.updateMatrixWorld(true);
+      }
+      if (stepIn > 0) { F.root.position.addScaledVector(toWorldDir(F, 0, 0, 1), stepIn); F.root.updateMatrixWorld(true); }
+      straightLegs(F, [['L', local(F, 0.25, ankleY(F) + 0.03 * Math.max(0, toe), 0)], ['R', local(F, -0.25, ankleY(F) + 0.03 * Math.max(0, toe), 0)]], false);
       const stamp = sp.stamp.to(0, dt);
       for (const [side, sx] of [['L', 1], ['R', -1]]) {
         const st_ = side === J.side ? Math.max(0, stamp) : 0, pd = side === 'L' ? Math.max(0, pedal) : Math.max(0, -pedal);

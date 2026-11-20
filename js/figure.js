@@ -270,17 +270,22 @@ PATTERNS.shoeG = `{
 PATTERNS.dressG = `{
   vec3 b = vBind; float ax = abs(b.x), hem = uParam.x, waist = uL0.x, nl = uL0.y, gk = 1.0 + uGrain * (g - 0.5) * 2.0;
   float fr = smoothstep(-0.01, 0.03, b.z), skirtP = 1.0 - smoothstep(waist - 0.02, waist - 0.008, b.y);
+  // (Fenwick: the armhole seam, drawn where it falls rather than along the mesh's triangles: from the shoulder's point down and in to the
+  // armpit (uL1.x the armpit's height, uL1.y the shoulder joint's x), a fine seam along it; below the armpit, where the sleeve and the
+  // bodice are apart, as the mesh says)
+  float pit = uL1.x, seamX = uL1.y - 0.04 + 0.19 * (b.y - pit), sleeve = (pit > 0.0 && b.y > pit) ? step(seamX, ax) : step(0.5, vPart);
   vec3 c = diffuseColor.rgb;
-  if (vPart < 0.5) {
-    if (uL0.w > 0.5) c = mix(uPat3 * gk, c, skirtP);
+  if (pit > 0.0 && b.y > pit) c *= 1.0 - 0.25 * seamAt(ax - seamX, 0.0025);
+  if (sleeve < 0.5) {
+    if (uL0.w > 0.5 && uParam.y < 0.5) c = mix(uPat3 * gk, c, skirtP);
     if (uL0.z > 0.5) { float ctr; vec2 uv = vec2(atan(b.x, b.z + 0.03) * 0.17, b.y); float fl = flowerAt(uv, 30.0, ctr); c = mix(c, uPat4 * gk, fl * 0.8 * (uL0.w > 0.5 ? skirtP : 1.0)); c = mix(c, uPat0, ctr * fl * 0.6 * (uL0.w > 0.5 ? skirtP : 1.0)); }
     // the lacing: criss-cross down the front of the bodice, between two rows of eyelets
-    float bod = (1.0 - skirtP) * fr * step(waist + 0.004, b.y) * (1.0 - smoothstep(nl - 0.05, nl - 0.042, b.y)) * (1.0 - smoothstep(0.018, 0.02, ax));
+    float bod = (1.0 - skirtP) * fr * step(waist + 0.004, b.y) * (1.0 - smoothstep(nl - 0.05, nl - 0.042, b.y)) * (1.0 - smoothstep(0.018, 0.02, ax)) * (1.0 - uParam.y);
     float zz = fract((b.y - waist) / 0.024) - 0.5, lace = min(abs(b.x - zz * 0.03), abs(b.x + zz * 0.03));
     c = mix(c, uPat0, bod * (1.0 - smoothstep(0.0011, 0.0022, lace)) * step(ax, 0.0155));
     c = mix(c, c * 0.72, bod * seamAt(ax - 0.0165, 0.0035));
     // the waist seam, and the apron (its band all round the front, and the bib-less apron itself over the skirt)
-    c *= 1.0 - 0.3 * seamAt(b.y - (waist - 0.012), 0.004);
+    c *= 1.0 - 0.3 * seamAt(b.y - (waist - 0.012), 0.004) * (1.0 - uParam.y);
     if (uParam.w > 0.5) {
       float aw = 0.15 + 0.05 * clamp((waist - b.y) / 0.6, 0.0, 1.0), ap = skirtP * fr * (1.0 - smoothstep(aw - 0.003, aw + 0.003, ax)) * step(hem + 0.075, b.y);
       float band = smoothstep(waist - 0.036, waist - 0.033, b.y) * (1.0 - smoothstep(waist - 0.012, waist - 0.009, b.y)) * smoothstep(-0.06, -0.02, b.z);
@@ -302,8 +307,8 @@ PATTERNS.dressG = `{
   }
   // (the chemise above the neckline, gathered: what the dress's edge leaves of it)
   float dn = 0.9131 * (b.y - nl) + 0.4078 * b.z;
-  c = mix(c, uPat1 * (0.9 + 0.1 * sin(atan(b.x, b.z) * 160.0)), smoothstep(-0.018, -0.013, dn) * (1.0 - vPart));
-  c *= 1.0 - 0.3 * seamAt(dn + 0.0155, 0.003) * (1.0 - vPart);
+  c = mix(c, uPat1 * (0.9 + 0.1 * sin(atan(b.x, b.z) * 160.0)), smoothstep(-0.018, -0.013, dn) * (1.0 - sleeve));
+  c *= 1.0 - 0.3 * seamAt(dn + 0.0155, 0.003) * (1.0 - sleeve);
   diffuseColor.rgb = c;
 }`;
 // legG: leggings, a fine knit (ribs down the leg), a seam up the inside; darned at a knee where they're worn (uL0.x).
@@ -439,7 +444,7 @@ function paint(m, o) {
   const U = { uRim: { value: srgb(o.rim || '#2a3440').multiplyScalar(o.rimK == null ? 1 : o.rimK) }, uGrain: { value: o.grain == null ? 0.03 : o.grain }, uGrainScale: { value: o.scale || 60 }, uHide: { value: 0 },
     uMarks: { value: Array.from({ length: 8 }, () => new THREE.Vector4(0, -9, 0, 0)) }, uMarkCol: { value: srgb(o.markCol || '#b8323a') },
     uPat0: { value: new THREE.Color(1, 1, 1) }, uPat1: { value: new THREE.Color(1, 1, 1) }, uPat2: { value: new THREE.Color(1, 1, 1) }, uParam: { value: new THREE.Vector4() }, uL0: { value: new THREE.Vector4() }, uL1: { value: new THREE.Vector4() }, uNape: { value: new THREE.Vector4() }, uFlush: { value: new THREE.Vector4() }, uFlushC: { value: new THREE.Vector4() },
-    uPat3: { value: new THREE.Color(1, 1, 1) }, uPat4: { value: new THREE.Color(1, 1, 1) }, uStock: { value: new THREE.Vector4() },
+    uPat3: { value: new THREE.Color(1, 1, 1) }, uPat4: { value: new THREE.Color(1, 1, 1) }, uStock: { value: new THREE.Vector4(0, 0, 0, 0) },
     uNip: { value: new THREE.Vector4(0, 0, 0, 0) }, uNav: { value: new THREE.Vector4(0, 0, 0, 0) }, uBd0: { value: new THREE.Vector4() }, uBd1: { value: new THREE.Vector4() },
     uKnee: { value: new THREE.Vector4(0, 0, 0, 0) }, uBust: { value: new THREE.Vector4(0.056, 1, 0, 0) }, uFootF: { value: new THREE.Vector4(0, 0, 0, 0) }, uToe: { value: [0, 1, 2, 3, 4].map(() => new THREE.Vector4(0, 0, 0, 0)) } };      // (off unless set: a Vector4's w is 1 by default)
   m.userData.u = U;
@@ -471,7 +476,9 @@ if (uFlush.x > 0.001) {
 if (vTone > 0.01) diffuseColor.rgb *= mix(vec3(1.0), vec3(0.78, 0.47, 0.5), clamp(vTone, 0.0, 1.0) * (0.7 + 0.3 * uFlush.x));
 // (and with desire, the flush spreads up the chest to the throat: a blotchy warmth across the front)
 if (uFlushC.x > 0.001) {
-  float cw = smoothstep(uFlushC.y, uFlushC.y + 0.05, vBind.y) * (1.0 - smoothstep(uFlushC.z - 0.03, uFlushC.z, vBind.y)) * (1.0 - smoothstep(0.08, 0.14, abs(vBind.x))) * smoothstep(-0.01, 0.03, vBind.z);
+  // (the upper chest, from above the breasts (rising a little toward the shoulders), and up the front and sides of the neck to under the jaw)
+  float y0 = uFlushC.y + 0.25 * max(0.0, abs(vBind.x) - 0.03);
+  float cw = smoothstep(y0, y0 + 0.035, vBind.y) * (1.0 - smoothstep(uFlushC.z - 0.025, uFlushC.z, vBind.y)) * (1.0 - smoothstep(0.08, 0.13, abs(vBind.x))) * smoothstep(-0.02, 0.02, vBind.z);
   cw *= 0.75 + 0.25 * fn3(vBind * 28.0);
   diffuseColor.rgb *= mix(vec3(1.0), vec3(0.93, 0.74, 0.74), cw * uFlushC.x);
 }
@@ -1491,19 +1498,29 @@ function preload(base) {
   if (!THREE.GLTFLoader || typeof fetch === 'undefined') return (GLB.ready = Promise.resolve(false));
   // (Fenwick: the hair too, built in Blender to fit the head: tools/blender/build_hair.py. Without it, the hair is built in code, as before.)
   const hair = fetch(base + 'fenwick_hair.glb').then(r => r.arrayBuffer()).then(adoptHair).catch(e => { console.warn('Figure: no Blender-built hair; building it in code.', e); });
-  // (Fenwick: her skirts as they lie in each pose, draped in Blender: tools/blender/bake_drapes.py. Without them, a skirt keeps its shape)
-  const drapes = Promise.all([fetch(base + 'fenwick_drapes.json').then(r => r.json()), fetch(base + 'fenwick_drapes.bin').then(r => r.arrayBuffer())])
-    .then(([j, b]) => adoptDrapes(j, b)).catch(() => {});
+  GLB.base = base;      // (Fenwick: each heroine's drapes are fetched from here when her figure's made: needDrapes)
   GLB.ready = fetch(base + 'fenwick_meta.json').then(r => r.json())
     .then(meta => Promise.all(['f', 'm'].map(sx => fetch(base + 'fenwick_' + sx + '.glb').then(r => r.arrayBuffer()).then(buf => adopt(meta, sx, buf)))))
-    .then(() => hair).then(() => drapes).then(() => true).catch(e => { console.warn('Figure: the Blender-built models did not load; building the figures in code.', e); GLB.sex = {}; return false; });
+    .then(() => hair).then(() => true).catch(e => { console.warn('Figure: the Blender-built models did not load; building the figures in code.', e); GLB.sex = {}; return false; });
   return GLB.ready;
 }
-// (the drapes: an index, each garment's point count and where each pose's offsets start, and the offsets, int16 at the index's scale)
-function adoptDrapes(index, buf) { GLB.drapes = { index, data: new Int16Array(buf) }; return GLB.drapes; }
-function drapeOf(name, pose) {
-  const D = GLB.drapes, e = D && pose && D.index.meshes[name], at = e && e.poses[pose];
-  return at == null ? null : { off: D.data.subarray(at / 2, at / 2 + e.count * 3), scale: D.index.scale, count: e.count };
+// (Fenwick: each heroine's skirts as they lie in each pose, draped in Blender: tools/blender/bake_drapes.py, models/drapes/<who>.*. For each
+// garment, the points that move, and for each pose their offsets (int16, at the index's scale) and the two bones each goes with and its
+// weight. Fetched when her figure's first made; until then, or without them, a skirt keeps its shape)
+function adoptDrapes(who, index, buf) { (GLB.drapes = GLB.drapes || {})[who] = { index, buf }; return GLB.drapes[who]; }
+function needDrapes(F) {
+  const who = F.spec.who, D = (GLB.drapes = GLB.drapes || {}); if (!who || D[who] === null) return;
+  if (!D[who]) {
+    if (!GLB.base || typeof fetch === 'undefined') return;
+    const load = Promise.all([fetch(GLB.base + 'drapes/' + who + '.json').then(r => r.json()), fetch(GLB.base + 'drapes/' + who + '.bin').then(r => r.arrayBuffer())])
+      .then(([j, b]) => adoptDrapes(who, j, b)).catch(() => { D[who] = null; });
+    D[who] = { loading: load };
+  }
+  if (D[who] && D[who].loading) D[who].loading.then(() => { if (F.spec.outfit === 'period' && F.setClothes) F.setClothes(); });
+}
+function drapeOf(who, name, key) {
+  const D = GLB.drapes && GLB.drapes[who], e = D && D.index && D.index.garments[name], p = e && key && e.poses[key]; if (!p) return null;
+  return { count: e.count, verts: new Uint16Array(D.buf, e.verts, e.n), off: new Int16Array(D.buf, p.off, e.n * 3), skin: new Uint8Array(D.buf, p.skin, e.n * 3), scale: D.index.scale };
 }
 // The hair styles: each a mesh in head units (the head group's space), with its colour per point (darker at the roots) to multiply into the
 // hair's own; shared by everyone who wears the style.
@@ -1759,7 +1776,7 @@ function makeGLB(spec, T) {
     F.resp.r = r; F.resp.lift = 2.0 * u * u * (3 - 2 * u);
     if (Math.abs((F.keys.sexSwell || 0) - swell) > 0.004) { F.keys.sexSwell = swell; F.root.traverse(m => { if (m.isSkinnedMesh && m.morphTargetInfluences) setKeys(m, F.keys); }); }
     skinM.userData.u.uFlush.value.set(spec.sex !== 'f' ? 0 : clamp(r * 1.7, 0, 1), T.L.crotch, 0.0, spec.sex === 'm' ? 1 : 0);      // (his takes no tint: only hers flushes; none for the non-gendered, with nothing there)
-    skinM.userData.u.uFlushC.value.set(clamp((o.chest || 0) * 1.8, 0, 1), T.L.armpit - 0.07, T.L.neck + 0.015, 1);
+    skinM.userData.u.uFlushC.value.set(clamp((o.chest || 0) * 1.8, 0, 1), T.L.nipple ? T.L.nipple[1] + 0.04 : T.L.armpit + 0.03, T.L.neck + 0.05, 1);
     F.blushAdd = o.blush || 0;
   };
   { const hm = dqs(paint(new THREE.MeshBasicMaterial(Object.assign({ color: srgb(INK), side: THREE.BackSide, skinning: true, morphTargets: true }, HULL_OFS)), { regions: true, grain: 0 })); hm.userData.u.uHide = skinM.userData.u.uHide; hm.userData.u.uNape = skinM.userData.u.uNape; ink(F.body, INK_W, F, hm); }
@@ -1774,7 +1791,8 @@ function makeGLB(spec, T) {
   F.gm = {}; F.clothes = {};
   F.state = { top: 'down', bottoms: 'up', under: 'up' };
   F.setClothes = st => { Object.assign(F.state, st || {}); if (F.spec.outfit === 'period') dressPeriod(F); else dressGLB(F); };
-  F.drapePose = null; F.setDrape = pose => { F.drapePose = pose || null; if (F.spec.outfit === 'period') applyDrape(F, F.topName); };
+  F.drapePose = null; F.setDrape = pose => { F.drapePose = pose || null; if (F.spec.outfit === 'period') F.setClothes(); };
+  needDrapes(F);
   F.cushionOf = area => (F.spec.outfit === 'period' ? cushionPeriod(F, area) : null);
   F.liftOf = () => (F.spec.outfit === 'period' ? liftPeriod(F) : null); F.backOf = where => (F.spec.outfit === 'period' ? backPeriod(F, where) : null);
   F.setPeriod = period => { spec.period = period; spec.outfit = 'period'; for (const k in F.gm) { const m = F.gm[k]; for (const x of [m, m.userData.hull]) if (x) x.parent.remove(x); } F.gm = {}; F.underMat = null; F.setClothes(); };
@@ -1787,7 +1805,14 @@ function garmentGLB(F, name) {
   if (F.gm[name]) return F.gm[name];
   const spec = F.spec, O = outfitOf(spec), L = F.L, uni = spec.outfit === 'uniform' ? 1 : 0, geo = F.model.mesh[name].geo;
   let m;
-  if (/^(Tunic|Shirt)/.test(name)) {
+  if (/^NightShirt/.test(name)) {      // (Fenwick: his nightshirt, undyed linen, a shift: drawn as her chemise is)
+    m = tmat(NIGHT_M, { skin: true, morph: true, side: THREE.DoubleSide, rim: '#3a3028', rimK: 0.55, pattern: 'dressG', bindAttr: true, unique: true }); const U = m.userData.u;
+    for (const k of ['uPat0', 'uPat1', 'uPat2', 'uPat3', 'uPat4']) U[k].value.copy(srgb(NIGHT_M));
+    U.uParam.value.set(L.nightShirtHem, 1, 0, 0); U.uL0.value.set(L.waist, L.neckline, 0, 0); U.uL1.value.set(L.armpit, L.shX, L.shoulder - L.cuffA * Math.cos(L.abd), 0);
+  } else if (/^Drawers/.test(name)) {
+    m = tmat(NIGHT_M, { skin: true, morph: true, side: THREE.DoubleSide, pattern: 'drawersG', bindAttr: true, unique: true, rim: '#2a3440', rimK: 0.45 });
+    m.userData.u.uParam.value.set(L.drawersLeg, L.trouserTop, 0, 0);
+  } else if (/^(Tunic|Shirt)/.test(name)) {
     m = tmat(O.tunic, { skin: true, morph: true, side: THREE.DoubleSide, rim: '#2a3440', rimK: 0.6, pattern: 'tunicG', bindAttr: true, unique: true });
     const U = m.userData.u, own = !uni && O.top;
     U.uPat0.value.copy(srgb(own ? O.accent || spec.dept : spec.dept)); U.uPat1.value.copy(srgb(own ? O.shirt || shade(O.tunic, -0.3) : O.edge || shade(O.tunic, -0.4)));
@@ -1824,29 +1849,34 @@ const PHIDE = {
   Kirtle: ['CHEST', 'UPARM', 'WAIST_HI', 'WAIST', 'HIPS', 'HIPS_LO', 'SEAT', 'THIGH'], KirtleUp: ['CHEST', 'UPARM', 'WAIST_HI', 'WAIST'],
   Leggings: ['HIPS', 'HIPS_LO', 'SEAT', 'THIGH', 'KNEE', 'SHIN'], LeggingsDown: ['SHIN'], Drawers: ['HIPS', 'HIPS_LO', 'SEAT', 'THIGH'], DrawersDown: [],
   Smalls: ['HIPS_LO', 'SEAT'], SmallsDown: [], Boots: ['FOOT'],
+  Chemise: ['CHEST', 'UPARM', 'WAIST_HI', 'WAIST', 'HIPS', 'HIPS_LO', 'SEAT', 'THIGH'], ChemiseUp: ['CHEST', 'UPARM', 'WAIST_HI', 'WAIST'],
+  NightDress: ['CHEST', 'UPARM', 'WAIST_HI', 'WAIST', 'HIPS', 'HIPS_LO', 'SEAT', 'THIGH', 'FOREARM'], NightDressUp: ['CHEST', 'UPARM', 'WAIST_HI', 'WAIST', 'FOREARM'],
 };
 // (what each layer takes off a smack's sting when it's over the spot: js/session.js asks F.cushionOf)
 const PCUSH = { skirt: 0.45, leggings: 0.25, drawers: 0.16, smalls: 0.1 };
 // (spec.period.none: nothing at all, for looking at how the body moves (figures.html): no layers to change, no skin hidden, bare feet)
+// (Fenwick: her nightclothes, by kind: a chemise or a night-dress; each a shift, hanging loose, with neither lacing nor a waist seam)
+const TOPS_P = { chemise: 'Chemise', nightdress: 'NightDress' }, SHIFT = /^(Chemise|NightDress)/;
 function periodNames(F) {
   const P = F.spec.period || {}, st = F.state, kirtle = P.kind === 'kirtle';
   if (P.none) return { top: null, bottoms: null, under: null, boots: null };
-  return { top: (kirtle ? 'Kirtle' : P.sleeves === 'long' ? 'DressLong' : 'DressElbow') + (st.top === 'up' ? 'Up' : ''),
+  const base = TOPS_P[P.kind] || (kirtle ? 'Kirtle' : P.sleeves === 'long' ? 'DressLong' : 'DressElbow'), draped = st.top === 'up' && drapeOf(F.spec.who, base, drapeKey(F));
+  return { top: base + (st.top === 'up' && !draped && F.model.mesh[base + 'Up'] ? 'Up' : ''),      // (raised: as draped for her pose, the whole skirt, its back lifted; else the one cut and rolled)
     bottoms: P.legs === 'leggings' ? (st.bottoms === 'down' ? 'LeggingsDown' : 'Leggings') : null,
-    under: (P.under === 'smalls' ? 'Smalls' : 'Drawers') + (st.under === 'down' ? 'Down' : ''), boots: 'Boots' };
+    under: (P.under === 'smalls' ? 'Smalls' : 'Drawers') + (st.under === 'down' ? 'Down' : ''), boots: P.shoes ? 'Boots' : null };      // (barefoot, in her nightclothes)
 }
 function garmentPeriod(F, name) {
   if (F.gm[name]) return F.gm[name];
   const P = F.spec.period || {}, L = F.L; let geo = F.model.mesh[name] && F.model.mesh[name].geo; if (!geo) return null;
   const opt = (pat, col, o) => tmat(col, Object.assign({ skin: true, morph: true, side: THREE.DoubleSide, rim: '#3a3028', rimK: 0.55, pattern: pat, bindAttr: true, unique: true }, o || {}));
   let m;
-  if (/^(Dress|Kirtle)/.test(name)) {
+  if (/^(Dress|Kirtle|Chemise|NightDress)/.test(name)) {
     m = opt('dressG', P.main || '#6a5a4a'); const U = m.userData.u, kirtle = /^Kirtle/.test(name);
     U.uPat0.value.copy(srgb(P.trim || shade(P.main || '#6a5a4a', -0.3))); U.uPat1.value.copy(srgb(P.chemise || '#f2ede2')); U.uPat2.value.copy(srgb(P.apron || '#f2ede2'));
     U.uPat3.value.copy(srgb(P.bodice || P.main || '#6a5a4a')); U.uPat4.value.copy(srgb(P.print || '#ffffff'));
     const sleeveA = kirtle || P.sleeves !== 'long' ? L.sleeveE : L.cuffA;
-    U.uParam.value.set(kirtle ? L.kirtleHem : L.skirtHem, /Up$/.test(name) ? 1 : 0, kirtle || P.sleeves !== 'long' ? 1 : 0, P.apron ? 1 : 0);
-    U.uL0.value.set(L.waist, L.neckline, P.print ? 1 : 0, P.bodice ? 1 : 0); U.uL1.value.set(0, 0, L.shoulder - sleeveA * Math.cos(L.abd), P.patches ? 1 : 0);
+    U.uParam.value.set(/^Chemise/.test(name) ? L.chemiseHem : /^NightDress/.test(name) ? L.nightHem : kirtle ? L.kirtleHem : L.skirtHem, SHIFT.test(name) ? 1 : 0, kirtle || P.sleeves !== 'long' ? 1 : 0, P.apron ? 1 : 0);      // (y: a shift)
+    U.uL0.value.set(L.waist, L.neckline, P.print ? 1 : 0, P.bodice ? 1 : 0); U.uL1.value.set(L.armpit, L.shX, L.shoulder - sleeveA * Math.cos(L.abd), P.patches ? 1 : 0);
   } else if (/^Leggings/.test(name)) {
     m = opt('legG', P.legCol || '#3e3a32'); const U = m.userData.u; U.uPat0.value.copy(srgb(shade(P.legCol || '#3e3a32', 0.25))); U.uParam.value.set(L.crotch - 0.02, L.knee, 0, 0); U.uL0.value.set(P.darned ? 1 : 0, 0, 0, 0);
   } else if (/^(Drawers|Smalls)/.test(name)) {
@@ -1858,7 +1888,7 @@ function garmentPeriod(F, name) {
     m = opt('shoeG', P.shoe || '#4a3424', { rimK: 0.4, rim: '#3a4048' }); const U = m.userData.u; U.uParam.value.set(sh, F.H.ankle, 0, 0);
     if (sh) { U.uPat0.value.copy(srgb(P.sole || '#2a2018')); U.uPat1.value.copy(srgb(P.trimShoe || P.sole || '#2a2018')); U.uPat2.value.copy(srgb(P.stockings || P.legCol || '#d8d0c0')); }
   }
-  if (/^(Dress|Kirtle)/.test(name)) geo = ownGeo(geo);      // (her own copy of where its points are: draped as she's posed)
+  if (/^(Dress|Kirtle|Chemise|NightDress)/.test(name)) geo = ownGeo(geo);      // (her own copy of where its points are: draped as she's posed)
   const depth = /^(Drawers|Smalls)/.test(name) ? 2 : /^Leggings/.test(name) ? 1 : 0;
   if (depth) { m.polygonOffset = true; m.polygonOffsetFactor = depth; m.polygonOffsetUnits = 2 * depth; }
   const sm = skinned(F, geo, m); sm.castShadow = true; sm.receiveShadow = false; ink(sm, INK_W, F, null, HEM_R);
@@ -1870,22 +1900,49 @@ function garmentPeriod(F, name) {
 // its normals and outline made again. Nothing moves it between: the scene's cut to black when it changes. ──
 function ownGeo(geo) {
   const g = new THREE.BufferGeometry(); g.setIndex(geo.index); g.name = geo.name;
-  for (const k in geo.attributes) g.setAttribute(k, k === 'position' || k === 'normal' ? geo.attributes[k].clone() : geo.attributes[k]);
+  for (const k in geo.attributes) g.setAttribute(k, /^(position|normal|skinIndex|skinWeight)$/.test(k) ? geo.attributes[k].clone() : geo.attributes[k]);
   g.morphAttributes = geo.morphAttributes; g.morphTargetsRelative = geo.morphTargetsRelative;
   g.userData = Object.assign({}, geo.userData, { shared: false, hull: undefined, built: geo }); return g;
 }
+// (the key of the drape she's in: the pose, raised or not)
+const drapeKey = F => (F.drapePose ? F.drapePose + (F.state.top === 'up' ? ':up' : '') : null);
 function applyDrape(F, name) {
-  const m = name && F.gm[name], key = name + '|' + (F.drapePose || ''); if (!m || m.userData.drapeKey === key) return;
+  const m = name && F.gm[name]; if (!m) return;
   const g = m.geometry, B = g.userData.built; if (!B) return;
-  const P = g.attributes.position, P0 = B.attributes.position, D = drapeOf(name, F.drapePose);
+  const key = drapeKey(F), D = /Up$/.test(name) ? null : drapeOf(F.spec.who, name, key), tag = name + '|' + (D ? key : '');
+  if (m.userData.drapeKey === tag) return;
+  const P = g.attributes.position, SI = g.attributes.skinIndex, SW = g.attributes.skinWeight;
+  P.array.set(B.attributes.position.array); SI.array.set(B.attributes.skinIndex.array); SW.array.set(B.attributes.skinWeight.array);
   if (D && D.count === P.count) {
-    for (let i = 0; i < P.count; i++) P.setXYZ(i, P0.getX(i) + D.off[i * 3] / D.scale, P0.getY(i) + D.off[i * 3 + 1] / D.scale, P0.getZ(i) + D.off[i * 3 + 2] / D.scale);
-    g.computeVertexNormals();
-  } else { P.array.set(P0.array); g.attributes.normal.array.set(B.attributes.normal.array); g.attributes.normal.needsUpdate = true; }
-  P.needsUpdate = true;
+    const k = 1 / D.scale;
+    for (let q = 0; q < D.verts.length; q++) {
+      const i = D.verts[q], w = D.skin[q * 3 + 2] / 255;
+      P.setXYZ(i, P.getX(i) + D.off[q * 3] * k, P.getY(i) + D.off[q * 3 + 1] * k, P.getZ(i) + D.off[q * 3 + 2] * k);
+      SI.setXYZW(i, D.skin[q * 3], D.skin[q * 3 + 1], 0, 0); SW.setXYZW(i, w, 1 - w, 0, 0);
+    }
+    weldedNormals(g);
+  } else { g.attributes.normal.array.set(B.attributes.normal.array); g.attributes.normal.needsUpdate = true; }
+  P.needsUpdate = SI.needsUpdate = SW.needsUpdate = true;
   // (its outline made again, round it as it now lies)
   const h = m.userData.hull; if (h) { h.parent.remove(h); h.geometry.dispose(); }
-  const nh = ink(m, INK_W, F, null, HEM_R); nh.visible = m.visible; m.userData.drapeKey = key;
+  const nh = ink(m, INK_W, F, null, HEM_R); nh.visible = m.visible; m.userData.drapeKey = tag;
+}
+// (normals the same at every copy of a point, where the export split it: no seams in the shading)
+function weldedNormals(g) {
+  const B = g.userData.built, p = g.attributes.position, n = g.attributes.normal, ix = g.index.array;
+  if (!B.userData.weld) {
+    const at = new Map(), id = new Uint32Array(p.count);
+    for (let i = 0; i < p.count; i++) { const k = B.attributes.position.getX(i).toFixed(5) + ',' + B.attributes.position.getY(i).toFixed(5) + ',' + B.attributes.position.getZ(i).toFixed(5); if (!at.has(k)) at.set(k, at.size); id[i] = at.get(k); }
+    B.userData.weld = { id, n: at.size };
+  }
+  const { id, n: nw } = B.userData.weld, acc = new Float32Array(nw * 3), a = new V3(), b = new V3(), c = new V3();
+  for (let t = 0; t < ix.length; t += 3) {
+    a.fromBufferAttribute(p, ix[t]); b.fromBufferAttribute(p, ix[t + 1]); c.fromBufferAttribute(p, ix[t + 2]);
+    c.sub(b); b.sub(a); b.cross(c);
+    for (let e = 0; e < 3; e++) { const w = id[ix[t + e]] * 3; acc[w] += b.x; acc[w + 1] += b.y; acc[w + 2] += b.z; }
+  }
+  for (let i = 0; i < p.count; i++) { const w = id[i] * 3; a.set(acc[w], acc[w + 1], acc[w + 2]).normalize(); n.setXYZ(i, a.x, a.y, a.z); }
+  n.needsUpdate = true;
 }
 function dressPeriod(F) {
   const want = periodNames(F), on = new Set(Object.values(want).filter(Boolean));
@@ -1898,7 +1955,7 @@ function dressPeriod(F) {
   F.topName = want.top; applyDrape(F, want.top);
   F.layers = (F.spec.period || {}).none ? [] : ['top', 'under'].concat(want.bottoms ? ['bottoms'] : []);
   F.skirt = (F.spec.period || {}).none ? null : (F.spec.period || {}).kind === 'kirtle' ? 'short' : 'long';
-  let hide = 0; for (const k of on) for (const r of PHIDE[k] || []) hide |= 1 << R[r];
+  let hide = 0; for (const k of on) for (const r of PHIDE[k === want.top && F.state.top === 'up' ? k.replace(/Up$/, '') + 'Up' : k] || []) hide |= 1 << R[r];
   F.skinMat.userData.u.uHide.value = hide;
   // (stockings under a dress, to above the knee; none under leggings)
   const P = F.spec.period || {}; F.skinMat.userData.u.uStock.value.set(0, 0, 0, 0);
@@ -1924,7 +1981,24 @@ function cushionPeriod(F, area) {
   if (st.under === 'up' && (P.under !== 'smalls' || area !== 'thighs')) left *= 1 - (P.under === 'smalls' ? PCUSH.smalls : PCUSH.drawers);
   return 1 - left;
 }
+const NIGHT_M = '#ddd4c2';      // (undyed linen)
 function dressGLB(F) {
+  if (F.spec.outfit === 'night') {      // (Fenwick: his nightclothes: the long nightshirt over linen drawers; barefoot)
+    const on = new Set(['NightShirt', 'Drawers'].filter(k => F.model.mesh[k]));
+    for (const k of on) garmentGLB(F, k);
+    for (const k in F.gm) { const m = F.gm[k], v = on.has(k); m.visible = v; if (m.userData.hull) m.userData.hull.visible = v; }
+    F.clothes = { top: F.gm.NightShirt || null, bottoms: null, under: F.gm.Drawers || null }; F.bootL = F.bootR = null; F.layers = ['top', 'under']; F.skirt = null;
+    let hide = 0; for (const r of ['CHEST', 'UPARM', 'WAIST_HI', 'WAIST', 'HIPS', 'HIPS_LO', 'SEAT', 'THIGH', 'FOREARM']) hide |= 1 << R[r];
+    F.skinMat.userData.u.uHide.value = hide;
+    if (F.spot) for (const k of SPOTS) F.mark(k, 0);
+    return;
+  }
+  if (F.spec.outfit === 'none') {      // (Fenwick: nothing on, for looking at how he moves: figures.html)
+    for (const k in F.gm) { const m = F.gm[k]; m.visible = false; if (m.userData.hull) m.userData.hull.visible = false; }
+    F.clothes = { top: null, bottoms: null, under: null }; F.bootL = F.bootR = null; F.layers = []; F.skirt = null; F.skinMat.userData.u.uHide.value = 0;
+    if (F.spot) for (const k of SPOTS) F.mark(k, 0);
+    return;
+  }
   const st = F.state, O = outfitOf(F.spec), longS = F.spec.outfit !== 'offduty' || O.sleeves === 'long', tops = longS ? ['Tunic', 'TunicUp'] : ['Shirt', 'ShirtUp'];
   const want = { top: tops[st.top === 'up' ? 1 : 0], bottoms: st.bottoms === 'down' ? 'TrousersDown' : 'Trousers', under: st.under === 'down' ? 'BriefsDown' : 'Briefs', boots: 'Boots' };
   const on = new Set(Object.values(want));
@@ -2028,6 +2102,6 @@ function hairTop(F) {
   const b = m ? m.geometry.boundingBox : null, p = new V3(0, b ? b.max.y : 2.12, b ? (b.min.z + b.max.z) * 0.5 * 0.4 : 0);
   H.updateMatrixWorld(true); return H.localToWorld(p);
 }
-const api = { presence, tickPresence, need, adoptHair, adoptDrapes, drapeOf, hairTop, hairStyles: () => Object.keys(GLB.hair || {}), tmat, ink, dqs, grip, FINGERS, make, preload, adopt, models: () => Object.keys(GLB.sex), EXPRS, MOUTHS, HEAD_SCALE, OUTFITS, SPOTS, ik2, aim, setWorldQuat, mat, paint, srgb, shade, R };
+const api = { presence, tickPresence, need, adoptHair, adoptDrapes, drapeOf, needDrapes, hairTop, hairStyles: () => Object.keys(GLB.hair || {}), tmat, ink, dqs, grip, FINGERS, make, preload, adopt, models: () => Object.keys(GLB.sex), EXPRS, MOUTHS, HEAD_SCALE, OUTFITS, SPOTS, ik2, aim, setWorldQuat, mat, paint, srgb, shade, R };
 root.Figure = api;
 })(typeof window !== 'undefined' ? window : globalThis);

@@ -152,40 +152,56 @@ const IDS = Object.keys(ROSTER).sort((a, b) => ROSTER[a].chapter - ROSTER[b].cha
 //   print: a small sprig print's colour; chemise; patches; under: drawers | smalls (underCol); legs: leggings (legCol, darned); stockings;
 //   shoes: boots (the default) | flats | work | soft | loafers (shoe, sole).
 // Leggings are Gretel's own, and Red's for walking the estate: she wears them more often as time goes on (js/estate.js: Estate.outfitFor).
+// (the Hall's maid's uniform, Goldie's and Eleanor's alike: a russet work dress with elbow sleeves, a clean apron over it, a cream chemise,
+// drawers, grey stockings; each in her own shoes)
+const MAID = { kind: 'dress', sleeves: 'elbow', main: '#8a4a32', trim: '#5a3222', apron: '#e8e2d4', chemise: '#f2ede2', under: 'drawers', underCol: '#efe9dc', stockings: '#4a4440' };
+// (Fenwick: what each sleeps in, barefoot. Those whose dresses have elbow sleeves, with the white chemise showing below them, sleep in that
+// chemise and their drawers; Gretel in a rough one of unbleached linen, patched, and her smalls; Rapunzel, Snow White and Belle in a linen
+// night-dress, like Rapunzel's tower gown, to the ankle)
+const CHEMISE = { kind: 'chemise', sleeves: 'elbow', main: '#f4efe4', trim: '#f4efe4', chemise: '#f4efe4', under: 'drawers', underCol: '#f2ede2' };
+const NIGHTDRESS = { kind: 'nightdress', sleeves: 'long', main: '#f2ece0', trim: '#e2d8c6', chemise: '#f2ece0', under: 'drawers', underCol: '#f4f0e6' };
 const WARDROBE = {
   goldie: {
-    maid: { kind: 'dress', sleeves: 'elbow', main: '#c8a25a', print: '#f2e6c4', trim: '#7a4a26', apron: '#f4efe4', chemise: '#f6f1e6', under: 'drawers', underCol: '#f2ede2', stockings: '#d8cfbd', shoes: 'flats', shoe: '#3a2a20', sole: '#1e1612' },
+    maid: Object.assign({}, MAID, { shoes: 'flats', shoe: '#3a2a20', sole: '#1e1612' }),
     own: { kind: 'dress', sleeves: 'elbow', main: '#b88a2e', bodice: '#8a4a2a', trim: '#5a3018', chemise: '#efe6d2', under: 'drawers', underCol: '#ece4d4', stockings: '#9a8a74', shoes: 'work', shoe: '#5a3e2a', sole: '#2a2420' },
+    night: CHEMISE,
   },
   red: {
     dress: { kind: 'dress', sleeves: 'elbow', main: '#6a4630', trim: '#a8282a', apron: '#e8e0d0', chemise: '#f4efe4', under: 'drawers', underCol: '#f2ede2', stockings: '#7a2424', shoes: 'boots', shoe: '#4a3020' },
     walking: { kind: 'kirtle', sleeves: 'elbow', main: '#6a4630', trim: '#a8282a', chemise: '#f4efe4', under: 'smalls', underCol: '#efe8da', legs: 'leggings', legCol: '#6a2622', shoes: 'boots', shoe: '#4a3020' },
+    night: CHEMISE,
   },
   belle: {
     dress: { kind: 'dress', sleeves: 'long', main: '#2f4a3a', trim: '#c8b48a', chemise: '#f4efe4', under: 'drawers', underCol: '#f4f0e6', stockings: '#ece6da', shoes: 'loafers', shoe: '#2a1e18', sole: '#140e0c' },
+    night: NIGHTDRESS,
   },
   cinderella: {
-    dress: { kind: 'dress', sleeves: 'elbow', main: '#8a4a32', trim: '#5a3222', apron: '#e8e2d4', chemise: '#f2ede2', under: 'drawers', underCol: '#efe9dc', stockings: '#4a4440', shoes: 'work', shoe: '#4a3a2e', sole: '#221a14' },
+    maid: Object.assign({}, MAID, { shoes: 'work', shoe: '#4a3a2e', sole: '#221a14' }),
+    dayoff: { kind: 'dress', sleeves: 'elbow', main: '#6a7c96', print: '#efe8d6', bodice: '#3e4a62', trim: '#2e3648', chemise: '#f4efe4', under: 'drawers', underCol: '#f2ede2', stockings: '#e8e2d6', shoes: 'work', shoe: '#4a3a2e', sole: '#221a14' },
     rags: { kind: 'dress', sleeves: 'elbow', main: '#6a625a', trim: '#4a4440', apron: '#9a9286', chemise: '#c8c0b0', patches: true, under: 'drawers', underCol: '#d8d0c0', stockings: '#3a3632', shoes: 'soft', shoe: '#4a3a2e', sole: '#2a221c' },
+    night: CHEMISE,
   },
   gretel: {
     kirtle: { kind: 'kirtle', sleeves: 'elbow', main: '#5a4630', trim: '#3a2a1a', chemise: '#e2d8c4', patches: true, under: 'smalls', underCol: '#e2d8c4', legs: 'leggings', legCol: '#3e3a32', darned: true, shoes: 'boots', shoe: '#3a2a1e' },
+    night: { kind: 'chemise', sleeves: 'elbow', main: '#d8ccb2', trim: '#d8ccb2', chemise: '#d8ccb2', patches: true, under: 'smalls', underCol: '#e2d8c4' },
   },
   rapunzel: {
     garden: { kind: 'dress', sleeves: 'long', main: '#8a9a74', trim: '#5a6a4a', apron: '#d8ccb0', chemise: '#f6f1e6', under: 'drawers', underCol: '#f4f0e6', stockings: '#ece6da', shoes: 'boots', shoe: '#5a4632' },
     tower: { kind: 'dress', sleeves: 'long', main: '#e2d8c2', trim: '#b8ac94', chemise: '#f6f1e6', patches: true, under: 'drawers', underCol: '#f4f0e6', stockings: '#ece6da', shoes: 'soft', shoe: '#b8a88a', sole: '#8a7a5a' },
+    night: NIGHTDRESS,
   },
   snow: {
     dress: { kind: 'dress', sleeves: 'long', main: '#efe6d2', bodice: '#8a1a24', trim: '#d8b46a', chemise: '#fbf8f0', under: 'drawers', underCol: '#f6f2ea', stockings: '#f2eee6', shoes: 'flats', shoe: '#3a1418', sole: '#1a0a0c' },
+    night: NIGHTDRESS,
   },
 };
 // (what each is, for the set-up: a line about each outfit)
-const OUTFIT_NOTES = { maid: 'as maid', own: 'her own, as found', dress: 'her dress', walking: 'walking the estate: kirtle and leggings', rags: 'as found, in rags', kirtle: 'kirtle and leggings', garden: 'for the garden', tower: 'from the tower' };
+const OUTFIT_NOTES = { night: 'for bed', maid: 'as maid, the Hall’s uniform', dayoff: 'her own, for her days off', own: 'her own, as found', dress: 'her dress', walking: 'walking the estate: kirtle and leggings', rags: 'as found, in rags', kirtle: 'kirtle and leggings', garden: 'for the garden', tower: 'from the tower' };
 const PERIOD = {
-  goldie: 'Her own at first: a mustard skirt and a laced rust bodice over a cream chemise, worn shoes. As maid: a faded print work dress, white apron.',
+  goldie: 'Her own at first: a mustard skirt and a laced rust bodice over a cream chemise, worn shoes. As maid: the Hall’s uniform, a russet work dress and clean apron, as Eleanor wears.',
   red: 'A brown working dress with red trim and a flour-dusted apron, red wool stockings, ankle boots; on the estate’s paths, more and more, a kirtle over madder leggings. Her madder-red hooded cloak is still to build.',
   belle: 'A merchant’s daughter’s gown in deep green wool, long-sleeved, pale gold braid at the cuffs and hem, white stockings, heeled shoes.',
-  cinderella: 'Found in rags: a soot-grey dress, patched. In the Hall: a russet dress, a clean apron, grey stockings, her own shoes.',
+  cinderella: 'Found in rags: a soot-grey dress, patched. In the Hall: the maid’s uniform, a russet dress, a clean apron, grey stockings, her own shoes. For her days off, a dress Silas buys her in place of the rags: soft blue linen with a small cream sprig, a navy bodice, pale stockings.',
   gretel: 'A patched brown kirtle cut short for running, over darned leggings; boots taken from somewhere.',
   rapunzel: 'From the tower, an outgrown linen gown, let out and patched. In the garden: a sage dress, a canvas apron, borrowed boots.',
   snow: 'A fine cream gown from her father’s house with a crimson laced bodice, gold braid, white stockings, thin shoes.',
@@ -235,14 +251,14 @@ const pronouns = () => ({ they: 'she', them: 'her', their: 'her', They: 'She' })
 // A heroine as a figure (all seven are women: the engine's other translation isn't used), in one of her outfits (her usual by default).
 function figureSpec(id, sex, outfit) {
   const r = ROSTER[id], L = r.look, W = WARDROBE[id], key = W[outfit] ? outfit : outfits(id)[0];
-  return { sex: 'f', height: r.body.h.f, mass: r.body.mass, fat: r.body.fat, skin: L.skin, hair: L.hair, hairStyle: L.hairStyle, hairCap: L.hairCap, braidLen: L.braidLen, ribbon: L.ribbon,
+  return { who: id, sex: 'f', height: r.body.h.f, mass: r.body.mass, fat: r.body.fat, skin: L.skin, hair: L.hair, hairStyle: L.hairStyle, hairCap: L.hairCap, braidLen: L.braidLen, ribbon: L.ribbon,
     eyes: L.eyes, lips: L.lips || null, beard: false, outfit: 'period', period: W[key], periodKey: key, dept: W[key].trim, bust: r.body.bust };
 }
 function squireSpec(c) {
   c = Object.assign({ skin: SQUIRE.look.skin, hair: SQUIRE.look.hair, hairStyle: SQUIRE.look.hairStyle, build: null, beard: true }, c || {});
   const [mass, fat] = c.build ? SQUIRE.options.build[c.build] || [SQUIRE.build.mass, SQUIRE.build.fat] : [SQUIRE.build.mass, SQUIRE.build.fat];
   return { sex: 'm', height: SQUIRE.h, mass, fat, skin: c.skin, hair: c.hair, hairStyle: c.hairStyle, eyes: SQUIRE.look.eyes, beard: c.beard !== false,
-    outfit: 'offduty', dept: SQUIRE.own.accent, off: SQUIRE.own, bust: 0.45, size: 1 };
+    outfit: c.outfit === 'none' || c.outfit === 'night' ? c.outfit : 'offduty', dept: SQUIRE.own.accent, off: SQUIRE.own, bust: 0.45, size: 1 };
 }
 // How much she squirms under a correction, 0 (stoic) – 1: the smaller she is the more (her height against the household's and her mass), and
 // the more pain she can take, a little the less (as Meridian's crew). body.wriggle, where given, overrides it.

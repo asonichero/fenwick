@@ -43,7 +43,7 @@ kbd { font: 10px ui-monospace, monospace; color: var(--dim); }
   <h2>Heroine</h2><select id="who"></select>
   <h2>Outfit</h2><div class="row" id="outfit"></div>
   <h2>Clothes</h2><div class="row"><button id="pTop"></button><button id="pBot"></button><button id="pUnd"></button></div>
-  <h2>Silas</h2><div class="row" id="sbuild"></div>
+  <h2>Silas</h2><div class="row" id="sbuild"></div><div class="row" id="sout"></div>
   <h2>Pose</h2><div class="row" id="pose"></div>
   <small class="note" id="poseNote"></small>
   <h2>Where she is with him</h2><div class="rel" id="rel"></div>
@@ -91,7 +91,7 @@ const $ = id => document.getElementById(id), q = new URLSearchParams(location.se
 const num = (k, d) => (q.get(k) == null ? d : Math.max(0, Math.min(1, +q.get(k) || 0)));
 const cfg = { who: Cast.ROSTER[q.get('who')] ? q.get('who') : 'goldie', outfit: q.get('outfit'), pose: q.get('pose') || 'rest', expr: q.get('expr') || 'auto',
   resp: q.get('resp') && q.get('resp') !== 'auto' ? num('resp', 0) : 0, respAuto: !q.get('resp') || q.get('resp') === 'auto', view: q.get('view') || 'three', spin: !!q.get('spin'),
-  clothes: (q.get('clothes') || 'down,up,up').split(','), build: q.get('build') || 'average', sound: false,
+  clothes: (q.get('clothes') || 'down,up,up').split(','), build: q.get('build') || 'average', sOutfit: ['none', 'night'].includes(q.get('sout')) ? q.get('sout') : 'dressed', sound: false,
   rel: { defiance: num('def', null), submission: num('sub', 0), desire: num('des', 0), comfort: num('com', 0) } };
 if (cfg.rel.defiance == null) cfg.rel.defiance = Cast.ROSTER[cfg.who].meters.wilfulness;
 // (her outfits, and here only, None: nothing on, to see how the body moves without clothes masking it)
@@ -129,7 +129,7 @@ prop('settle', [[1.4, 0.3, 0.6, wood, 0.31, 0.15, -0.1], [1.32, 0.12, 0.54, cush
 // (the room the correction is told about: only where things are; nothing in it for the camera to hide)
 const BAY = { group: new THREE.Group(), name: 'Figures', private: true, spots: {
   bench: { at: new V3(0, 0, 0), yaw: 0, turn: 0, seatY: 0.48 },
-  seats: { bed: { at: new V3(0, 0, 0), yaw: 0, turn: 0, seatY: 0.48, rest: { y: 0.5, edge: 0.11 } } },
+  seats: { bed: { at: new V3(0, 0, 0), yaw: 0, turn: 0, seatY: 0.48, rest: { y: 0.5, edge: 0.11, mesh: PROPS.bed } } },
   wall: { at: new V3(0, 0, 0), yaw: 0, support: { kind: 'edge', y: 0.77, d: 0.85, bend: 0.95, lines: 'writing' } },
   table: { at: new V3(0, 0, 0), yaw: 0, top: 0.75, d: 0.55, w: 0.9, len: 1.8, grip: 'sides' },
   after: { at: new V3(0, 0, 0), yaw: 0, seatY: 0.44, beside: new V3(0.62, 0, 0) },
@@ -161,7 +161,7 @@ function clear() {
 }
 function build() {
   clear(); round = 0; total = 0; inRound = 0; status = ''; needReset = false;
-  const silas = { build: cfg.build };
+  const silas = { build: cfg.build, outfit: cfg.sOutfit === 'dressed' ? null : cfg.sOutfit };
   if (BY_SESSION[cfg.pose]) {
     ses = Session.create(STAGE, BAY, { captain: silas, position: BY_SESSION[cfg.pose], between: 'aside', queue: [{ id: cfg.who, sex: 'f', outfit: cfg.outfit, spec: specFor() }], witnesses: [],
       rel: { [cfg.who]: relFor() }, sound: cfg.sound });
@@ -259,6 +259,7 @@ function refresh() {
   $('who').value = cfg.who; $('expr').value = cfg.expr;
   seg('outfit', outfitsOf(cfg.who).map(o => [o, o === 'none' ? 'None · nothing on' : o + (Cast.OUTFIT_NOTES[o] ? ' · ' + Cast.OUTFIT_NOTES[o] : '')]), cfg.outfit, v => { cfg.outfit = v; build(); });
   seg('sbuild', [['lean', 'Lean'], ['average', 'Average'], ['heavy', 'Heavy']], cfg.build, v => { cfg.build = v; build(); });
+  seg('sout', [['dressed', 'Dressed'], ['night', 'Night · shirt and drawers'], ['none', 'None · nothing on']], cfg.sOutfit, v => { cfg.sOutfit = v; build(); });
   seg('pose', POSES, cfg.pose, v => { const was = cfg.pose; cfg.pose = v; if (BY_SESSION[was] || BY_SESSION[v]) build(); else { for (const k in PROPS) PROPS[k].visible = false; view(cfg.view); } refresh(); });
   $('poseNote').textContent = NOTES[cfg.pose] || '';
   seg('views', VIEWS.map(v => [v[0], v[1]]), cfg.view, view);

@@ -1,52 +1,72 @@
-"""Fenwick Hall — her skirts draped in Blender, once for each pose she's put in (tools/export-poses.js wrote them: tools/blender/poses.json).
+"""Fenwick Hall — each heroine's skirt draped in Blender, once for each pose she's put in (tools/export-poses.js wrote them, from the game:
+tools/blender/poses.json).
 
-For each garment with a skirt (the dresses and the kirtle, down and raised) and each pose: her body is posed, by the game's own skinning (the
-bones' matrices from the game, blended as dual quaternions, as js/figure.js does on the GPU), as a collider, with what she wears under the
-skirt; with Silas's legs (capsules), the furniture (boxes) and the floor. The garment is posed the same way, and from there Blender's cloth lets its skirt fall: the bodice and
-sleeves (and, raised, the roll at her back) pinned where they are, the rest hanging under gravity and lying over whatever it meets. Where each
-point of it settles is turned back, through the same skinning undone, into an offset from the garment as built; the game adds it when she's
-in that pose (js/figure.js: setDrape). Written to models/fenwick_drapes.json (the index) and models/fenwick_drapes.bin (the offsets, int16).
+For each heroine, each garment with a skirt she wears (a dress or the kirtle), and each pose, down and (in a correction) raised:
+  · her body, in her build (the shape keys' amounts) and posed by the game's own skinning (the bones' matrices from the game, blended as
+    dual quaternions, as js/figure.js does on the GPU), and what she wears under the skirt (drawers, or leggings) are colliders; so are
+    Silas, his body and what he's wearing, posed the same way; the furniture; and the floor.
+  · the garment is posed the same way; what's below its waistband is first put outside everything it starts inside (her legs, his, the
+    table's edge), then Blender's cloth lets it fall: soft, so it folds rather than holding its shape, and long enough to settle. The bodice
+    and sleeves are pinned. Raised, the back of the hem is lifted, out over her and up to her waist, and held there; the cloth between
+    gathers (it collides with itself), the sides falling from it to the front, which still hangs.
+  · where each point settles is turned back into the garment as built: each point is given to the part of her it lies on (the bones of the
+    nearest point of her body, fading to her hips where it hangs clear of her), so it moves with what it rests on as she wriggles, and its
+    offset is that skinning undone.
+Written to models/drapes/<heroine>.json (the index) and .bin (the points that move; their offsets, int16; their two bones and weight).
 
-    .blender/bin/python tools/blender/bake_drapes.py [-- MESH,MESH POSE,POSE]      (a few minutes each; all of them, half an hour or so)
+    .blender/bin/python tools/blender/bake_drapes.py [-- HEROINE,HEROINE [GARMENT,GARMENT [POSE,POSE]]]      (POSE: otk, or otk:up)
 """
-import sys, os, json, struct, math, time
+import sys, os, json, struct, math, time, re
 import numpy as np
 import bpy
+from mathutils import Vector
+from mathutils.bvhtree import BVHTree
 
 HERE = os.path.dirname(os.path.abspath(__file__)); REPO = os.path.dirname(os.path.dirname(HERE))
-MODELS = os.environ.get('FENWICK_MODELS') or os.path.join(REPO, 'models'); OUT = os.environ.get('FENWICK_OUT') or MODELS
-GARMENTS = ['DressLong', 'DressLongUp', 'DressElbow', 'DressElbowUp', 'Kirtle', 'KirtleUp']
+MODELS = os.environ.get('FENWICK_MODELS') or os.path.join(REPO, 'models'); OUT = os.environ.get('FENWICK_OUT') or os.path.join(MODELS, 'drapes')
 POSES_DOWN = ['otk', 'bed', 'edge', 'table', 'after']; POSES_UP = ['otk', 'bed', 'edge', 'table']      # (raised only in a correction)
-FRAMES = 72
+FRAMES = int(os.environ.get('FENWICK_FRAMES') or 100); LIFT = (6, 22, 40)      # (raised: out over her by the second frame of these, at her waist by the third)
 ARM = ('clav', 'upperArm', 'foreArm', 'hand', 'index', 'middle', 'ring', 'pinky', 'thumb')
 
-# ── the model, read straight from the GLB, in the game's own order ──
+# ── the models, read straight from the GLBs: points, skinning, triangles and shape keys ──
 def read_glb(path):
     b = open(path, 'rb').read(); assert b[:4] == b'glTF'
     jl = struct.unpack_from('<I', b, 12)[0]; J = json.loads(b[20:20 + jl]); bl = struct.unpack_from('<I', b, 20 + jl)[0]; BIN = b[28 + jl:28 + jl + bl]
     CT = {5126: ('<f4', 4), 5123: ('<u2', 2), 5121: ('u1', 1), 5125: ('<u4', 4)}; NC = {'SCALAR': 1, 'VEC2': 2, 'VEC3': 3, 'VEC4': 4}
     def acc(i):
-        a = J['accessors'][i]; bv = J['bufferViews'][a['bufferView']]; dt, sz = CT[a['componentType']]; nc = NC[a['type']]
-        off = bv.get('byteOffset', 0) + a.get('byteOffset', 0); stride = bv.get('byteStride', sz * nc); n = a['count']
-        raw = np.frombuffer(BIN, dtype=np.uint8, count=stride * (n - 1) + sz * nc, offset=off)
-        out = np.stack([np.frombuffer(raw[k * stride:k * stride + sz * nc].tobytes(), dtype=dt) for k in range(n)]) if stride != sz * nc else np.frombuffer(raw.tobytes(), dtype=dt).reshape(n, nc)
-        out = out.astype(np.float64)
+        a = J['accessors'][i]; dt, sz = CT[a['componentType']]; nc = NC[a['type']]; n = a['count']
+        if 'bufferView' in a:
+            bv = J['bufferViews'][a['bufferView']]; off = bv.get('byteOffset', 0) + a.get('byteOffset', 0); stride = bv.get('byteStride', sz * nc)
+            if stride == sz * nc: out = np.frombuffer(BIN, dtype=dt, count=n * nc, offset=off).reshape(n, nc)
+            else: out = np.stack([np.frombuffer(BIN, dtype=dt, count=nc, offset=off + k * stride) for k in range(n)])
+            out = out.astype(np.float64)
+        else: out = np.zeros((n, nc))
+        if 'sparse' in a:      # (only the points that differ, a shape key's moved points: indices and their values)
+            sp = a['sparse']; m = sp['count']; iv = J['bufferViews'][sp['indices']['bufferView']]; vv = J['bufferViews'][sp['values']['bufferView']]
+            idt = CT[sp['indices']['componentType']][0]
+            ids = np.frombuffer(BIN, dtype=idt, count=m, offset=iv.get('byteOffset', 0) + sp['indices'].get('byteOffset', 0)).astype(int)
+            out[ids] = np.frombuffer(BIN, dtype=dt, count=m * nc, offset=vv.get('byteOffset', 0) + sp['values'].get('byteOffset', 0)).reshape(m, nc)
         if a.get('normalized'): out = out / (255.0 if sz == 1 else 65535.0)
         return out
     meshes = {}
     for nd in J['nodes']:
         if 'mesh' not in nd or 'skin' not in nd: continue
-        name = nd.get('name', ''); import re; name = re.sub(r'_\d+$', '', name)
-        pr = J['meshes'][nd['mesh']]['primitives'][0]; at = pr['attributes']
-        joints = [J['nodes'][j]['name'] for j in J['skins'][nd['skin']]['joints']]
-        meshes[name] = dict(P=acc(at['POSITION']), J=acc(at['JOINTS_0']).astype(int), W=acc(at['WEIGHTS_0']), I=acc(pr['indices']).astype(int).reshape(-1, 3), joints=joints)
+        name = re.sub(r'_\d+$', '', nd.get('name', '')); M = J['meshes'][nd['mesh']]; pr = M['primitives'][0]; at = pr['attributes']
+        names = M.get('extras', {}).get('targetNames', [])
+        T = {n: acc(t['POSITION']) for n, t in zip(names, pr.get('targets', []))}
+        meshes[name] = dict(P=acc(at['POSITION']), J=acc(at['JOINTS_0']).astype(int), W=acc(at['WEIGHTS_0']), I=acc(pr['indices']).astype(int).reshape(-1, 3),
+                            joints=[J['nodes'][j]['name'] for j in J['skins'][nd['skin']]['joints']], T=T)
     return meshes
+def shaped(mesh, keys):
+    """The mesh's points in a build: its shape keys at their amounts (the game's morph targets)."""
+    P = mesh['P'].copy()
+    for k, v in (keys or {}).items():
+        if v and k in mesh['T']: P += v * mesh['T'][k]
+    return P
 
 # ── the game's skinning (js/figure.js: DQS_*), and its inverse ──
 def mat_quat(m):
-    r = m[:3, :3] / np.linalg.norm(m[:3, :3], axis=0)      # (columns normalized, as the shader does)
-    # (r[i][j] in GLSL is column i, row j)
-    R = lambda i, j: r[j, i]
+    r = m[:3, :3] / np.linalg.norm(m[:3, :3], axis=0); R = lambda i, j: r[j, i]      # (columns normalized, as the shader does; GLSL r[i][j]: column i, row j)
     tr = R(0, 0) + R(1, 1) + R(2, 2)
     if tr > 0: s = math.sqrt(tr + 1) * 2; q = np.array([(R(1, 2) - R(2, 1)) / s, (R(2, 0) - R(0, 2)) / s, (R(0, 1) - R(1, 0)) / s, 0.25 * s])
     elif R(0, 0) > R(1, 1) and R(0, 0) > R(2, 2): s = math.sqrt(1 + R(0, 0) - R(1, 1) - R(2, 2)) * 2; q = np.array([0.25 * s, (R(1, 0) + R(0, 1)) / s, (R(2, 0) + R(0, 2)) / s, (R(1, 2) - R(2, 1)) / s])
@@ -55,110 +75,203 @@ def mat_quat(m):
     return q / np.linalg.norm(q)
 def dq_dual(q, t): return 0.5 * np.concatenate([q[3] * t + np.cross(t, q[:3]), [-np.dot(t, q[:3])]])
 def rot(q, v): return v + 2.0 * np.cross(q[..., :3], np.cross(q[..., :3], v) + q[..., 3:4] * v)
-def blend(mesh, mats):
-    """Each point's blended rotation (quaternion) and translation, as the shader blends them."""
-    names = mesh['joints']; Q = np.array([mat_quat(mats[n]) for n in names]); D = np.array([dq_dual(Q[i], mats[n][:3, 3]) for i, n in enumerate(names)])
-    J, W = mesh['J'], mesh['W'] / np.maximum(mesh['W'].sum(1, keepdims=True), 1e-9)
-    qa = Q[J[:, 0]]; r = np.zeros((len(J), 4)); d = np.zeros((len(J), 4))
-    for k in range(4):
+def blend(names, J, W, mats):
+    """Each point's blended rotation and translation, as the shader blends them (names: the bones J indexes)."""
+    Q = np.array([mat_quat(mats[n]) for n in names]); D = np.array([dq_dual(Q[i], mats[n][:3, 3]) for i, n in enumerate(names)])
+    W = W / np.maximum(W.sum(1, keepdims=True), 1e-9); qa = Q[J[:, 0]]; r = np.zeros((len(J), 4)); d = np.zeros((len(J), 4))
+    for k in range(J.shape[1]):
         qk = Q[J[:, k]]; w = W[:, k] * np.where((k > 0) & (np.sum(qa * qk, 1) < 0), -1.0, 1.0)
         r += w[:, None] * qk; d += w[:, None] * D[J[:, k]]
     L = np.linalg.norm(r, axis=1, keepdims=True); r /= L; d /= L
-    t = 2.0 * (r[:, 3:4] * d[:, :3] - d[:, 3:4] * r[:, :3] + np.cross(r[:, :3], d[:, :3]))
-    return r, t
-def skin(mesh, mats, S, P=None):
-    r, t = blend(mesh, mats); return rot(r, S * (mesh['P'] if P is None else P)) + t
-def unskin(mesh, mats, S, X):
-    r, t = blend(mesh, mats); rc = r * np.array([-1, -1, -1, 1.0]); return rot(rc, X - t) / S
+    return r, 2.0 * (r[:, 3:4] * d[:, :3] - d[:, 3:4] * r[:, :3] + np.cross(r[:, :3], d[:, :3]))
+def skin(names, J, W, mats, S, P): r, t = blend(names, J, W, mats); return rot(r, S * P) + t
+def unskin(names, J, W, mats, S, X): r, t = blend(names, J, W, mats); return rot(r * np.array([-1, -1, -1, 1.0]), X - t) / S
+def skin_mesh(m, mats, S, keys): return skin(m['joints'], m['J'], m['W'], mats, S, shaped(m, keys))
 
 # ── Blender: ours (y up) and Blender's (z up) ──
 toB = lambda P: np.stack([P[:, 0], -P[:, 2], P[:, 1]], 1)
 fromB = lambda P: np.stack([P[:, 0], P[:, 2], -P[:, 1]], 1)
-def mesh_obj(name, V, F, collide=False):
+def mesh_obj(name, V, F, collide=False, friction=1.5):
     me = bpy.data.meshes.new(name); me.from_pydata([tuple(v) for v in V], [], [tuple(int(i) for i in f) for f in F]); me.update()
     ob = bpy.data.objects.new(name, me); bpy.context.scene.collection.objects.link(ob)
     if collide:
-        ob.modifiers.new('Collision', 'COLLISION'); ob.collision.thickness_outer = 0.006; ob.collision.cloth_friction = 6.0; ob.collision.damping = 0.6
+        ob.modifiers.new('Collision', 'COLLISION'); ob.collision.thickness_outer = 0.004; ob.collision.cloth_friction = friction; ob.collision.damping = 0.5
     return ob
-def capsule(name, A, B, ra, rb):
-    n = 16; ax = B - A; L = np.linalg.norm(ax); d = ax / max(L, 1e-9)
-    e1 = np.cross(d, [0, 0, 1.0]); e1 = e1 / np.linalg.norm(e1) if np.linalg.norm(e1) > 1e-6 else np.array([1.0, 0, 0]); e2 = np.cross(d, e1)
-    V, F = [], []
-    prof = [(A - d * ra * math.cos(t), ra * math.sin(t)) for t in np.linspace(0.05, math.pi / 2, 5)] + [(B + d * rb * math.cos(t), rb * math.sin(t)) for t in np.linspace(math.pi / 2, 0.05, 5)]
-    for c, r in prof:
-        for k in range(n): a = 2 * math.pi * k / n; V.append(c + (e1 * math.cos(a) + e2 * math.sin(a)) * r)
-    for i in range(len(prof) - 1):
-        for k in range(n): F.append((i * n + k, i * n + (k + 1) % n, (i + 1) * n + (k + 1) % n, (i + 1) * n + k))
-    V.append(A - d * ra); V.append(B + d * rb); c0, c1 = len(V) - 2, len(V) - 1
-    for k in range(n): F.append((c0, (k + 1) % n, k)); F.append((c1, (len(prof) - 1) * n + k, (len(prof) - 1) * n + (k + 1) % n))
-    return mesh_obj(name, toB(np.array(V)), F, True)
-def box(name, Mw, w, h, d):
+def box_pts(Mw, w, h, d):
     C = np.array([[x, y, z] for x in (-w / 2, w / 2) for y in (-h / 2, h / 2) for z in (-d / 2, d / 2)])
-    P = (np.c_[C, np.ones(8)] @ Mw.T)[:, :3]
-    F = [(0, 1, 3, 2), (4, 6, 7, 5), (0, 4, 5, 1), (2, 3, 7, 6), (0, 2, 6, 4), (1, 5, 7, 3)]
-    return mesh_obj(name, toB(P), F, True)
+    return (np.c_[C, np.ones(8)] @ Mw.T)[:, :3]
+BOX_F = [(0, 1, 3, 2), (4, 6, 7, 5), (0, 4, 5, 1), (2, 3, 7, 6), (0, 2, 6, 4), (1, 5, 7, 3)]
 
-def bake(meshes, meta, pose, P_, gname):
+def push_out(X, which, solids, boxes):
+    """Points (ours, world) put outside each solid (a BVH of a closed mesh, ours) and box they start inside: to its nearest surface."""
+    for _ in range(2):
+        for i in which:
+            p = Vector(X[i])
+            for bvh, thick in solids:
+                loc, n, _, dist = bvh.find_nearest(p, 0.25)
+                if loc is not None and ((p - loc).dot(n) < 0 or dist < thick): p = loc + n * (thick + 0.006)
+            for Mw, Mi, half in boxes:
+                q = Mi @ np.array([p.x, p.y, p.z, 1.0]); pen = half - np.abs(q[:3])
+                if (pen > 0).all():
+                    a = int(np.argmin(pen)); q[a] = math.copysign(half[a] + 0.007, q[a]); p = Vector((Mw @ q)[:3])
+            if p.y < 0.005: p.y = 0.005
+            X[i] = np.array(p)
+    return X
+
+def bake(F_, M_, G, rec, gname, up, legs):
     bpy.ops.wm.read_factory_settings(use_empty=True)
     sc = bpy.context.scene; sc.frame_start, sc.frame_end = 1, FRAMES
-    mats = {n: np.array(m).reshape(4, 4).T for n, m in P_['bones'].items()}; S = P_['scale']; L = meta['landmarks']
-    body = meshes['Body']; mesh_obj('Body', toB(skin(body, mats, S)), body['I'], True)
-    for i, c in enumerate(P_['caps']): capsule('Leg%d' % i, np.array(c[:3]), np.array(c[3:6]), c[6], c[7])
-    for i, bx in enumerate(P_['boxes']): box('Box%d' % i, np.array(bx[:16]).reshape(4, 4).T, *bx[16:])
-    mesh_obj('Floor', np.array([[-6, -6, 0], [6, -6, 0], [6, 6, 0], [-6, 6, 0.0]]), [(0, 1, 2, 3)], True)
-    # (and what she wears under it, which it lies over: drawers under a dress, leggings and smalls under the kirtle)
-    for un in (['Leggings', 'Smalls'] if gname.startswith('Kirtle') else ['Drawers']):
-        if un in meshes: mesh_obj(un, toB(skin(meshes[un], mats, S)), meshes[un]['I'], True)
-    g = meshes[gname]; X0 = skin(g, mats, S)
-    # (the skirt's points welded where the export split them, so its seams can't open)
+    L = F_['meta']['landmarks']; mats = {n: np.array(m).reshape(4, 4).T for n, m in rec['bones'].items()}; S = rec['scale']; keys = rec['keys']
+    solids = []
+    def no_arms(m, I):      # (the faces of a body that go with neither arm: arms and hands move as they will, through a skirt's drape)
+        dom = np.array([m['joints'][m['J'][v][int(np.argmax(m['W'][v]))]].startswith(ARM) for v in range(len(m['P']))])
+        return I[~dom[I].any(1)]
+    def solid(name, X, I, friction=1.5, thick=0.004):
+        ob = mesh_obj(name, toB(X), I, True, friction); ob.collision.thickness_outer = thick
+        solids.append((BVHTree.FromPolygons([tuple(v) for v in X], [tuple(int(i) for i in f) for f in I]), thick))
+    # her body, and what's under the skirt
+    body = F_['meshes']['Body']; Xb = skin_mesh(body, mats, S, keys); solid('Body', Xb, no_arms(body, body['I']), 1.5, 0.011 if legs else 0.004)      # (over leggings, their thickness too)
+    # (what's under the skirt only where it stands well off her: drawers, not leggings, which lie too close to her for two colliders to
+    # agree on which way to push the cloth between them)
+    under = None if legs or os.environ.get('FENWICK_NOUNDER') else 'Drawers'
+    if under and under in F_['meshes']: solid(under, skin_mesh(F_['meshes'][under], mats, S, keys), F_['meshes'][under]['I'])
+    # Silas, as he is: his body, with room for what he's wearing over it (his clothes are open at their edges, so not solids themselves)
+    sr = rec['silas']; smats = {n: np.array(m).reshape(4, 4).T for n, m in sr['bones'].items()}; m = M_['Body']
+    solid('Silas', skin_mesh(m, smats, sr['scale'], sr['keys']), no_arms(m, m['I']), 1.0, 0.016 if sr['wears'] else 0.004)
+    # the furniture, and the floor
+    boxes = []
+    for i, bx in enumerate(rec['boxes']):
+        Mw = np.array(bx[:16]).reshape(4, 4).T; mesh_obj('Box%d' % i, toB(box_pts(Mw, *bx[16:])), BOX_F, True, 1.0); boxes.append((Mw, np.linalg.inv(Mw), np.array(bx[16:]) / 2))
+    mesh_obj('Floor', np.array([[-6, -6, 0], [6, -6, 0], [6, 6, 0], [-6, 6, 0.0]]), [(0, 1, 2, 3)], True, 2.0)
+    # the garment, its points welded where the export split them
+    g = F_['meshes'][gname]; Pg = shaped(g, keys)
+    # (where it starts: as the game skins it, except below the waist, where the skirt goes with her hips and with both legs alike rather
+    # than its left half with her left leg and its right with her right, which would start it stretched across between them, through one)
+    y = g['P'][:, 1]; h = np.clip((L['skirtC'][2] + 0.02 - y) / (L['skirtC'][2] + 0.02 - (L['crotch'] - 0.11)), 0, 1); h = h * h * (3 - 2 * h)
+    kb = 0.6 * np.clip((L['knee'] + 0.14 - y) / 0.26, 0, 1); armv = np.array([sum(w for j, w in zip(g['J'][i], g['W'][i]) if g['joints'][j].startswith(ARM)) for i in range(len(y))])
+    names0 = ['hips', 'thighL', 'thighR', 'shinL', 'shinR']; J0 = np.tile(np.arange(5), (len(y), 1))
+    W0 = np.stack([1 - h, h * (1 - kb) / 2, h * (1 - kb) / 2, h * kb / 2, h * kb / 2], 1)
+    X0 = skin(g['joints'], g['J'], g['W'], mats, S, Pg); below = (y < L['waist'] - 0.04) & (armv < 0.3)
+    X0[below] = skin(names0, J0[below], W0[below], mats, S, Pg[below])
     uid = {}; U = []
     for i, p in enumerate(g['P']):
         k = tuple(np.round(p, 6))
         if k not in uid: uid[k] = len(U); U.append(i)
     ix = np.array([uid[tuple(np.round(p, 6))] for p in g['P']]); U = np.array(U)
     tris = ix[g['I']]; tris = tris[(tris[:, 0] != tris[:, 1]) & (tris[:, 1] != tris[:, 2]) & (tris[:, 0] != tris[:, 2])]
-    ob = mesh_obj('Garment', toB(X0[U]), tris)
-    # (pinned: the bodice and above, the sleeves; raised, the roll at her back)
-    y = g['P'][U, 1]; armw = np.array([sum(w for j, w in zip(g['J'][i], g['W'][i]) if g['joints'][j].startswith(ARM)) for i in U])
-    top = L['waist'] - 0.025 if not gname.endswith('Up') else min(L['waist'] - 0.025, L['rollY'] - 0.05)
-    pin = ((y > top) | (armw > 0.3)).astype(float)
+    yb = g['P'][U, 1]; armw = np.array([sum(w for j, w in zip(g['J'][i], g['W'][i]) if g['joints'][j].startswith(ARM)) for i in U])
+    pin = (yb > L['waist'] - 0.02) | (armw > 0.3)
+    Xs0 = X0[U].copy(); push_out(Xs0, np.where(~pin)[0], solids, boxes)
+    ob = mesh_obj('Garment', toB(Xs0), tris)
+    pinw = pin.astype(float)
+    if up:
+        # (the back of the hem: lifted out over her, then up to her waist, on a ring just outside the skirt there)
+        cx, cz = L['skirtC'][0], L['skirtC'][1]; hem = L['kirtleHem'] if gname.startswith('Kirtle') else L['skirtHem']
+        Pu = Pg[U]; phi = np.arctan2(Pu[:, 2] - cz, Pu[:, 0] - cx)
+        lifted = (Pu[:, 1] < hem + 0.03) & (np.sin(phi) < -0.2) & ~pin
+        near = np.abs(Pu[:, 1] - L['rollY']) < 0.012; bins = np.linspace(-np.pi, np.pi, 33)
+        rr = np.array([np.median(np.hypot(Pu[near & (phi >= a) & (phi < b), 0] - cx, Pu[near & (phi >= a) & (phi < b), 2] - cz)) if (near & (phi >= a) & (phi < b)).any() else np.nan for a, b in zip(bins[:-1], bins[1:])])
+        rr = np.where(np.isnan(rr), np.nanmean(rr), rr); rad = np.interp(phi, (bins[:-1] + bins[1:]) / 2, rr, period=2 * np.pi) + 0.02
+        T = np.stack([cx + rad * np.cos(phi), np.full(len(phi), L['rollY'] + 0.02), cz + rad * np.sin(phi)], 1)
+        qh = mat_quat(mats['hips']); Tw = rot(qh, S * T) + mats['hips'][:3, 3]
+        outw = rot(qh, np.stack([np.cos(phi), np.full(len(phi), 0.15), np.sin(phi)], 1))
+        Mid = Xs0.copy(); Mid[lifted] = 0.5 * (Xs0[lifted] + Tw[lifted]) + outw[lifted] * 0.16
+        Top = Xs0.copy(); Top[lifted] = Tw[lifted]
+        ob.shape_key_add(name='Basis'); km = ob.shape_key_add(name='mid', from_mix=False); kt = ob.shape_key_add(name='top', from_mix=False)
+        km.data.foreach_set('co', toB(Mid).ravel()); kt.data.foreach_set('co', toB(Top).ravel())
+        for f, vm, vt in ((1, 0, 0), (LIFT[0], 0, 0), (LIFT[1], 1, 0), (LIFT[2], 0, 1)):
+            km.value, kt.value = vm, vt; km.keyframe_insert('value', frame=f); kt.keyframe_insert('value', frame=f)
+        pinw[lifted] = 1.0
     vg = ob.vertex_groups.new(name='pin')
-    for i in np.where(pin > 0)[0]: vg.add([int(i)], 1.0, 'REPLACE')
+    for i in np.where(pinw > 0)[0]: vg.add([int(i)], 1.0, 'REPLACE')
     md = ob.modifiers.new('Cloth', 'CLOTH'); s = md.settings
-    s.quality = 6; s.mass = 0.3; s.air_damping = 1.0; s.vertex_group_mass = 'pin'
-    s.tension_stiffness = 15; s.compression_stiffness = 15; s.shear_stiffness = 5; s.bending_stiffness = 0.8
-    s.tension_damping = 5; s.compression_damping = 5; s.shear_damping = 5; s.bending_damping = 0.5
-    cs = md.collision_settings; cs.distance_min = 0.006; cs.collision_quality = 3; cs.use_self_collision = False
+    s.quality = 5; s.mass = 0.25; s.air_damping = 1.5; s.vertex_group_mass = 'pin'
+    s.tension_stiffness = 8; s.compression_stiffness = 1.5; s.shear_stiffness = 3; s.bending_stiffness = 0.2 if up else 0.45      # (gathered, it folds over on itself freely)
+    s.tension_damping = 5; s.compression_damping = 5; s.shear_damping = 5; s.bending_damping = 0.3
+    cs = md.collision_settings; cs.distance_min = 0.004; cs.collision_quality = 3
+    cs.use_self_collision = bool(up); cs.self_distance_min = 0.004
     md.point_cache.frame_start = 1; md.point_cache.frame_end = FRAMES
     t0 = time.time()
     for f in range(1, FRAMES + 1): sc.frame_set(f)
-    dg = bpy.context.evaluated_depsgraph_get(); ev = ob.evaluated_get(dg).data
+    ev = ob.evaluated_get(bpy.context.evaluated_depsgraph_get()).data
     co = np.zeros(len(ev.vertices) * 3); ev.vertices.foreach_get('co', co); Xs = fromB(co.reshape(-1, 3))
-    Xd = Xs[ix]      # (back to every point the game has)
-    off = unskin(g, mats, S, Xd) - g['P']; off[pin[ix] > 0] = 0.0
-    print(gname, pose, 'draped in', round(time.time() - t0, 1), 's; furthest', round(float(np.linalg.norm(off, axis=1).max()), 3), 'm', flush=True)
-    return off
+    if os.environ.get('FENWICK_DEBUG'):      # (where the cloth's stretched far beyond itself: a spike)
+        E = np.unique(np.sort(np.concatenate([tris[:, [0, 1]], tris[:, [1, 2]], tris[:, [2, 0]]]), 1), axis=0)
+        r = np.linalg.norm(Xs[E[:, 0]] - Xs[E[:, 1]], axis=1) / np.maximum(S * np.linalg.norm(Pg[U][E[:, 0]] - Pg[U][E[:, 1]], axis=1), 1e-6)
+        bad = E[r > 2.0]; vs = np.unique(bad.ravel())
+        names = {}
+        for v in vs:
+            for k, (b, _) in enumerate(solids):
+                l2, _, _, d2 = b.find_nearest(Vector(Xs[v]), 1.0)
+                if d2 is not None and d2 < 0.03: names[k] = names.get(k, 0) + 1
+        print('  stretched x2+: %d edges, %d points; pinned among them %d; near solids %s; worst %.1f' % (len(bad), len(vs), int(pinw[vs].sum()), names, r.max()), flush=True)
+        for e in np.argsort(-r)[:6]:
+            a, b = E[e]
+            print('    x%.0f  armw %.2f/%.2f pin %d/%d  bind %s / %s  start %s end %s / start %s end %s' % (r[e], armw[a], armw[b], pinw[a], pinw[b], np.round(Pg[U][a], 3), np.round(Pg[U][b], 3),
+                  np.round(Xs0[a], 2), np.round(Xs[a], 2), np.round(Xs0[b], 2), np.round(Xs[b], 2)), flush=True)
+    # each point that moves: given to the part of her it lies on, and its offset from the garment as built
+    mv = np.where(~pin[ix])[0]; Xm = Xs[ix[mv]]
+    # (her trunk and legs only: a skirt never goes with her arms, which move beside it)
+    dom = np.array([body['joints'][body['J'][v][int(np.argmax(body['W'][v]))]] for v in range(len(body['P']))])
+    keepf = np.array([not any(dom[v].startswith(ARM) for v in f_) for f_ in body['I']])
+    bvh = BVHTree.FromPolygons([tuple(v) for v in Xb], [tuple(int(i) for i in f) for f in body['I'][keepf]]); Ik = body['I'][keepf]
+    bix = {n: i for i, n in enumerate(G)}; hips = bix['hips']; J2 = np.zeros((len(mv), 2), int); W2 = np.zeros((len(mv), 2))
+    for k, p in enumerate(Xm):
+        loc, n, fi, dist = bvh.find_nearest(Vector(p), 1.0)
+        f_ = Ik[fi]; v = f_[int(np.argmin(np.linalg.norm(Xb[f_] - p, axis=1)))]
+        w = {}
+        for j, wt in zip(body['J'][v], body['W'][v]):
+            if wt > 0 and not body['joints'][j].startswith(ARM): b = bix[body['joints'][j]]; w[b] = w.get(b, 0) + wt
+        tot = sum(w.values()) or 1.0; free = float(np.clip((dist - 0.025) / 0.075, 0, 1)); free = free * free * (3 - 2 * free)
+        w = {b: x / tot * (1 - free) for b, x in w.items()}; w[hips] = w.get(hips, 0) + free
+        top = sorted(w.items(), key=lambda e: -e[1])[:2]; t_ = sum(x for _, x in top) or 1.0
+        J2[k] = [top[0][0], top[-1][0]]; W2[k] = [top[0][1] / t_, (top[1][1] / t_ if len(top) > 1 else 0.0)]
+    off = unskin(G, J2, W2, mats, S, Xm) - Pg[mv]
+    print('  draped in %.0f s; furthest %.2f m' % (time.time() - t0, float(np.linalg.norm(off, axis=1).max())), flush=True)
+    return mv, off, J2, W2
+
+def write(who, idx, data):
+    os.makedirs(OUT, exist_ok=True); chunks = []; at = 0
+    def put(b):
+        nonlocal at
+        pad = (-at) % 4; chunks.append(b'\0' * pad); at += pad; o = at; chunks.append(b); at += len(b); return o
+    J = {'scale': 32767.0, 'garments': {}}
+    for gname, e in sorted(data.items()):
+        G_ = J['garments'][gname] = {'count': e['count'], 'n': len(e['mv']), 'verts': put(np.asarray(e['mv'], '<u2').tobytes()), 'poses': {}}
+        for pk, (off, J2, W2) in sorted(e['poses'].items()):
+            q = np.clip(np.round(off * 32767.0), -32767, 32767).astype('<i2')
+            sw = np.stack([J2[:, 0], J2[:, 1], np.clip(np.round(W2[:, 0] * 255), 0, 255)], 1).astype('u1')
+            G_['poses'][pk] = {'off': put(q.tobytes()), 'skin': put(sw.tobytes())}
+    open(os.path.join(OUT, who + '.bin'), 'wb').write(b''.join(chunks)); json.dump(J, open(os.path.join(OUT, who + '.json'), 'w'), indent=1)
+    print(who, '—', ', '.join('%s (%s)' % (g, ' '.join(sorted(e['poses']))) for g, e in J['garments'].items()), '—', round(at / 1e6, 2), 'MB', flush=True)
+
+def load(who):
+    """What's there already for her, so a bake of some is added to the rest."""
+    jp, bp = os.path.join(OUT, who + '.json'), os.path.join(OUT, who + '.bin')
+    if not (os.path.exists(jp) and os.path.exists(bp)): return {}
+    J = json.load(open(jp)); B = open(bp, 'rb').read(); out = {}
+    for gname, e in J['garments'].items():
+        n = e['n']; mv = np.frombuffer(B, '<u2', n, e['verts']).astype(int); d = out[gname] = {'count': e['count'], 'mv': mv, 'poses': {}}
+        for pk, o in e['poses'].items():
+            off = np.frombuffer(B, '<i2', n * 3, o['off']).reshape(-1, 3) / J['scale']; sw = np.frombuffer(B, 'u1', n * 3, o['skin']).reshape(-1, 3)
+            d['poses'][pk] = (off, sw[:, :2].astype(int), np.stack([sw[:, 2] / 255.0, 1 - sw[:, 2] / 255.0], 1))
+    return out
 
 if __name__ == '__main__':
     args = sys.argv[sys.argv.index('--') + 1:] if '--' in sys.argv else []
-    only_g = args[0].split(',') if len(args) > 0 else GARMENTS; only_p = args[1].split(',') if len(args) > 1 else None
-    meshes = read_glb(os.path.join(MODELS, 'fenwick_f.glb')); meta = json.load(open(os.path.join(MODELS, 'fenwick_meta.json')))['f']
-    poses = json.load(open(os.path.join(HERE, 'poses.json')))['poses']
-    # (what's there already is kept: a bake of some is added to the rest)
-    jpath, bpath = os.path.join(OUT, 'fenwick_drapes.json'), os.path.join(OUT, 'fenwick_drapes.bin')
-    have = {}
-    if os.path.exists(jpath) and os.path.exists(bpath):
-        J = json.load(open(jpath)); B = np.fromfile(bpath, dtype='<i2')
-        for gn, e in J['meshes'].items():
-            for pn, o in e['poses'].items(): have[(gn, pn)] = B[o // 2:o // 2 + e['count'] * 3].astype(np.float64).reshape(-1, 3) / J['scale']
-    for gn in only_g:
-        for pn in (POSES_UP if gn.endswith('Up') else POSES_DOWN):
-            if only_p and pn not in only_p: continue
-            have[(gn, pn)] = bake(meshes, meta, pn, poses[pn], gn)
-    SCALE = 32767.0      # (a metre either way, to a thirtieth of a millimetre)
-    idx = {'scale': SCALE, 'meshes': {}}; chunks = []; at = 0
-    for (gn, pn), off in sorted(have.items()):
-        e = idx['meshes'].setdefault(gn, {'count': len(off), 'poses': {}}); q = np.clip(np.round(off * SCALE), -32767, 32767).astype('<i2')
-        e['poses'][pn] = at; chunks.append(q.tobytes()); at += q.nbytes
-    open(bpath, 'wb').write(b''.join(chunks)); json.dump(idx, open(jpath, 'w'), indent=1)
-    print('drapes:', ', '.join('%s (%s)' % (g, ' '.join(sorted(e['poses']))) for g, e in idx['meshes'].items()), '—', round(at / 1e6, 2), 'MB')
+    poses = json.load(open(os.path.join(HERE, 'poses.json'))); meta = json.load(open(os.path.join(MODELS, 'fenwick_meta.json')))
+    F_ = {'meshes': read_glb(os.path.join(MODELS, 'fenwick_f.glb')), 'meta': meta['f']}; M_ = read_glb(os.path.join(MODELS, 'fenwick_m.glb'))
+    G = list(meta['f']['joints'])      # (the game's own order of her bones)
+    heroes = args[0].split(',') if len(args) > 0 and args[0] else list(poses['heroes'])
+    only_g = args[1].split(',') if len(args) > 1 and args[1] else None; only_p = args[2].split(',') if len(args) > 2 else None
+    for who in heroes:
+        data = load(who); recs = poses['heroes'][who]
+        for gname, legs in poses['garments'][who]:
+            if only_g and gname not in only_g: continue
+            for pk in POSES_DOWN + [p + ':up' for p in POSES_UP]:
+                if only_p and pk not in only_p: continue
+                pose, up = pk.split(':')[0], pk.endswith(':up')
+                print(who, gname, pk, flush=True)
+                mv, off, J2, W2 = bake(F_, M_, G, recs[pose], gname, up, legs)
+                d = data.setdefault(gname, {'count': len(F_['meshes'][gname]['P']), 'mv': mv, 'poses': {}}); d['mv'] = mv; d['poses'][pk] = (off, J2, W2)
+            write(who, None, data)
