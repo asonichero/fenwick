@@ -201,18 +201,18 @@ def build_style(name, sex):
                 s = k / 13; root = np.array([px + sx * 0.06, 1.2 + 0.85 * s ** 0.8, 1.35 - 1.6 * s])
                 side = np.array([sx * 1.5, 0.75 + 0.35 * s, 0.5 - 1.1 * s])
                 P = S.over([root, side, B + np.array([sx * 0.25, -0.1, 0])], 26, 0.07 + 0.02 * R.random(), 0.11 + 0.04 * s)
-                S.lock(P, w0=0.34 + 0.06 * R.random(), t0=0.06, taper=3.5, tip_w=0.35)
+                S.lock(P, w0=0.34 + 0.06 * R.random(), t0=0.06, taper=2.4, tip_w=0.06)
             # from the hairline round the face and over the ears, back
             for k in range(9):
                 a = 0.2 + 1.35 * k / 8; root = h.on(np.array([sx * math.sin(a), 0.62 + 0.45 * math.cos(a * 1.1), math.cos(a)]), 0.04)
                 mid = np.array([sx * 1.4, 0.45 + 0.25 * k / 8, -0.4 - 0.5 * k / 8])
                 P = S.over([root, mid, B + np.array([sx * 0.3, -0.25, 0])], 24, 0.06, 0.1)
-                S.lock(P, w0=0.3, t0=0.055, taper=3.5, tip_w=0.35)
+                S.lock(P, w0=0.3, t0=0.055, taper=2.4, tip_w=0.06)
             # up from the nape
             for k in range(6):
                 a = 2.2 + 0.9 * k / 5; root = h.on(np.array([sx * math.sin(a), -0.75 + 0.15 * (5 - k) / 5, math.cos(a)]), 0.04)
                 P = S.over([root, B + np.array([sx * 0.2, -0.3, 0.05])], 16, 0.06, 0.09)
-                S.lock(P, w0=0.32, t0=0.055, taper=3.5, tip_w=0.4)
+                S.lock(P, w0=0.32, t0=0.055, taper=2.4, tip_w=0.06)
         if name == 'sidepart':
             # a fringe swept from the part across the forehead toward her other temple, above the brows
             for k in range(6):
@@ -232,19 +232,20 @@ def build_style(name, sex):
             for k in range(15):
                 s = k / 14; root = np.array([px + sx * 0.06, 1.2 + 0.85 * s ** 0.8, 1.35 - 1.6 * s])
                 side = np.array([sx * 1.55, 0.35 - 0.15 * s, 0.35 - 1.2 * s])
-                P = S.over([root, side, Bc + np.array([sx * 0.45, 0.05, 0.1])], 28, 0.07 + 0.02 * R.random(), 0.12)
-                S.lock(P, w0=0.36, t0=0.065, taper=3.5, tip_w=0.35)
+                P = S.over([root, side, Bc + np.array([sx * 0.28, 0.08, 0.05])], 28, 0.07 + 0.02 * R.random(), 0.12)      # (into the bun's side, under it)
+                S.lock(P, w0=0.36, t0=0.065, taper=2.4, tip_w=0.06)
             for k in range(7):
                 a = 2.0 + 1.1 * k / 6; root = h.on(np.array([sx * math.sin(a), -0.7, math.cos(a)]), 0.04)
-                P = S.over([root, Bc + np.array([sx * 0.3, 0.1, 0.05])], 12, 0.06, 0.1)
-                S.lock(P, w0=0.32, t0=0.05, taper=3.0, tip_w=0.4)
+                P = S.over([root, Bc + np.array([sx * 0.12, 0.08, 0.0])], 12, 0.06, 0.1)      # (up from the nape to under the bun, out of sight beneath it)
+                S.lock(P, w0=0.32, t0=0.05, taper=2.4, tip_w=0.06)
             # (a tendril in front of each ear, curling)
             root = h.on(np.array([sx * 1.3, 0.62, 0.85]), 0.08); n = 34; P = []
             for i in range(n):
                 u = i / (n - 1); a = u * 3.2 * 2 * np.pi
                 P.append(h.clear(root + np.array([sx * (0.12 + 0.1 * math.cos(a)), -1.3 * u, -0.05 + 0.1 * math.sin(a)]), 0.1))
             S.lock(np.array(P), w0=0.07, t0=0.055, taper=1.6)
-        coil(S, Bc + np.array([0, 0, -0.18]), nrm([0, -0.25, -1]), r0=0.62, r1=0.12, turns=2.3, tube=0.26, n=120)
+        # (set against the back of the head, low, its outer turn bedded in the locks that lead into it: on the head, not standing off it)
+        coil(S, h.on(nrm(Bc + np.array([0, 0.03, 0])), 0.25), nrm([0, -0.25, -1]), r0=0.6, r1=0.12, turns=2.3, tube=0.26, n=120, hug=0.2)
     elif name == 'workbun':
         # pulled up from all round to a bun high on the back of the head, not neatly: wisps loose at the nape and the temples
         Bw = np.array([0, 1.15, -1.75])
@@ -253,12 +254,12 @@ def build_style(name, sex):
             for k in range(20):
                 s = k / 19; root = np.array([sx * 0.06, 1.2 + 0.85 * s ** 0.8, 1.35 - 1.5 * s])
                 P = S.over([root, np.array([sx * 1.35, 1.1 + 0.25 * s, 0.25 - 1.0 * s]), Bw + np.array([sx * 0.3, -0.05, 0.15])], 26, 0.065, 0.085 + 0.02 * R.random())
-                S.lock(P, w0=0.24 + 0.04 * R.random(), t0=0.05, taper=3.5, tip_w=0.35)
+                S.lock(P, w0=0.24 + 0.04 * R.random(), t0=0.05, taper=2.4, tip_w=0.06)
             for k in range(10):
                 a = 0.5 + 2.5 * k / 9; y0 = float(np.interp(a, [0.5, 1.2, 1.6, 2.3, 3.0], [0.75, 0.35, 0.5, -0.35, -0.8]))
                 root = h.on(np.array([sx * math.sin(a), y0, math.cos(a)]), 0.04)
                 P = S.over([root, Bw + np.array([sx * 0.35, -0.2, 0.1])], 22, 0.055, 0.08)
-                S.lock(P, w0=0.21 + 0.04 * R.random(), t0=0.045, taper=3.5, tip_w=0.35)
+                S.lock(P, w0=0.21 + 0.04 * R.random(), t0=0.045, taper=2.4, tip_w=0.06)
             for k in range(3):      # (wisps)
                 a = [0.95, 2.6, 2.95][k]; y0 = [0.55, -0.45, -0.7][k]
                 P = S.over([np.array([sx * math.sin(a), y0 + 0.15, math.cos(a)]), np.array([sx * math.sin(a), y0, math.cos(a)])], 6, 0.07, 0.09)
@@ -337,11 +338,14 @@ def build_style(name, sex):
         beard(S, h)
     return S
 
-def coil(S, C, axis, r0, r1, turns, tube, n, mess=0.0):
-    """A bun: a thick lock coiled round an axis, from the outside in, its turns climbing over each other."""
+def coil(S, C, axis, r0, r1, turns, tube, n, mess=0.0, hug=None):
+    """A bun: a thick lock coiled round an axis, from the outside in, its turns climbing over each other. (hug: each turn kept just that far
+    out from the head and no further in, so a bun set against the head's curve sits on the hair round it all the way round rather than
+    touching it at one point and standing off it elsewhere)"""
     axis = nrm(axis); e1 = nrm(np.cross(axis, [0, 1, 0.01])); e2 = np.cross(axis, e1)
     t = np.linspace(0, 1, n); a = t * turns * 2 * np.pi; r = r0 + (r1 - r0) * t
     P = np.array([C + (e1 * math.cos(ai) + e2 * math.sin(ai)) * ri + axis * (0.22 * ti) + RNG.normal(0, mess, 3) for ai, ri, ti in zip(a, r, t)])
+    if hug is not None: P = np.array([S.h.clear(p, hug) for p in P])
     Up = np.array([nrm(p - C + axis * 0.4) for p in P])
     S.lock(P, w0=tube * 1.2, t0=tube * 0.8, taper=6.0, root_w=0.5, up=Up, shade=lambda x: 0.8 + 0.2 * ss(0.1, 0.9, x))
 def curl_lock(S, root, d, r, turns, length, tube, down=0.0, spin=0.0):

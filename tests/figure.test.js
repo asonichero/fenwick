@@ -72,7 +72,7 @@ const loaded = Promise.all(['f', 'm'].map(sx => F.adopt(meta, sx, glb(sx))));
 // (a heroine by id, or Silas: the household's one man)
 const gfig = (id, sex) => F.make(sex === 'm' || id === 'silas' ? Cast.squireSpec() : Cast.figureSpec(id || 'belle'));
 
-test('the Blender-built figures: the same skeleton, built from the models, every garment weighted to one', async () => {
+test('the Blender-built figures: the same skeleton, built from the models, every garment weighted to one (the armpits’ straight blend apart)', async () => {
   await loaded;
   for (const sex of ['f', 'm']) {
     const f = gfig('goldie', sex);
@@ -85,7 +85,13 @@ test('the Blender-built figures: the same skeleton, built from the models, every
   function check(f) {
     for (const m of [f.body, ...Object.values(f.gm)]) {
       const w = m.geometry.attributes.skinWeight.array, j = m.geometry.attributes.skinIndex.array;
-      for (let i = 0; i < w.length; i += 4) { const t = w[i] + w[i + 1] + w[i + 2] + w[i + 3]; assert.ok(Math.abs(t - 1) < 1e-4, `${m.geometry.name} weights ${t}`); }
+      // (to one; or, round the armpits only, to 1 + their share blended straight across (see figure.js, DQS_PARS))
+      const P = m.geometry.attributes.position, L = f.L;
+      for (let i = 0; i < w.length; i += 4) {
+        const t = w[i] + w[i + 1] + w[i + 2] + w[i + 3], k = i / 4;
+        if (t > 1 + 1e-4) assert.ok(t <= 2 + 1e-4 && Math.abs(P.getY(k) - L.armpit) < 0.25 && Math.abs(P.getX(k)) > 0.04, `${m.geometry.name} weights ${t} at ${P.getX(k).toFixed(3)}, ${P.getY(k).toFixed(3)}`);
+        else assert.ok(Math.abs(t - 1) < 1e-4, `${m.geometry.name} weights ${t}`);
+      }
       for (let i = 0; i < j.length; i++) assert.ok(j[i] < f.bones.length);
       assert.match(m.material.customProgramCacheKey(), /^dqs\|/);
     }
@@ -205,8 +211,12 @@ test('her skirt draped as she lies, from Blender: her own, each pose, down or ra
   const D = id => { const j = JSON.parse(fs.readFileSync(path.join(MODELS, 'drapes', id + '.json'))), b = fs.readFileSync(path.join(MODELS, 'drapes', id + '.bin')); F.adoptDrapes(id, j, b.buffer.slice(b.byteOffset, b.byteOffset + b.byteLength)); return j; };
   for (const id of Cast.IDS) {
     const j = D(id);
-    for (const g in j.garments) assert.deepEqual(Object.keys(j.garments[g].poses).sort(), ['after', 'bed', 'bed:up', 'edge', 'edge:up', 'otk', 'otk:up', 'table', 'table:up'], id + ' ' + g);
+    for (const g in j.garments) assert.deepEqual(Object.keys(j.garments[g].poses).sort(), ['after', 'bed', 'bed:up', 'edge', 'edge:up', 'otk', 'otk:up', 'table', 'table:up'].filter(k => g !== 'Chemise' || (k !== 'edge' && k !== 'table')), id + ' ' + g);
   }
+  // (each baked for the garment as the model has it now: the same points in the same order, not only as many (a remade model reorders them))
+  { const f = gfig('belle');
+    for (const id of Cast.IDS) { const j = D(id); for (const g in j.garments) { const geo = f.model.mesh[g].geo, d = F.drapeOf(id, g, Object.keys(j.garments[g].poses)[0]);
+      assert.ok(d.sig, `${id} ${g}: its drapes say what they were baked for`); assert.ok(F.drapeFits(d, geo), `${id} ${g}: baked for the garment as it is now (rebake: tools/blender/bake_drapes.py)`); } } }
   const belle = gfig('belle'), other = gfig('belle'), geo = f => f.gm[f.topName].geometry, pos = f => Float32Array.from(geo(f).attributes.position.array);
   const rest = pos(belle), si0 = Uint16Array.from(geo(belle).attributes.skinIndex.array); belle.setDrape('otk'); const otk = pos(belle);
   let moved = 0; for (let i = 0; i < rest.length; i++) moved = Math.max(moved, Math.abs(otk[i] - rest[i]));
@@ -226,6 +236,11 @@ test('Silas at night (his nightshirt over linen drawers, barefoot) and with noth
   assert.equal((night.skinMat.userData.u.uHide.value >> F.R.FOOT) & 1, 0, 'barefoot');
   const none = F.make(Cast.squireSpec({ outfit: 'none' })); assert.deepEqual(shown(none), []); assert.equal(none.skinMat.userData.u.uHide.value, 0);
   assert.equal(none.skinMat.userData.u.uStock.value.w, 0, 'no stockings drawn on his legs');
+  // (a chemise isn't raised by hand: at the table it's up of itself; across the knee, up when her drawers come down, down when they're back)
+  const gc = F.make(Cast.figureSpec('goldie', 'f', 'night')); assert.deepEqual(gc.layers, ['under']);
+  gc.setDrape('table'); assert.equal(gc.state.top, 'up'); gc.setDrape('otk'); assert.equal(gc.state.top, 'down');
+  gc.setClothes({ under: 'down' }); assert.equal(gc.state.top, 'up'); gc.setClothes({ under: 'up' }); assert.equal(gc.state.top, 'down');
+  const bn = F.make(Cast.figureSpec('belle', 'f', 'night')); assert.deepEqual(bn.layers.sort(), ['top', 'under'], 'a night-dress raised as a skirt is');
   // (hers: each in her nightclothes, barefoot: a chemise, or a night-dress)
   const g = F.make(Cast.figureSpec('goldie', 'f', 'night')), b = F.make(Cast.figureSpec('belle', 'f', 'night'));
   assert.ok(g.gm.Chemise && g.gm.Chemise.visible && !g.gm.Boots, 'Goldie: her chemise, barefoot'); assert.ok(b.gm.NightDress && b.gm.NightDress.visible, 'Belle: her night-dress');
@@ -242,14 +257,20 @@ test('the Blender-built hair: every style the household wears, coloured per poin
   const s = gfig('silas'); assert.ok(s.hairMesh, 'his hair'); assert.equal(s.head.children.filter(m => m.isMesh && m.geometry.attributes.color).length, 2, 'his hair and his beard');
 });
 
-test('the braids: Red’s, Snow White’s and Rapunzel’s plaits hang from the head and swing with gravity; Rapunzel’s reaches the waist', async () => {
+test('the braids: Red’s, Snow White’s and Rapunzel’s plaits hang from the head and bend down their length with gravity; Rapunzel’s reaches the waist', async () => {
   await loaded;
   for (const id of ['red', 'snow', 'rapunzel']) {
-    const f = gfig(id); assert.ok(f.tail && f.tail.piv, id);
-    f.root.rotation.z = Math.PI / 2; f.root.updateMatrixWorld(true); for (let i = 0; i < 60; i++) f.tick(0.05);
-    assert.ok(Math.abs(f.tail.piv.rotation.z) > 0.5, id + ' swings toward the floor');
+    const f = gfig(id); assert.ok(f.tail && f.tail.piv && f.tail.bones.length >= 6, id + ' a chain down the plait');
+    f.root.updateMatrixWorld(true); for (let i = 0; i < 20; i++) f.tick(0.05);
+    const root = f.tail.piv.getWorldPosition(new THREE.Vector3()), up = Figure.braidTip(f);
+    assert.ok(up.y < root.y - 0.1, id + ' hangs down her back');
+    // (laid on her side: it falls to the floor's side, bending, not held out from the head)
+    f.root.rotation.z = Math.PI / 2; f.root.position.y = 1.2; f.root.updateMatrixWorld(true); for (let i = 0; i < 60; i++) f.tick(0.05);      // (up off the floor, which it lies on)
+    const r2 = f.tail.piv.getWorldPosition(new THREE.Vector3()), tip = Figure.braidTip(f);
+    assert.ok(tip.y < r2.y - 0.08, `${id}: the end ${(r2.y - tip.y).toFixed(2)} m below where it leaves the head`);
+    for (const X of f.tail.X) assert.ok(Number.isFinite(X.x + X.y + X.z), id + ' settled');
   }
-  const r = gfig('rapunzel'); r.root.updateMatrixWorld(true);
-  const box = new THREE.Box3().setFromObject(r.tail.piv), waist = r.L.waist * r.root.scale.x;
-  assert.ok(box.min.y < waist + 0.08, `the end of the plait at ${box.min.y.toFixed(2)} m, the waist at ${waist.toFixed(2)} m`);
+  const r = gfig('rapunzel'); r.root.updateMatrixWorld(true); for (let i = 0; i < 20; i++) r.tick(0.05);
+  const tip = Figure.braidTip(r), waist = r.root.localToWorld(new THREE.Vector3(0, r.L.waist, 0)).y;
+  assert.ok(tip.y < waist + 0.08, `the end of the plait at ${tip.y.toFixed(2)} m, the waist at ${waist.toFixed(2)} m`);
 });

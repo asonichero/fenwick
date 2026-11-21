@@ -443,7 +443,7 @@ function paint(m, o) {
   o = o || {};
   const U = { uRim: { value: srgb(o.rim || '#2a3440').multiplyScalar(o.rimK == null ? 1 : o.rimK) }, uGrain: { value: o.grain == null ? 0.03 : o.grain }, uGrainScale: { value: o.scale || 60 }, uHide: { value: 0 },
     uMarks: { value: Array.from({ length: 8 }, () => new THREE.Vector4(0, -9, 0, 0)) }, uMarkCol: { value: srgb(o.markCol || '#b8323a') },
-    uPat0: { value: new THREE.Color(1, 1, 1) }, uPat1: { value: new THREE.Color(1, 1, 1) }, uPat2: { value: new THREE.Color(1, 1, 1) }, uParam: { value: new THREE.Vector4() }, uL0: { value: new THREE.Vector4() }, uL1: { value: new THREE.Vector4() }, uNape: { value: new THREE.Vector4() }, uFlush: { value: new THREE.Vector4() }, uFlushC: { value: new THREE.Vector4() },
+    uPat0: { value: new THREE.Color(1, 1, 1) }, uPat1: { value: new THREE.Color(1, 1, 1) }, uPat2: { value: new THREE.Color(1, 1, 1) }, uParam: { value: new THREE.Vector4() }, uL0: { value: new THREE.Vector4() }, uL1: { value: new THREE.Vector4() }, uFlush: { value: new THREE.Vector4() }, uFlushC: { value: new THREE.Vector4() },
     uPat3: { value: new THREE.Color(1, 1, 1) }, uPat4: { value: new THREE.Color(1, 1, 1) }, uStock: { value: new THREE.Vector4(0, 0, 0, 0) },
     uNip: { value: new THREE.Vector4(0, 0, 0, 0) }, uNav: { value: new THREE.Vector4(0, 0, 0, 0) }, uBd0: { value: new THREE.Vector4() }, uBd1: { value: new THREE.Vector4() },
     uKnee: { value: new THREE.Vector4(0, 0, 0, 0) }, uBust: { value: new THREE.Vector4(0.056, 1, 0, 0) }, uFootF: { value: new THREE.Vector4(0, 0, 0, 0) }, uToe: { value: [0, 1, 2, 3, 4].map(() => new THREE.Vector4(0, 0, 0, 0)) } };      // (off unless set: a Vector4's w is 1 by default)
@@ -460,11 +460,10 @@ vBind = ${o.bindAttr ? 'bind' : 'position'};
 ${o.regions ? 'vHide = mod(floor(uHide / exp2(region) + 0.001), 2.0); vRegion = region;' : 'vHide = 0.0; vRegion = -1.0;'} ${o.pattern ? 'vPart = region;' : 'vPart = 0.0;'} ${o.tone ? 'vTone = tone;' : 'vTone = 0.0;'}`);
     sh.fragmentShader = sh.fragmentShader
       .replace('#include <common>', `#include <common>
-varying vec3 vBind; varying float vHide; varying float vPart; varying float vTone; varying float vRegion; uniform vec3 uPat0; uniform vec3 uPat1; uniform vec3 uPat2; uniform vec3 uPat3; uniform vec3 uPat4; uniform vec4 uStock; uniform vec4 uNip; uniform vec4 uNav; uniform vec4 uBd0; uniform vec4 uBd1; uniform vec4 uKnee; uniform vec4 uBust; uniform vec4 uFootF; uniform vec4 uToe[5]; uniform vec4 uParam; uniform vec4 uL0; uniform vec4 uL1; uniform vec4 uNape; uniform vec4 uFlush; uniform vec4 uFlushC; uniform vec3 uRim; uniform float uGrain; uniform float uGrainScale; uniform vec4 uMarks[8]; uniform vec3 uMarkCol;
+varying vec3 vBind; varying float vHide; varying float vPart; varying float vTone; varying float vRegion; uniform vec3 uPat0; uniform vec3 uPat1; uniform vec3 uPat2; uniform vec3 uPat3; uniform vec3 uPat4; uniform vec4 uStock; uniform vec4 uNip; uniform vec4 uNav; uniform vec4 uBd0; uniform vec4 uBd1; uniform vec4 uKnee; uniform vec4 uBust; uniform vec4 uFootF; uniform vec4 uToe[5]; uniform vec4 uParam; uniform vec4 uL0; uniform vec4 uL1; uniform vec4 uFlush; uniform vec4 uFlushC; uniform vec3 uRim; uniform float uGrain; uniform float uGrainScale; uniform vec4 uMarks[8]; uniform vec3 uMarkCol;
 ${NOISE}`)
       .replace('#include <color_fragment>', `#include <color_fragment>
 if (vHide > 0.5) discard;
-if (uNape.z > 0.5 && vBind.y > uNape.x + max(0.0, vBind.z - uNape.y) * uNape.w) discard;      // (the nape, under the skull: see makeGLB)
 // (the body's response (F.setResponse): blood to the sex, a deeper, rosier tone there; his, the whole length as it hangs at rest, and the
 // scrotum; hers, the outer forms and the bottom of the mons)
 if (uFlush.x > 0.001) {
@@ -506,7 +505,11 @@ diffuseColor.rgb = mix(diffuseColor.rgb, uMarkCol, mk * 0.78);` : ''}`)
 // ── Dual-quaternion skinning ─────────────────────────────────────────────────────────────────────────────────────────────────────────────────
 // Each bone's matrix turned into a rotation and a translation (a dual quaternion), blended, and applied: unlike blending matrices, a joint keeps
 // its volume as it bends (no collapsing elbow or knee, no pinched shoulder, no twisting wrist). Patched into a material's own skinning chunks, so
-// it works for any material (the toon shading, the outlines, the shadows' depth).
+// it works for any material (the toon shading, the outlines, the shadows' depth). Except as far as a point's weights say otherwise, adding up
+// to more than one (to 1 + s: the armpits, see adopt; the quaternions' blend doesn't mind, it's normalised): there the matrices are blended
+// as they are, by s, so a point between the ribcage and a raised arm is drawn straight across between the two, a hollow, rather than swung
+// round the shoulder as far as its share of the arm (which, with the arm overhead, is out sideways). (Not an attribute of its own: the body,
+// with its shape keys, has none to spare.)
 const DQS_PARS = `
 vec4 dqQuat(mat4 m) {
   mat3 r = mat3(normalize(m[0].xyz), normalize(m[1].xyz), normalize(m[2].xyz));
@@ -527,13 +530,17 @@ const DQS_BASE = `#ifdef USE_SKINNING
   vec4 dqR = skinWeight.x * dqA + wB * dqB + wC * dqC + wD * dqD;
   vec4 dqT = skinWeight.x * dqDual(dqA, boneMatX[3].xyz) + wB * dqDual(dqB, boneMatY[3].xyz) + wC * dqDual(dqC, boneMatZ[3].xyz) + wD * dqDual(dqD, boneMatW[3].xyz);
   float dqL = length(dqR); dqR /= dqL; dqT /= dqL;
+  float skS = skinWeight.x + skinWeight.y + skinWeight.z + skinWeight.w, skinLin = clamp(skS - 1.0, 0.0, 1.0);
+  if (skinLin < 0.002) skinLin = 0.0;
+  mat4 skLin = (skinWeight.x * boneMatX + skinWeight.y * boneMatY + skinWeight.z * boneMatZ + skinWeight.w * boneMatW) / skS;
 #endif`;
 const DQS_NORMAL = `#ifdef USE_SKINNING
-  objectNormal = dqRot(dqR, objectNormal);
+  objectNormal = skinLin > 0.0 ? normalize(mix(dqRot(dqR, objectNormal), (bindMatrixInverse * skLin * bindMatrix * vec4(objectNormal, 0.0)).xyz, skinLin)) : dqRot(dqR, objectNormal);
 #endif`;
 const DQS_SKIN = `#ifdef USE_SKINNING
-  vec3 skP = (bindMatrix * vec4(transformed, 1.0)).xyz;
+  vec3 skP = (bindMatrix * vec4(transformed, 1.0)).xyz, skP0 = skP;
   skP = dqRot(dqR, skP) + 2.0 * (dqR.w * dqT.xyz - dqT.w * dqR.xyz + cross(dqR.xyz, dqT.xyz));
+  if (skinLin > 0.0) skP = mix(skP, (skLin * vec4(skP0, 1.0)).xyz, skinLin);
   transformed = (bindMatrixInverse * vec4(skP, 1.0)).xyz;
 #endif`;
 function dqs(m) {
@@ -1400,23 +1407,111 @@ function buildHair(F, spec, S, H, Hs, k) {
   // a little out from the back so it rides over the shoulder blades.)
   if (style === 'braid') braidOf(F, spec, H, hm);
 }
+// (Fenwick: the plait. Its line runs from inside the gathered hair at the back of the head, out through its pivot and down the back, past the
+// tie to the end of the tuft; the tube along it rounded over at the top where the locks gather into it (no hard rim), the strands crossing in
+// lobes down to the tie, pinched under it, and a tuft below that flares and tapers in a few wisps. Skinned to a chain of bones down its
+// length, each hanging from the one above: the top two held to the head, the rest falling with gravity (verlet, each joint kept its length
+// from the one above, the stiffness of the plait near its root easing off down it), kept out of the head and the back. So it bends down its
+// length as it falls, over the shoulders, down past the face when she's bent over, rather than swinging stiff from the head as one piece.)
 function braidOf(F, spec, H, hm) {
-  const style = 'braid';
-  if (style === 'braid') {
-    const len = spec.braidLen || 8, piv = new THREE.Group(); piv.position.set(0, 0.9, -2.0); H.add(piv);
-    const pts = [new V3(0, 0, 0), new V3(0, -0.7, -0.55), new V3(0, -2.2, -0.85), new V3(0, -len * 0.62, -0.95), new V3(0, -len, -0.7)];
-    const N = Math.round(len * 2.2), tube = new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts), N * 4, 0.4, 12, false), p = tube.attributes.position;
-    for (let i = 0; i < p.count; i++) {
-      const y = -p.getY(i), t = clamp(y / len, 0, 1), lobe = Math.abs(Math.sin(t * N * Math.PI)), side = Math.sin(t * N * Math.PI) > 0 ? 1 : -1;
-      const s2 = lerp(1.05, 0.55, t) * (0.82 + 0.3 * lobe);
-      p.setX(i, p.getX(i) * s2 + side * 0.08 * lobe * (1 - t * 0.5)); p.setZ(i, (p.getZ(i) + 0.6) * s2 - 0.6);
+  const len = spec.braidLen || 8, piv = new THREE.Group(); piv.position.set(0, 0.9, -2.0); H.add(piv);
+  const TUFT = 0.95, tieAt = new V3(0, -len + 0.15, -0.72);
+  const curve = new THREE.CatmullRomCurve3([new V3(0, 0.34, 0.3), new V3(0, 0, 0), new V3(0, -0.7, -0.55), new V3(0, -2.2, -0.85), new V3(0, -len * 0.62, -0.95), new V3(0, -len, -0.7), new V3(0, -len - TUFT, -0.6)]);
+  const Lt = curve.getLength(), at = s => curve.getPointAt(clamp(s / Lt, 0, 1));
+  const nearest = q => { let best = 0, bd = 1e9; for (let i = 0; i <= 400; i++) { const d = at(Lt * i / 400).distanceToSquared(q); if (d < bd) { bd = d; best = Lt * i / 400; } } return best; };
+  const sPiv = nearest(new V3(0, 0, 0)), sTie = nearest(tieAt), N = Math.round(len * 2.2), R0 = 0.4, RAD = 12;
+  const segs = Math.round(Lt * 9), geo = new THREE.TubeGeometry(curve, segs, R0, RAD, false), p = geo.attributes.position, c = new V3(), o = new V3();
+  for (let j = 0; j <= segs; j++) {
+    const sj = Lt * j / segs; c.copy(at(sj));
+    const dome = Math.sqrt(Math.max(0, 1 - Math.pow(1 - Math.min(1, sj / 0.5), 2)));      // (the top rounded over)
+    let k = 1, side = 0;
+    if (sj <= sTie) {
+      const t = clamp((sj - sPiv) / (sTie - sPiv), 0, 1), lobe = Math.abs(Math.sin(t * N * Math.PI));
+      k = lerp(1.05, 0.55, t) * (0.82 + 0.3 * lobe) * dome; side = Math.sign(Math.sin(t * N * Math.PI)) * 0.08 * lobe * (1 - t * 0.5) * dome;
+      k *= 1 - 0.35 * ss(sTie - 0.35, sTie, sj);      // (drawn in under the tie)
+    } else {
+      const u = (sj - sTie) / (Lt - sTie);      // (the tuft: out from the tie, then tapering to its ends)
+      k = u < 0.3 ? lerp(0.36, 0.72, Math.sin(u / 0.3 * Math.PI / 2)) : 0.72 * Math.sqrt(Math.max(0, 1 - Math.pow((u - 0.3) / 0.7, 2.2)));      // (a brush, rounded off)
     }
-    tube.computeVertexNormals();
-    const tail = new THREE.Mesh(tube, hm); tail.castShadow = true; piv.add(tail); ink(tail, 0.05); F.tail = { piv };
-    const tie = new THREE.Mesh(new THREE.TorusGeometry(0.24, 0.07, 8, 16), tmat(spec.ribbon || '#6a3a2a')); tie.position.set(0, -len + 0.15, -0.72); tie.rotation.x = Math.PI / 2; piv.add(tie);
-    const tuft = new THREE.Mesh(new THREE.ConeGeometry(0.3, 0.9, 10), hm); tuft.position.set(0, -len - 0.35, -0.7); tuft.rotation.x = Math.PI; piv.add(tuft); ink(tuft, 0.05);
+    for (let v = 0; v <= RAD; v++) {
+      const i = j * (RAD + 1) + v; o.fromBufferAttribute(p, i).sub(c);
+      const wisp = sj > sTie ? 1 + 0.28 * Math.sin(v / RAD * Math.PI * 2 * 5) * ss(sTie, Lt, sj) : 1;
+      o.multiplyScalar(Math.max(k * wisp, 0.004)); p.setXYZ(i, c.x + o.x + side, c.y + o.y, c.z + o.z);
+    }
+  }
+  geo.computeVertexNormals();
+  // (the chain: its first joint inside the gathered hair, the second at the pivot, the rest even down to the tuft's end)
+  const M = Math.max(4, Math.round((Lt - sPiv) / 0.75)), J = [0, sPiv]; for (let m = 1; m <= M; m++) J.push(sPiv + (Lt - sPiv) * m / M);
+  const nb = J.length, restL = J.map(at), bones = [];
+  for (let i = 0; i < nb; i++) { const b = new THREE.Bone(); b.position.copy(i ? restL[i].clone().sub(restL[i - 1]) : restL[0]); if (i) bones[i - 1].add(b); bones.push(b); }
+  // (each point's weights: full to the bone of the length it's on at that length's middle, shared half and half with the next at a joint)
+  const mid = []; for (let i = 0; i < nb - 1; i++) mid.push((J[i] + J[i + 1]) / 2);
+  const n = p.count, SI = new Uint16Array(n * 4), SW = new Float32Array(n * 4);
+  for (let j = 0; j <= segs; j++) {
+    const sj = Lt * j / segs; let a = 0; while (a < mid.length - 1 && sj > mid[a + 1]) a++;
+    const t = a < mid.length - 1 ? clamp((sj - mid[a]) / (mid[a + 1] - mid[a]), 0, 1) : 0;
+    for (let v = 0; v <= RAD; v++) { const i = j * (RAD + 1) + v; SI[i * 4] = a; SI[i * 4 + 1] = Math.min(a + 1, nb - 2); SW[i * 4] = 1 - t; SW[i * 4 + 1] = t; }
+  }
+  geo.setAttribute('skinIndex', new THREE.Uint16BufferAttribute(SI, 4)); geo.setAttribute('skinWeight', new THREE.Float32BufferAttribute(SW, 4));
+  const mesh = new THREE.SkinnedMesh(geo, tmat(spec.hair, { rim: '#3a3a4a', rimK: 0.6, skin: true })); mesh.castShadow = true; mesh.frustumCulled = false; mesh.customDepthMaterial = DEPTHM;
+  mesh.add(bones[0]); piv.add(mesh);
+  const hull = new THREE.SkinnedMesh(hullGeo(geo, 0.05), INKM.skinned); hull.frustumCulled = false; piv.add(hull);
+  H.updateWorldMatrix(true, true); const skel = new THREE.Skeleton(bones); mesh.bind(skel); hull.bind(skel, mesh.bindMatrix);      // (bound as placed, the head's scale and all: the quaternions' skinning keeps no scale of its own)
+  // (the tie, on the bone of the length it's on, across the plait)
+  const tb = Math.max(0, mid.findIndex((m, i) => i === mid.length - 1 || sTie < mid[i + 1])), tie = new THREE.Mesh(new THREE.TorusGeometry(0.24, 0.07, 8, 16), tmat(spec.ribbon || '#6a3a2a'));
+  tie.position.copy(at(sTie)).sub(restL[tb]); tie.quaternion.setFromUnitVectors(new V3(0, 0, 1), curve.getTangentAt(sTie / Lt)); bones[tb].add(tie); ink(tie, 0.04);
+  F.tail = { piv, bones, mesh, restL, X: restL.map(() => new V3()), Xp: restL.map(() => new V3()), W: restL.map(() => new V3()), live: false, sim: true, len: [] };
+}
+// The plait's chain, a step: the top two joints held where the head has them, the rest falling (verlet, damped), each drawn back toward where
+// the head would have it by a stiffness that eases off down the plait, each kept its length from the one above, and out of the head and the
+// back; then each bone turned to point at the next. Settled at once where it's first seen, or after the figure's been moved bodily.
+const _bq = new THREE.Quaternion(), _bq2 = new THREE.Quaternion(), _bv = new V3(), _bv2 = new V3(), _bm = new THREE.Matrix4(), _bInv = {};
+// (the trunk's back, for the plait to lie on: per bone, over its length (y0–y1, in its own frame, unscaled metres), an ellipse across it,
+// half-width and half-depth about a middle zc: roughly the body's own, measured)
+const BRAID_BODY = [['chest', 0.0, 0.17, 0.135, 0.1, 0.025], ['spine', 0.0, 0.15, 0.12, 0.085, 0.025], ['hips', -0.06, 0.16, 0.15, 0.115, 0.0], ['neck', 0.0, 0.07, 0.06, 0.045, 0.0]];
+function tickBraid(F, dt) {
+  const T = F.tail, X = T.X, Xp = T.Xp, W = T.W, nb = X.length, s = F.root.scale.x;
+  F.root.updateMatrixWorld(true); T.piv.updateMatrixWorld(true);
+  for (let i = 0; i < nb; i++) W[i].copy(T.restL[i]).applyMatrix4(T.piv.matrixWorld);
+  if (!T.len.length) for (let i = 1; i < nb; i++) T.len[i] = W[i].distanceTo(W[i - 1]);
+  const head = F.head, hk = head.matrixWorld.getMaxScaleOnAxis(), rb = 0.32 * hk;      // (the plait's own half-thickness, about)
+  _bInv.head = (_bInv.head || new THREE.Matrix4()).copy(head.matrixWorld).invert();
+  for (const [b] of BRAID_BODY) if (F.bone[b]) _bInv[b] = (_bInv[b] || new THREE.Matrix4()).copy(F.bone[b].matrixWorld).invert();
+  const out = q => {
+    // (the head: an ellipsoid round its middle, in head units)
+    _bv.copy(q).applyMatrix4(_bInv.head); const ex = _bv.x / 1.8, ey = (_bv.y - 0.15) / 2.2, ez = (_bv.z + 0.05) / 1.88, e = Math.sqrt(ex * ex + ey * ey + ez * ez), m = 1 + rb / hk / 2.3;
+    if (e < m) { _bv.set(0, 0.15, -0.05).addScaledVector(_bv2.set(ex * 1.8, ey * 2.2, ez * 1.88), m / Math.max(e, 1e-4)); q.copy(_bv).applyMatrix4(head.matrixWorld); }
+    // (the back: an ellipse across each of the trunk's bones, over the length of it)
+    for (const [b, y0, y1, ax, az, zc] of BRAID_BODY) {
+      if (!F.bone[b]) continue; _bv.copy(q).applyMatrix4(_bInv[b]); if (_bv.y < y0 || _bv.y > y1) continue;
+      const r = rb / s, dx = _bv.x / (ax + r), dz = (_bv.z - zc) / (az + r), d = Math.sqrt(dx * dx + dz * dz);
+      if (d < 1) { _bv.x /= Math.max(d, 1e-4); _bv.z = zc + (_bv.z - zc) / Math.max(d, 1e-4); q.copy(_bv).applyMatrix4(F.bone[b].matrixWorld); }
+    }
+  };
+  const jump = !T.live || X[1].distanceToSquared(W[1]) > 0.09;
+  if (jump) { for (let i = 0; i < nb; i++) { X[i].copy(W[i]); Xp[i].copy(W[i]); } T.live = true; }
+  const h = 1 / 60, steps = jump ? 240 : Math.min(8, Math.ceil(Math.min(dt, 0.12) / h)), hs = jump ? h : Math.min(dt, 0.12) / steps, damp = jump ? 0.8 : 0.9;
+  for (let k = 0; k < steps; k++) {
+    X[0].copy(W[0]); X[1].copy(W[1]); Xp[0].copy(W[0]); Xp[1].copy(W[1]);
+    for (let i = 2; i < nb; i++) {
+      _bv.copy(X[i]).sub(Xp[i]).multiplyScalar(damp); Xp[i].copy(X[i]); X[i].add(_bv); X[i].y -= 9.8 * hs * hs;
+      // (its stiffness: the first length held toward where the head has it, as it leaves the tie at the back of the head; the rest each drawn
+      // toward going straight on from the one above, less so down the plait: a bend that gravity wins, whichever way up the head is)
+      if (i === 2) X[i].lerp(W[i], 1 - Math.exp(-hs * 3));
+      else { _bv2.copy(X[i - 1]).sub(X[i - 2]).normalize().multiplyScalar(T.len[i]).add(X[i - 1]); X[i].lerp(_bv2, 1 - Math.exp(-hs * lerp(1.2, 0.2, (i - 3) / Math.max(1, nb - 4)))); }
+    }
+    for (let it = 0; it < 3; it++) for (let i = 2; i < nb; i++) { _bv.copy(X[i]).sub(X[i - 1]); X[i].copy(X[i - 1]).addScaledVector(_bv.normalize(), T.len[i]); out(X[i]); if (X[i].y < rb) X[i].y = rb; }      // (and on the floor)
+  }
+  // (each bone turned so the next joint lies along the line to where the plait has it)
+  T.mesh.getWorldQuaternion(_bq);
+  for (let i = 0; i < nb - 1; i++) {
+    const B = T.bones[i], a = _bv.copy(T.bones[i + 1].position).normalize().applyQuaternion(_bq), d = _bv2.copy(X[i + 1]).sub(X[i]).normalize();
+    _bq2.setFromUnitVectors(a, d).multiply(_bq);      // (its turn in the world)
+    B.quaternion.copy(_bq).invert().multiply(_bq2); _bq.copy(_bq2);
   }
 }
+// (where the end of the plait is, in the world)
+const braidTip = F => (F.tail && F.tail.sim ? F.tail.X[F.tail.X.length - 1].clone() : null);
 
 // ── Expressions (redlessons'): the mouth's shapes and each expression's brows, lids, gaze, mouth, blush and tears ──
 const MOUTHS = { warm: { mw: 0.46, mc: 0.22, mo: 0, mt: 0 }, flat: { mw: 0.42, mc: 0.05, mo: 0, mt: 0 }, smile: { mw: 0.6, mc: 0.6, mo: 0.06, mt: 0.6 }, frown: { mw: 0.48, mc: -0.5, mo: 0, mt: 0 },
@@ -1477,7 +1572,8 @@ function tickFace(F, dt) {
     R.tuckS = (R.tuckS || 0) + ((F.tuck ? 1 : 0) - (R.tuckS || 0)) * (1 - Math.exp(-dt * 2.5));
     b.position.copy(F.rest0.sexS).addScaledVector(_tuckOff, R.tuckS / F.root.scale.x);
   }
-  if (F.tail) {
+  if (F.tail && F.tail.sim) tickBraid(F, dt);
+  else if (F.tail) {
     const pv = F.tail.piv, q = new THREE.Quaternion(); pv.parent.getWorldQuaternion(q);
     const down = new V3(0, -1, 0).applyQuaternion(q.invert());
     const kx = 1 - Math.exp(-dt * 5); pv.rotation.x = lerp(pv.rotation.x, Math.atan2(-down.z, -down.y) * 0.85, kx); pv.rotation.z = lerp(pv.rotation.z, Math.atan2(down.x, -down.y) * 0.85, kx);
@@ -1520,8 +1616,17 @@ function needDrapes(F) {
 }
 function drapeOf(who, name, key) {
   const D = GLB.drapes && GLB.drapes[who], e = D && D.index && D.index.garments[name], p = e && key && e.poses[key]; if (!p) return null;
-  return { count: e.count, verts: new Uint16Array(D.buf, e.verts, e.n), off: new Int16Array(D.buf, p.off, e.n * 3), skin: new Uint8Array(D.buf, p.skin, e.n * 3), scale: D.index.scale };
+  return { count: e.count, sig: e.sig, verts: new Uint16Array(D.buf, e.verts, e.n), off: new Int16Array(D.buf, p.off, e.n * 3), skin: new Uint8Array(D.buf, p.skin, e.n * 3), scale: D.index.scale };
 }
+// (the garment's points summed, weighted by their order, as the baker sums them (tools/blender/bake_drapes.py, sig): a drape baked for the
+// garment as it was made then, not one remade since with its points in another order, however many there are)
+function garmentSig(geo) {
+  if (geo.userData.sig) return geo.userData.sig;
+  const p = geo.attributes.position.array, out = [0, 0, 0];
+  for (let i = 0, n = p.length / 3; i < n; i++) { const k = 1 + (i % 7); out[0] += p[i * 3] * k; out[1] += p[i * 3 + 1] * k; out[2] += p[i * 3 + 2] * k; }
+  return (geo.userData.sig = out);
+}
+const drapeFits = (D, B) => !!D.sig && D.count === B.attributes.position.count && garmentSig(B).every((v, c) => Math.abs(v - D.sig[c]) < 0.05);      // (one baked before drapes said what they were baked for: not trusted)
 // The hair styles: each a mesh in head units (the head group's space), with its colour per point (darker at the roots) to multiply into the
 // hair's own; shared by everyone who wears the style.
 function adoptHair(buf) {
@@ -1539,6 +1644,14 @@ function need(sx, base) {
     return fetch(base + 'fenwick_' + sx + '.glb').then(r => r.arrayBuffer()).then(buf => adopt(meta, sx, buf)).then(() => true).catch(e => { console.warn('Figure: no model for ' + sx, e); return false; });
   });
 }
+// (a share of weight added to point i's bone b: in the slot it already has, else in its smallest, whose own share is let go (normed after))
+function addWeight(idx, wt, i, b, w) {
+  if (!(w > 0) || b == null) return;
+  let k = -1; for (let q = 0; q < 4; q++) if (idx[i * 4 + q] === b && wt[i * 4 + q] > 0) k = q;
+  if (k < 0) { k = 0; for (let q = 1; q < 4; q++) if (wt[i * 4 + q] < wt[i * 4 + k]) k = q; idx[i * 4 + k] = b; wt[i * 4 + k] = 0; }
+  wt[i * 4 + k] += w;
+}
+function normWeights(wt, i) { const sum = wt[i * 4] + wt[i * 4 + 1] + wt[i * 4 + 2] + wt[i * 4 + 3] || 1; for (let q = 0; q < 4; q++) wt[i * 4 + q] /= sum; }
 function adopt(meta, sx, buf) {
   GLB.meta = meta;
   return new Promise((res, rej) => new THREE.GLTFLoader().parse(buf, '', g => { GLB.sex[sx] = prepare(sx, g, meta[sx]); res(GLB.sex[sx]); }, rej));
@@ -1577,6 +1690,45 @@ function prepare(sx, gltf, M) {
         if (k0 < 0) { k0 = 0; for (let k = 1; k < 4; k++) if (wt[i * 4 + k] < wt[i * 4 + k0]) k0 = k; wt[i * 4 + k0] = 0; idx[i * 4 + k0] = hb; }
         wt[i * 4 + k0] += t; const sum = wt[i * 4] + wt[i * 4 + 1] + wt[i * 4 + 2] + wt[i * 4 + 3]; for (let k = 0; k < 4; k++) wt[i * 4 + k] /= sum;
       }
+    }
+    // (the upper arm's hold kept to the arm and the cap of the shoulder: Blender's weights spread it over the chest and the upper back nearly to
+    // the middle, so a raised arm hauled the ribcage up and out with it. Below the shoulder joint the arm takes over from the ribcage within a
+    // centimetre or two, at the armpit's crease: a point there half the one's and half the other's turns half as far as the arm, and halfway
+    // from down to overhead is straight out sideways, so a wide handover there stands the armpit out as a wing; a narrow one leaves a hollow,
+    // the side of the ribcage going on up into the arm. Over the shoulder's top, a wider fade (toward the collarbone, from the neck out). What
+    // the arm lets go of goes to the chest bone (the ribcage) and, up toward the shoulder's top, the collarbone; the body and every garment
+    // alike, so the clothes go with the skin.)
+    const lin = new Float32Array(n);      // (the armpits blended straight across: see DQS_PARS)
+    for (const s of ['L', 'R']) {
+      const ua = BIx['upperArm' + s], cl = BIx['clav' + s], jx = Math.abs(M.joints['upperArm' + s][0]), jy = M.joints['upperArm' + s][1], pit = L.armpit;
+      if (ua == null || !(pit > 0)) continue;
+      const sx = s === 'L' ? 1 : -1, xb = jx - 0.014, sm = (a, b, x) => { const u = clamp((x - a) / (b - a), 0, 1); return u * u * (3 - 2 * u); };
+      const trunk = [BIx.chest, BIx.spine, cl, BIx.neck];
+      for (let i = 0; i < n; i++) {
+        const x = p.getX(i) * sx, y = p.getY(i); if (x < -0.01 || y < pit - 0.2 || y > jy + 0.1) continue;
+        lin[i] = Math.max(lin[i], (1 - sm(jy - 0.04, jy - 0.005, y)) * sm(xb - 0.05, xb - 0.03, x) * (1 - sm(jx + 0.03, jx + 0.06, x)));
+        let ua0 = 0, tw = 0; for (let q = 0; q < 4; q++) { const b = idx[i * 4 + q]; if (b === ua) ua0 += wt[i * 4 + q]; else if (trunk.includes(b)) tw += wt[i * 4 + q]; }
+        if (ua0 + tw <= 0) continue;
+        // (below the joint, the arm's whole share of what the trunk and arm hold between them, by which side of the crease; above, Blender's
+        // own, less toward the neck)
+        const below = 1 - sm(jy - 0.05, jy - 0.005, y), want = lerp(ua0 * sm(jx - 0.065, jx + 0.004, x), (ua0 + tw) * sm(xb - 0.009, xb + 0.009, x), below);
+        if (Math.abs(want - ua0) < 1e-4) continue;
+        if (want > ua0) {
+          const f = 1 - (want - ua0) / tw; for (let q = 0; q < 4; q++) if (trunk.includes(idx[i * 4 + q]) && idx[i * 4 + q] !== ua) wt[i * 4 + q] *= f;
+          addWeight(idx, wt, i, ua, want - ua0);
+        } else {
+          const r = ua0 - want, cs = sm(pit, jy + 0.01, y); for (let q = 0; q < 4; q++) if (idx[i * 4 + q] === ua) wt[i * 4 + q] *= want / ua0;
+          addWeight(idx, wt, i, cl, r * cs); addWeight(idx, wt, i, BIx.chest, r * (1 - cs));
+        }
+        normWeights(wt, i);
+      }
+    }
+    for (let i = 0; i < n; i++) if (lin[i] > 0.002) for (let q = 0; q < 4; q++) wt[i * 4 + q] *= 1 + lin[i];      // (see DQS_PARS)
+    // (and the outline finer there: the skin folds into the hollow as the arm goes up, and a full one reaches through the fold as slivers)
+    if (lin.some(v => v > 0.002)) {
+      const ik = g.attributes._ink ? g.attributes._ink.array : new Float32Array(n).fill(1);
+      for (let i = 0; i < n; i++) ik[i] *= 1 - 0.7 * lin[i];
+      if (!g.attributes._ink) g.setAttribute('_ink', new THREE.Float32BufferAttribute(ik, 1));
     }
     g.setAttribute('skinIndex', new THREE.Uint16BufferAttribute(idx, 4)); g.setAttribute('skinWeight', new THREE.Float32BufferAttribute(wt, 4));
     g.setAttribute('bind', g.attributes.position.clone());
@@ -1765,9 +1917,8 @@ function makeGLB(spec, T) {
     const kn = T.joints.shinL; if (L.nipple && kn) U.uKnee.value.set(kn[0], kn[1], kn[2], 1);
     if (L.toes && L.footFrame) { U.uFootF.value.fromArray(L.footFrame); U.uToe.value.forEach((v, i) => v.fromArray(L.toes, i * 4)); } }
   F.body = skinned(F, T.mesh.Body.geo, skinM); F.body.castShadow = true; F.body.receiveShadow = false; F.skinMat = skinM;
-  // (the nape, from just above the collar up under the skull, isn't drawn: the head's own skin is there, and the neck's would show through the
-  // back of the head as it tips back; cut level behind, rising round the sides toward the jaw)
-  skinM.userData.u.uNape.value.set(T.L.collar + 0.002, -0.025, 1, 3);
+  // (the nape drawn all the way up under the skull: its upper part goes with the head (see adopt), so it stays under the skull as the head tips
+  // back, and it's what joins the neck to the head behind)
   // The body's response, 0–1 (the session decides how much, and how far it may go): the sex fuller (the shape key), his lifting on its bone
   // (eased toward, in tick), a deeper tone there; and, given, a blush on the face besides whatever the expression has.
   F.setResponse = (r, o) => {
@@ -1779,7 +1930,7 @@ function makeGLB(spec, T) {
     skinM.userData.u.uFlushC.value.set(clamp((o.chest || 0) * 1.8, 0, 1), T.L.nipple ? T.L.nipple[1] + 0.04 : T.L.armpit + 0.03, T.L.neck + 0.05, 1);
     F.blushAdd = o.blush || 0;
   };
-  { const hm = dqs(paint(new THREE.MeshBasicMaterial(Object.assign({ color: srgb(INK), side: THREE.BackSide, skinning: true, morphTargets: true }, HULL_OFS)), { regions: true, grain: 0 })); hm.userData.u.uHide = skinM.userData.u.uHide; hm.userData.u.uNape = skinM.userData.u.uNape; ink(F.body, INK_W, F, hm); }
+  { const hm = dqs(paint(new THREE.MeshBasicMaterial(Object.assign({ color: srgb(INK), side: THREE.BackSide, skinning: true, morphTargets: true }, HULL_OFS)), { regions: true, grain: 0 })); hm.userData.u.uHide = skinM.userData.u.uHide; ink(F.body, INK_W, F, hm); }
   const L = T.L;
   // the seat's spots from its own shape (measured in Blender): the cheek where it's fullest, the sit spot just above the fold beneath it, the
   // thighs below the fold (for a flatter seat, within sensible bounds of the fullest point)
@@ -1849,7 +2000,7 @@ const PHIDE = {
   Kirtle: ['CHEST', 'UPARM', 'WAIST_HI', 'WAIST', 'HIPS', 'HIPS_LO', 'SEAT', 'THIGH'], KirtleUp: ['CHEST', 'UPARM', 'WAIST_HI', 'WAIST'],
   Leggings: ['HIPS', 'HIPS_LO', 'SEAT', 'THIGH', 'KNEE', 'SHIN'], LeggingsDown: ['SHIN'], Drawers: ['HIPS', 'HIPS_LO', 'SEAT', 'THIGH'], DrawersDown: [],
   Smalls: ['HIPS_LO', 'SEAT'], SmallsDown: [], Boots: ['FOOT'],
-  Chemise: ['CHEST', 'UPARM', 'WAIST_HI', 'WAIST', 'HIPS', 'HIPS_LO', 'SEAT', 'THIGH'], ChemiseUp: ['CHEST', 'UPARM', 'WAIST_HI', 'WAIST'],
+  Chemise: ['CHEST', 'UPARM', 'WAIST_HI', 'WAIST', 'HIPS', 'HIPS_LO', 'SEAT'], ChemiseUp: ['CHEST', 'UPARM', 'WAIST_HI', 'WAIST'],      // (shirt-length: the thighs below it bare, or in her drawers)
   NightDress: ['CHEST', 'UPARM', 'WAIST_HI', 'WAIST', 'HIPS', 'HIPS_LO', 'SEAT', 'THIGH', 'FOREARM'], NightDressUp: ['CHEST', 'UPARM', 'WAIST_HI', 'WAIST', 'FOREARM'],
 };
 // (what each layer takes off a smack's sting when it's over the spot: js/session.js asks F.cushionOf)
@@ -1860,7 +2011,7 @@ const TOPS_P = { chemise: 'Chemise', nightdress: 'NightDress' }, SHIFT = /^(Chem
 function periodNames(F) {
   const P = F.spec.period || {}, st = F.state, kirtle = P.kind === 'kirtle';
   if (P.none) return { top: null, bottoms: null, under: null, boots: null };
-  const base = TOPS_P[P.kind] || (kirtle ? 'Kirtle' : P.sleeves === 'long' ? 'DressLong' : 'DressElbow'), draped = st.top === 'up' && drapeOf(F.spec.who, base, drapeKey(F));
+  const base = TOPS_P[P.kind] || (kirtle ? 'Kirtle' : P.sleeves === 'long' ? 'DressLong' : 'DressElbow'), dr = st.top === 'up' && drapeOf(F.spec.who, base, drapeKey(F)), draped = dr && F.model.mesh[base] && drapeFits(dr, F.model.mesh[base].geo);
   return { top: base + (st.top === 'up' && !draped && F.model.mesh[base + 'Up'] ? 'Up' : ''),      // (raised: as draped for her pose, the whole skirt, its back lifted; else the one cut and rolled)
     bottoms: P.legs === 'leggings' ? (st.bottoms === 'down' ? 'LeggingsDown' : 'Leggings') : null,
     under: (P.under === 'smalls' ? 'Smalls' : 'Drawers') + (st.under === 'down' ? 'Down' : ''), boots: P.shoes ? 'Boots' : null };      // (barefoot, in her nightclothes)
@@ -1913,7 +2064,7 @@ function applyDrape(F, name) {
   if (m.userData.drapeKey === tag) return;
   const P = g.attributes.position, SI = g.attributes.skinIndex, SW = g.attributes.skinWeight;
   P.array.set(B.attributes.position.array); SI.array.set(B.attributes.skinIndex.array); SW.array.set(B.attributes.skinWeight.array);
-  if (D && D.count === P.count) {
+  if (D && drapeFits(D, B)) {
     const k = 1 / D.scale;
     for (let q = 0; q < D.verts.length; q++) {
       const i = D.verts[q], w = D.skin[q * 3 + 2] / 255;
@@ -1944,16 +2095,24 @@ function weldedNormals(g) {
   for (let i = 0; i < p.count; i++) { const w = id[i] * 3; a.set(acc[w], acc[w + 1], acc[w + 2]).normalize(); n.setXYZ(i, a.x, a.y, a.z); }
   n.needsUpdate = true;
 }
+// (Fenwick: a chemise, shirt-length, isn't raised by hand: at the table it rides up of itself, and across the knee it goes up when her drawers
+// (or smalls) come down, and down again when they're back up)
+const AUTO_TOP = { chemise: true };
+function autoTop(F) {
+  const P = F.spec.period || {}; F.autoTop = !!AUTO_TOP[P.kind]; if (!F.autoTop) return;
+  F.state.top = F.drapePose === 'edge' || F.drapePose === 'table' || F.state.under === 'down' ? 'up' : 'down';
+}
 function dressPeriod(F) {
+  autoTop(F);
   const want = periodNames(F), on = new Set(Object.values(want).filter(Boolean));
   // (under a dress's skirt that's down, her drawers aren't drawn: nothing of them shows, and their frill, weighted to her knees, would come
-  // through the skirt, weighted to her thighs, as her legs bend)
-  const hidden = (F.spec.period || {}).kind !== 'kirtle' && F.state.top !== 'up' ? want.under : null;
+  // through the skirt, weighted to her thighs, as her legs bend. Not under a kirtle, nor a chemise, which is shirt-length: they show below it)
+  const hidden = !['kirtle', 'chemise'].includes((F.spec.period || {}).kind) && F.state.top !== 'up' ? want.under : null;
   for (const k of on) garmentPeriod(F, k);
   for (const k in F.gm) { const m = F.gm[k], v = on.has(k) && k !== hidden; m.visible = v; if (m.userData.hull) m.userData.hull.visible = v; }
   F.clothes = { top: F.gm[want.top], bottoms: want.bottoms ? F.gm[want.bottoms] : null, under: F.gm[want.under] }; F.bootL = F.bootR = F.gm.Boots;
   F.topName = want.top; applyDrape(F, want.top);
-  F.layers = (F.spec.period || {}).none ? [] : ['top', 'under'].concat(want.bottoms ? ['bottoms'] : []);
+  F.layers = (F.spec.period || {}).none ? [] : (F.autoTop ? [] : ['top']).concat(['under'], want.bottoms ? ['bottoms'] : []);
   F.skirt = (F.spec.period || {}).none ? null : (F.spec.period || {}).kind === 'kirtle' ? 'short' : 'long';
   let hide = 0; for (const k of on) for (const r of PHIDE[k === want.top && F.state.top === 'up' ? k.replace(/Up$/, '') + 'Up' : k] || []) hide |= 1 << R[r];
   F.skinMat.userData.u.uHide.value = hide;
@@ -2102,6 +2261,6 @@ function hairTop(F) {
   const b = m ? m.geometry.boundingBox : null, p = new V3(0, b ? b.max.y : 2.12, b ? (b.min.z + b.max.z) * 0.5 * 0.4 : 0);
   H.updateMatrixWorld(true); return H.localToWorld(p);
 }
-const api = { presence, tickPresence, need, adoptHair, adoptDrapes, drapeOf, needDrapes, hairTop, hairStyles: () => Object.keys(GLB.hair || {}), tmat, ink, dqs, grip, FINGERS, make, preload, adopt, models: () => Object.keys(GLB.sex), EXPRS, MOUTHS, HEAD_SCALE, OUTFITS, SPOTS, ik2, aim, setWorldQuat, mat, paint, srgb, shade, R };
+const api = { presence, tickPresence, need, adoptHair, adoptDrapes, drapeOf, drapeFits, garmentSig, needDrapes, hairTop, braidTip, hairStyles: () => Object.keys(GLB.hair || {}), tmat, ink, dqs, grip, FINGERS, make, preload, adopt, models: () => Object.keys(GLB.sex), EXPRS, MOUTHS, HEAD_SCALE, OUTFITS, SPOTS, ik2, aim, setWorldQuat, mat, paint, srgb, shade, R };
 root.Figure = api;
 })(typeof window !== 'undefined' ? window : globalThis);

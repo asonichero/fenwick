@@ -166,17 +166,24 @@ def bake(F_, M_, G, rec, gname, up, legs):
     ob = mesh_obj('Garment', toB(Xs0), tris)
     pinw = pin.astype(float)
     if up:
-        # (the back of the hem: lifted out over her, then up to her waist, on a ring just outside the skirt there)
-        cx, cz = L['skirtC'][0], L['skirtC'][1]; hem = L['kirtleHem'] if gname.startswith('Kirtle') else L['skirtHem']
-        Pu = Pg[U]; phi = np.arctan2(Pu[:, 2] - cz, Pu[:, 0] - cx)
-        lifted = (Pu[:, 1] < hem + 0.03) & (np.sin(phi) < -0.2) & ~pin
+        # (raised: folded up tight to the small of her back, her seat clear. Rows of the back of the skirt, every 9 cm or so from the hem up to
+        # a little below her waist, are each lifted out over her and brought to her waist, one laid on another a little further out; the cloth
+        # between two rows makes a short fold, so all of it lies in a tight band at her lower back rather than standing up off it. The sides,
+        # free, fall from the band's ends to the front, which still hangs)
+        cx, cz = L['skirtC'][0], L['skirtC'][1]
+        hem = {'Kirtle': L['kirtleHem'], 'Chemise': L.get('chemiseHem'), 'NightDress': L.get('nightHem')}.get(gname) or L['skirtHem']
+        Pu = Pg[U]; phi = np.arctan2(Pu[:, 2] - cz, Pu[:, 0] - cx); behind = np.sin(phi) < -0.3
+        top_y = L['waist'] - 0.05; NR = max(3, int(np.ceil((top_y - hem) / 0.09))); ys = hem + (top_y - hem) * np.arange(NR) / NR
+        lifted = np.zeros(len(Pu), bool); row = np.zeros(len(Pu))
+        for i, yr in enumerate(ys):
+            band = (np.abs(Pu[:, 1] - yr) < 0.007) & behind & ~pin; lifted |= band; row[band] = i
         near = np.abs(Pu[:, 1] - L['rollY']) < 0.012; bins = np.linspace(-np.pi, np.pi, 33)
         rr = np.array([np.median(np.hypot(Pu[near & (phi >= a) & (phi < b), 0] - cx, Pu[near & (phi >= a) & (phi < b), 2] - cz)) if (near & (phi >= a) & (phi < b)).any() else np.nan for a, b in zip(bins[:-1], bins[1:])])
-        rr = np.where(np.isnan(rr), np.nanmean(rr), rr); rad = np.interp(phi, (bins[:-1] + bins[1:]) / 2, rr, period=2 * np.pi) + 0.02
-        T = np.stack([cx + rad * np.cos(phi), np.full(len(phi), L['rollY'] + 0.02), cz + rad * np.sin(phi)], 1)
+        rr = np.where(np.isnan(rr), np.nanmean(rr), rr); rad = np.interp(phi, (bins[:-1] + bins[1:]) / 2, rr, period=2 * np.pi) + 0.008 + 0.007 * row
+        T = np.stack([cx + rad * np.cos(phi), L['rollY'] + 0.01 + 0.003 * row, cz + rad * np.sin(phi)], 1)
         qh = mat_quat(mats['hips']); Tw = rot(qh, S * T) + mats['hips'][:3, 3]
-        outw = rot(qh, np.stack([np.cos(phi), np.full(len(phi), 0.15), np.sin(phi)], 1))
-        Mid = Xs0.copy(); Mid[lifted] = 0.5 * (Xs0[lifted] + Tw[lifted]) + outw[lifted] * 0.16
+        outw = rot(qh, np.stack([np.cos(phi), np.full(len(phi), 0.1), np.sin(phi)], 1))
+        Mid = Xs0.copy(); Mid[lifted] = 0.5 * (Xs0[lifted] + Tw[lifted]) + outw[lifted] * 0.12
         Top = Xs0.copy(); Top[lifted] = Tw[lifted]
         ob.shape_key_add(name='Basis'); km = ob.shape_key_add(name='mid', from_mix=False); kt = ob.shape_key_add(name='top', from_mix=False)
         km.data.foreach_set('co', toB(Mid).ravel()); kt.data.foreach_set('co', toB(Top).ravel())
@@ -231,6 +238,18 @@ def bake(F_, M_, G, rec, gname, up, legs):
         # thickened by her drawers', standing for both)
         if not QUALITY[2] and not legs and not os.environ.get('FENWICK_NORETRY'): print('  %d points flung off: again, without her drawers' % int(far.sum()), flush=True); QUALITY[2] = 1; r = bake(F_, M_, G, rec, gname, up, legs); QUALITY[2] = 0; return r
         print('  %d points still flung off: put back where they started' % int(far.sum()), flush=True); Xs[far] = Xs0[far]
+    if up:
+        # (the gathered back smoothed: the rows lie close together at her waist and the cloth between them crumples into slivers; eased into a
+        # soft roll (Taubin's smoothing, which keeps its bulk rather than shrinking it), then put back outside her where it's sunk in)
+        reg = np.where(behind & ~pin)[0]; inreg = np.zeros(len(Xs), bool); inreg[reg] = True
+        nb_ = [[] for _ in range(len(Xs))]
+        for a, b, c in tris:
+            for u_, v_ in ((a, b), (b, c), (c, a)): nb_[u_].append(v_); nb_[v_].append(u_)
+        nb_ = [np.unique(n) for n in nb_]
+        for it in range(40):
+            for lam in (0.6, -0.63):
+                avg = np.array([Xs[nb_[i]].mean(0) if len(nb_[i]) else Xs[i] for i in reg]); Xs[reg] += lam * (avg - Xs[reg])
+        push_out(Xs, reg, solids, boxes)
     Xm = Xs[ix[mv]]
     # (her trunk and legs only: a skirt never goes with her arms, which move beside it)
     dom = np.array([body['joints'][body['J'][v][int(np.argmax(body['W'][v]))]] for v in range(len(body['P']))])
@@ -252,6 +271,11 @@ def bake(F_, M_, G, rec, gname, up, legs):
     print('  draped in %.0f s; furthest %.2f m' % (time.time() - t0, float(np.linalg.norm(off, axis=1).max())), flush=True)
     return mv, off, J2, W2
 
+def sig(P):
+    """The garment's points, summed with weights by their order: the same points in the same order give the same, a remade garment (even
+    with as many points) another; the game checks it (js/figure.js, applyDrape) before laying a drape on."""
+    P = np.asarray(P, np.float64); k = 1 + np.arange(len(P)) % 7
+    return [round(float(sum(float(x) for x in P[:, c] * k)), 3) for c in range(3)]
 def write(who, idx, data):
     os.makedirs(OUT, exist_ok=True); chunks = []; at = 0
     def put(b):
@@ -259,7 +283,7 @@ def write(who, idx, data):
         pad = (-at) % 4; chunks.append(b'\0' * pad); at += pad; o = at; chunks.append(b); at += len(b); return o
     J = {'scale': 32767.0, 'garments': {}}
     for gname, e in sorted(data.items()):
-        G_ = J['garments'][gname] = {'count': e['count'], 'n': len(e['mv']), 'verts': put(np.asarray(e['mv'], '<u2').tobytes()), 'poses': {}}
+        G_ = J['garments'][gname] = {'count': e['count'], 'sig': e.get('sig'), 'n': len(e['mv']), 'verts': put(np.asarray(e['mv'], '<u2').tobytes()), 'poses': {}}
         for pk, (off, J2, W2) in sorted(e['poses'].items()):
             q = np.clip(np.round(off * 32767.0), -32767, 32767).astype('<i2')
             sw = np.stack([J2[:, 0], J2[:, 1], np.clip(np.round(W2[:, 0] * 255), 0, 255)], 1).astype('u1')
@@ -273,7 +297,7 @@ def load(who):
     if not (os.path.exists(jp) and os.path.exists(bp)): return {}
     J = json.load(open(jp)); B = open(bp, 'rb').read(); out = {}
     for gname, e in J['garments'].items():
-        n = e['n']; mv = np.frombuffer(B, '<u2', n, e['verts']).astype(int); d = out[gname] = {'count': e['count'], 'mv': mv, 'poses': {}}
+        n = e['n']; mv = np.frombuffer(B, '<u2', n, e['verts']).astype(int); d = out[gname] = {'count': e['count'], 'sig': e.get('sig'), 'mv': mv, 'poses': {}}
         for pk, o in e['poses'].items():
             off = np.frombuffer(B, '<i2', n * 3, o['off']).reshape(-1, 3) / J['scale']; sw = np.frombuffer(B, 'u1', n * 3, o['skin']).reshape(-1, 3)
             d['poses'][pk] = (off, sw[:, :2].astype(int), np.stack([sw[:, 2] / 255.0, 1 - sw[:, 2] / 255.0], 1))
@@ -290,10 +314,16 @@ if __name__ == '__main__':
         data = load(who); recs = poses['heroes'][who]
         for gname, legs in poses['garments'][who]:
             if only_g and gname not in only_g: continue
+            # (a garment remade since its drapes were baked, its points not the same: what was baked for it dropped, not mixed with the new)
+            sg = sig(F_['meshes'][gname]['P'])
+            if gname in data and (data[gname]['count'] != len(F_['meshes'][gname]['P']) or data[gname].get('sig') != sg): print(' ', gname, 'remade: its old drapes dropped', flush=True); del data[gname]
             for pk in POSES_DOWN + [p + ':up' for p in POSES_UP]:
                 if only_p and pk not in only_p: continue
+                if gname == 'Chemise' and pk in ('edge', 'table'): continue      # (a chemise is always raised at the table: Figure's autoTop)
                 pose, up = pk.split(':')[0], pk.endswith(':up')
                 print(who, gname, pk, flush=True)
                 mv, off, J2, W2 = bake(F_, M_, G, recs[pose], gname, up, legs)
-                d = data.setdefault(gname, {'count': len(F_['meshes'][gname]['P']), 'mv': mv, 'poses': {}}); d['mv'] = mv; d['poses'][pk] = (off, J2, W2)
+                d = data.setdefault(gname, {'count': len(F_['meshes'][gname]['P']), 'sig': sg, 'mv': mv, 'poses': {}})
+                if len(d['mv']) != len(mv) or (np.asarray(d['mv']) != np.asarray(mv)).any(): d['poses'] = {}      # (the skirt's points another set: start over)
+                d['mv'] = mv; d['poses'][pk] = (off, J2, W2)
             write(who, None, data)

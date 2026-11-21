@@ -273,9 +273,10 @@ function create(stage, bay, opts) {
   // floor: in front of the bench, not over it (the body turned a little out into the room, head end first, so the arms hang clear of it).
   // Silas sits at the bench's end turned 45° to their right, so their lap points off its corner and nothing of the subject's is over the
   // bench: the head end out to Silas's left, the legs to their right. (A seat deep enough to sit square on, a bunk, says so with `turn`:
-  // perched on its edge facing out, the subject lies along it in front, the legs off to the right along it.)
+  // perched on its edge facing out, the subject lies along it in front, the legs off to the right along it.) (Fenwick: in the middle of the
+  // seat, a chair's or the bed's edge; a room whose seat is a bench says how far along it he sits, `off`, across from its spot.)
   const OTK = { pitch: 0.0, yaw: 0, z: 0.3, seat: null, seatYaw: 0 };
-  const seatOTK = () => { OTK.seat = inFrame(bench.at, bench.yaw || 0, -0.08, 0, 0); OTK.seatYaw = (bench.yaw || 0) - (bench.turn != null ? bench.turn : Math.PI / 4); };
+  const seatOTK = () => { OTK.seat = inFrame(bench.at, bench.yaw || 0, bench.off || 0, 0, 0); OTK.seatYaw = (bench.yaw || 0) - (bench.turn != null ? bench.turn : Math.PI / 4); };
   seatOTK();
   let otkQ = null, otkH = new V3(), otkU = new V3(1, 0, 0), otkX = new V3(0, 0, -1);
   // the top of Silas's thighs at a point (world), between hip and knee
@@ -893,7 +894,8 @@ function create(stage, bay, opts) {
       st.act = Object.assign(st.actQ.shift(), { t: 0, dur: 2.0, swapped: false });
       // (Fenwick: a skirt, draped as she lies, isn't animated up or down: the scene goes through black and it's changed there)
       const a = st.act;
-      if (a.key === 'top' && cur.f.skirt && stage.fade) { a.fade = true; a.dur = 1.0; stage.fade(() => { a.swapped = true; cur.f.setClothes({ top: a.to }); emit('state'); }); }
+      // (and her drawers, across the knee, under a chemise that goes up and down with them)
+      if (stage.fade && ((a.key === 'top' && cur.f.skirt) || (a.key === 'under' && cur.f.autoTop))) { a.fade = true; a.dur = 1.0; stage.fade(() => { a.swapped = true; cur.f.setClothes({ [a.key]: a.to }); emit('state'); }); }
     }
     const a = st.act; if (!a) return;
     a.t += dt; const u = a.t / a.dur;

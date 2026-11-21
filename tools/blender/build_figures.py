@@ -1224,7 +1224,7 @@ def dress_from(ob, body, BD, label, allowed, rig, split=None, custom=None):
             kb = ob.shape_key_add(name=k, from_mix=False); kb.data.foreach_set('co', (bco + D[k]).ravel())
     m = ob.modifiers.new('Rig', 'ARMATURE'); m.object = rig; ob.parent = rig
 
-POUCH = False
+POUCH = True      # (Fenwick: a modest bulge at the front of his briefs and trousers, weighted with his pelvis)
 def garments(sex, torso, leg, arm, body, label, rig):
     L = landmarks(sex, torso); BD = body_data(body); out = []
     L['seatPeak'], L['seatFold'], L['seatTop'] = seat_marks(body_field(torso, leg, arm, sex), L['hipX'] * 0.8)
@@ -1232,9 +1232,9 @@ def garments(sex, torso, leg, arm, body, label, rig):
     hk = HAND_K[sex]; legs_ = lambda Ls: (lambda P: np.maximum(Ls[0].f(P), Ls[1].f(P)))
     lerp_crotch = lambda T, Lf: (lambda P: (lambda s: s * T.f(P) + (1 - s) * Lf(P))(ss(CROTCH_Y - 0.012, CROTCH_Y + 0.04, P[:, 1])))
     dr = DELT_R[sex] * float(np.interp(0.06, [r['y'] for r in arm], [r['rx'] for r in arm])) / 0.0397
-    def make(name, fn, lo, hi, faces, planes, allowed, h=0.003, split=None):
+    def make(name, fn, lo, hi, faces, planes, allowed, h=0.003, split=None, custom=None):
         V, Fc = march(lambda P: (fn(P), None), h=h, lo=lo, hi=hi)
-        ob = mesh_from(name, V, Fc, faces); cut(ob, planes); dress_from(ob, body, BD, label, allowed, rig, split)
+        ob = mesh_from(name, V, Fc, faces); cut(ob, planes); dress_from(ob, body, BD, label, allowed, rig, split, custom)
         print(sex, name, len(ob.data.vertices), 'verts'); out.append(ob); return ob
     TORSO_L = ['torso', 'legL', 'legR']; ARMS_L = ['armL', 'armR', 'deltL', 'deltR']; LEGS_L = ['legL', 'legR']; FEET_L = ['footL', 'footR', 'legL', 'legR']
     up_ = (0, 1.0, 0); down_ = (0, -1.0, 0)
@@ -1243,11 +1243,11 @@ def garments(sex, torso, leg, arm, body, label, rig):
     Tb = Cloth(torso, lambda y: 0.0045, slope=1.2, below=CROTCH_Y + 0.12)
     Lb = [Cloth(leg, lambda y: 0.0045, sx) for sx in (1, -1)]
     briefs_f = lerp_crotch(Tb, legs_(Lb))
-    # (his: no pouch. Nothing of him shows through briefs or trousers that are up: the crotch as smooth as the rest, his own form hidden under
-    # them. A pouch hung between his legs as he bent over, his shape in the cloth. POUCH = True brings it back)
+    # (his: a modest bulge at the front, only the suggestion of him, his own form hidden under them. It goes with his pelvis (pouch_w), not
+    # with either thigh: weighted from the nearest skin, it hung between his legs as he bent over)
     pouch = None
     if sex == 'm' and POUCH:
-        zp = front_z(Surface(torso), CROTCH_Y + 0.025); PC = np.array([0.0, CROTCH_Y + 0.014, zp - 0.022]); PR = np.array([0.042, 0.056, 0.03])
+        zp = front_z(Surface(torso), CROTCH_Y + 0.025); PC = np.array([0.0, CROTCH_Y + 0.004, zp - 0.016]); PR = np.array([0.036, 0.046, 0.028])
         pouch = lambda P: (1 - np.linalg.norm((P - PC) / PR, axis=1)) * PR.min()
         briefs_f = (lambda b: lambda P: smax(b(P), pouch(P), 0.03))(briefs_f)
     elif sex == 'f':      # (hers: the gusset carried down round her forms and back under them, and the front smooth over the folds' length, at their fullest)
@@ -1255,6 +1255,12 @@ def garments(sex, torso, leg, arm, body, label, rig):
         gus = lambda P: (1 - np.linalg.norm((P - GC) / GR, axis=1)) * GR.min()
         folds_full = her_folds((1.25, 1.25, 1.0))[0]
         briefs_f = (lambda b: lambda P: smax(smax(b(P), gus(P), 0.014), folds_full(P) + 0.0055, 0.012))(briefs_f)
+    def pouch_w(X, G, names):
+        """(Fenwick) The bulge, and the cloth just round it, with his pelvis."""
+        if pouch is None: return G
+        e = np.linalg.norm((X - PC) / (PR * 1.6), axis=1); w = 1 - ss(0.75, 1.0, e)
+        C = np.zeros_like(G); C[:, names.index('hips')] = 1.0
+        return G * (1 - w[:, None]) + C * w[:, None]
     def pouch_keys(ob, base_f, gap):
         """The pouch's size with his: the garment's sexLarge and sexSmall keys, where the pouch is, moved out from its middle (or in)."""
         if pouch is None or not ob.data.shape_keys: return
@@ -1273,7 +1279,10 @@ def garments(sex, torso, leg, arm, body, label, rig):
     # (a layer kept clear of what's under it up to that garment's top edge, and above it easing in gradually, as cloth drapes over a waistband,
     # rather than stepping in at once: a dip at the waistband otherwise)
     over = lambda f_in, gap, top_y: (lambda P: f_in(P) + gap - 0.5 * np.maximum(P[:, 1] - (top_y - 0.004), 0.0))
-    trousers_f = (lambda base, inner: lambda P: np.maximum(base(P), inner(P)))(lerp_crotch(Tt, legs_(Lt)), over(briefs_f, 0.008, L['briefTop']))
+    # (Fenwick: their crotch a little below his own, as trousers hang: the cloth carried across between his thighs a couple of centimetres down)
+    gz = (at(leg, CROTCH_Y - 0.02, 'cz')); GS = np.array([0.0, CROTCH_Y - 0.008, gz])
+    gusset = (lambda P: rbox(P, GS, np.eye(3), np.array([0.03, 0.016, 0.05]), 0.02)) if sex == 'm' else (lambda P: -np.ones(len(P)))
+    trousers_f = (lambda base, inner: lambda P: np.maximum(smax(base(P), gusset(P), 0.02), inner(P)))(lerp_crotch(Tt, legs_(Lt)), over(briefs_f, 0.008, L['briefTop']))
     under_top = over(trousers_f, 0.01, L['trouserTop'])
     tl = (-0.27, CROTCH_Y - 0.02, -0.2); th = (0.27, L['collar'] + 0.03, 0.24)
     # ── the tops: the uniform's jacket (fitted, a stand collar, long sleeves) and the off-duty shirt (easier, open at the neck, sleeves rolled);
@@ -1307,7 +1316,7 @@ def garments(sex, torso, leg, arm, body, label, rig):
             make(nm + ('Up' if up else ''), top, (-0.42, min(hem, WRIST_Y) - 0.04, -0.2), (0.42, L['collar'] + 0.03, 0.24), 11000 if not up else 9000, planes, TORSO_L, split=(is_sl, ARMS_L + ['torso']))
     # ── the trousers: up to the waist, the legs easing out over the boots; or lowered, bunched round the knees with the seat's cloth hanging between
     tr = make('Trousers', trousers_f, (-0.25, 0.09, -0.19), (0.25, L['trouserTop'] + 0.03, 0.2), 8000,
-              [((0, L['trouserTop'], 0), up_), ((0, L['trouserFoot'], 0), down_)], TORSO_L)
+              [((0, L['trouserTop'], 0), up_), ((0, L['trouserFoot'], 0), down_)], TORSO_L, custom=pouch_w)
     pouch_keys(tr, lerp_crotch(Tt, legs_(Lt)), 0.014)
     K = KNEE_Y
     def bunch(y):
@@ -1336,7 +1345,7 @@ def garments(sex, torso, leg, arm, body, label, rig):
     else:
         legcut = [((0, L['briefLeg'], 0), down_)]
     br = make('Briefs', briefs_f, (-0.24, CROTCH_Y - 0.12, -0.18), (0.24, L['briefTop'] + 0.03, 0.18), 3500,
-              [((0, L['briefTop'], 0), up_)] + legcut, TORSO_L)
+              [((0, L['briefTop'], 0), up_)] + legcut, TORSO_L, custom=pouch_w)
     pouch_keys(br, lerp_crotch(Tb, legs_(Lb)), 0.0)
     yb = L['briefDown']
     Lbd = [Cloth(leg, lambda y: 0.006 + 0.004 * gauss(y - (yb + 0.004), 0.008), sx) for sx in (1, -1)]
@@ -1378,7 +1387,8 @@ def period_garments(sex, torso, leg, arm, body, label, rig, only=None):
     L['seatPeak'], L['seatFold'], L['seatTop'] = seat_marks(body_field(torso, leg, arm, sex), L['hipX'] * 0.8)
     # (her landmarks for the period wardrobe: the neckline lower and rounder than a shirt's; the skirt's and kirtle's hems; the drawers' and
     # smalls' leg openings; where lowered drawers come to rest above the knees; no high-cut briefs any more, so no briefCut)
-    L['neckline'] = L['neck'] - 0.026; L['skirtHem'] = SKIRT_HEM; L['kirtleHem'] = KIRTLE_HEM; L['chemiseHem'] = KNEE_Y - 0.03; L['nightHem'] = ANKLE_Y + 0.07; L['nightShirtHem'] = KNEE_Y - 0.04; L['drawersLeg'] = DRAWERS_LEG; L['briefLeg'] = SMALLS_LEG
+    L['neckline'] = L['neck'] - 0.026; L['skirtHem'] = SKIRT_HEM; L['kirtleHem'] = KIRTLE_HEM; L['chemiseHem'] = CROTCH_Y - 0.03; L['nightHem'] = ANKLE_Y + 0.07; L['nightShirtHem'] = CROTCH_Y - 0.03
+    L['drawersLeg'] = DRAWERS_LEG; L['briefLeg'] = SMALLS_LEG      # (a chemise and his nightshirt a shirt's length or a little more: what's under them still shows below)
     L['drawersDown'] = KNEE_Y + 0.165; L['sleeveE'] = L['rollA'] + 0.012;      # (an elbow sleeve ends just past where the forearm's skin is hidden from: no gap)
     L['period'] = 1.0; L.pop('briefCut', None)
     legs_ = lambda Ls: (lambda P: np.maximum(Ls[0].f(P), Ls[1].f(P)))
@@ -1584,12 +1594,12 @@ def period_garments(sex, torso, leg, arm, body, label, rig, only=None):
     dress('DressLong', 'long', SKIRT_HEM, 0.035, 0.012, 1.0, 1.25, drawers_f, L['trouserTop'], 16000)
     dress('DressElbow', 'elbow', SKIRT_HEM, 0.035, 0.012, 1.0, 1.25, drawers_f, L['trouserTop'], 16000)
     dress('Kirtle', 'elbow', KIRTLE_HEM, 0.022, 0.01, 0.8, 1.15, leggings_f, L['trouserTop'], 12000)
-    # (Fenwick: what she sleeps in: a chemise, the linen shift worn under the dresses, gathered at the neck, elbow-sleeved, to just below the
-    # knee; or a night-dress, long-sleeved and to the ankle. Both loose: hanging from her bust and shoulder blades, not fitted to the waist.
+    # (Fenwick: what she sleeps in: a chemise, the linen shift worn under the dresses, gathered at the neck, elbow-sleeved, a little longer
+    # than a shirt, her drawers or smalls showing below it; or a night-dress, long-sleeved and to the ankle. Both loose: hanging from her bust and shoulder blades, not fitted to the waist.
     # Raised, as the dresses are on their drapes: their backs lifted, so no raised mesh of their own)
     dress('Chemise', 'elbow', L['chemiseHem'], 0.03, 0.016, 0.9, 1.15, drawers_f, L['trouserTop'], 13000, top=L['armpit'] + 0.02, bease=0.014, raised=False)
     dress('NightDress', 'long', L['nightHem'], 0.05, 0.016, 1.0, 1.2, drawers_f, L['trouserTop'], 16000, top=L['armpit'] + 0.02, bease=0.014, raised=False)
-    # (his: a long nightshirt, long-sleeved, loose, to the knee, over his drawers)
+    # (his: a nightshirt, long-sleeved, loose, a little longer than a shirt, over his drawers)
     if sex == 'm': dress('NightShirt', 'long', L['nightShirtHem'], 0.03, 0.016, 0.9, 1.1, drawers_f, L['trouserTop'], 14000, top=L['armpit'] + 0.02, bease=0.016, raised=False)
     # ── boots, as the men's: round the foot and up the shin ──
     Lk = [Cloth(leg, lambda y: 0.0095 + 0.003 * ss(0.12, 0.2, y), sx) for sx in (1, -1)]
