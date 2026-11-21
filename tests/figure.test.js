@@ -215,8 +215,8 @@ test('her skirt draped as she lies, from Blender: her own, each pose, down or ra
   assert.ok(rebound > 100, 'its draped points go with what they lie on');
   assert.deepEqual(Array.from(pos(other)), Array.from(rest), 'another of her in the same dress is as she was');
   belle.setClothes({ top: 'up' }); assert.equal(belle.topName, 'DressLong', 'raised: the whole skirt'); assert.equal(belle.gm.DressLong.userData.drapeKey, 'DressLong|otk:up');
-  assert.equal((belle.skinMat.userData.u.uHide.value >> F.R.SEAT) & 1, 0, 'her seat not hidden under it');
-  belle.setClothes({ top: 'down' }); belle.setDrape(null); assert.deepEqual(Array.from(pos(belle)), Array.from(rest), 'standing, as built');
+  belle.setClothes({ under: 'down' }); assert.equal((belle.skinMat.userData.u.uHide.value >> F.R.SEAT) & 1, 0, 'raised, and her drawers down: her seat not hidden');
+  belle.setClothes({ top: 'down', under: 'up' }); belle.setDrape(null); assert.deepEqual(Array.from(pos(belle)), Array.from(rest), 'standing, as built');
 });
 
 test('Silas at night (his nightshirt over linen drawers, barefoot) and with nothing on; no stockings drawn on him', async () => {
