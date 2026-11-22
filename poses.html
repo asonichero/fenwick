@@ -1,0 +1,13 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Fenwick Hall · Pose editor</title>
+<style>:root { color-scheme: light; } body { margin: 0; background: #d8d0c4; color: #2a2018; font: 14px system-ui, sans-serif; display: grid; place-items: center; height: 100vh; } a { color: #5a3a10; }</style>
+<script>
+// The pose editor: the figures page with its editor open (figures.html?edit=1), across the knee unless asked for another pose. Anything else
+// asked for here (?who=, &pose=table, &outfit=...) is passed on.
+(function () {
+  const q = new URLSearchParams(location.search); q.set('edit', '1'); if (!q.get('pose')) q.set('pose', 'otk');
+  location.replace('figures.html?' + q.toString());
+})();
+</script></head>
+<body><p>Opening the pose editor… <a href="figures.html?edit=1&amp;pose=otk">open it</a></p></body></html>

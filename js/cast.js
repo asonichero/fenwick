@@ -225,9 +225,9 @@ const SQUIRE = {
     nonExclusive: 'Openly non-exclusive, and says so plainly and early to each woman. Each relationship runs on its own track.',
   },
   look: { skin: '#d6ad8e', hair: '#4a3220', hairStyle: 'tousled', eyes: '#5a6a4a', beard: true },
-  build: { mass: 0.68, fat: 0.4 }, h: 1.86,
+  build: { mass: 0.6, fat: 0.4 }, h: 1.86,      // (one build: average)
   own: { top: 'waistcoat', sleeves: 'rolled', tunic: '#3e3428', shirt: '#d8cdb4', print: '#9a7a4a', accent: '#6a5030', trousers: '#4a4234', legs: 'canvas', legAccent: '#2e261c' },
-  options: { skin: ['#f0d0b4', '#d6ad8e', '#b88a6a', '#8a5a3e'], hair: ['#161210', '#3a2a20', '#4a3220', '#6a4a2e', '#8a8580'], hairStyle: ['tousled', 'short', 'crop'], build: { lean: [0.45, 0.3], average: [0.6, 0.4], heavy: [0.8, 0.55] } },
+  options: { skin: ['#f0d0b4', '#d6ad8e', '#b88a6a', '#8a5a3e'], hair: ['#161210', '#3a2a20', '#4a3220', '#6a4a2e', '#8a8580'], hairStyle: ['tousled', 'short', 'crop'] },
 };
 
 // ── Everyone else (no corrections: the village and household as the GDD names them; names only where it gives them) ──
@@ -255,8 +255,8 @@ function figureSpec(id, sex, outfit) {
     eyes: L.eyes, lips: L.lips || null, beard: false, outfit: 'period', period: W[key], periodKey: key, dept: W[key].trim, bust: r.body.bust };
 }
 function squireSpec(c) {
-  c = Object.assign({ skin: SQUIRE.look.skin, hair: SQUIRE.look.hair, hairStyle: SQUIRE.look.hairStyle, build: null, beard: true }, c || {});
-  const [mass, fat] = c.build ? SQUIRE.options.build[c.build] || [SQUIRE.build.mass, SQUIRE.build.fat] : [SQUIRE.build.mass, SQUIRE.build.fat];
+  c = Object.assign({ skin: SQUIRE.look.skin, hair: SQUIRE.look.hair, hairStyle: SQUIRE.look.hairStyle, beard: true }, c || {});
+  const mass = SQUIRE.build.mass, fat = SQUIRE.build.fat;      // (his build is his own: average)
   return { sex: 'm', height: SQUIRE.h, mass, fat, skin: c.skin, hair: c.hair, hairStyle: c.hairStyle, eyes: SQUIRE.look.eyes, beard: c.beard !== false,
     outfit: c.outfit === 'none' || c.outfit === 'night' ? c.outfit : 'offduty', dept: SQUIRE.own.accent, off: SQUIRE.own, bust: 0.45, size: 1 };
 }

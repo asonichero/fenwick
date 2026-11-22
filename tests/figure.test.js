@@ -100,11 +100,11 @@ test('the Blender-built figures: the same skeleton, built from the models, every
 
 test('each one’s build sets the body’s shape keys, and the clothes follow them', async () => {
   await loaded;
-  const heavy = F.make(Cast.squireSpec({ build: 'heavy' })), slight = gfig('cinderella');
+  const silas = F.make(Cast.squireSpec()), slight = gfig('cinderella');      // (Silas: his one build, average)
   const inf = (f, m, k) => m.morphTargetInfluences[m.geometry.userData.keys[k]];
-  assert.ok(inf(heavy, heavy.body, 'muscle') > 0.7 && inf(heavy, heavy.body, 'slight') === 0);
+  assert.ok(inf(silas, silas.body, 'muscle') > 0.2 && inf(silas, silas.body, 'slight') === 0);
   assert.ok(inf(slight, slight.body, 'slight') > 0.2 && inf(slight, slight.body, 'muscle') === 0);
-  for (const m of Object.values(heavy.gm)) assert.equal(inf(heavy, m, 'muscle'), inf(heavy, heavy.body, 'muscle'));
+  for (const m of Object.values(silas.gm)) assert.equal(inf(silas, m, 'muscle'), inf(silas, silas.body, 'muscle'));
 });
 
 test('the body’s response: the sex fuller, his lifting on its own bone, a deeper tone there, and his pouch filling out', async () => {

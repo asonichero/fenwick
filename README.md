@@ -18,6 +18,8 @@ node tools/export-head.js                                     # the head the gam
 .blender/bin/python tools/blender/build_hair.py                # the hair styles and Silas's beard (seconds)
 ```
 
+`poses.html` is the pose editor: the figures page with a panel of sliders under the correction's controls. They fine-tune where things are placed in a correction: her across his lap, his left hand on her back (skirt down, or on the raised roll), her hands on the floor, his right hand (its elbow, how high it's raised, where it rests), and over the table where Silas stands (fitted automatically, or placed by hand) and his hand on her back. Changes show at once, held still or running, with his right hand held raised or on her if you like. They're kept in that browser and used by the correction test there too. **Copy settings** gives just what you've changed, to keep (paste it into `TUNE` in `js/session.js`, or send it on).
+
 `model.html` shows the bodies and clothes as a turnaround; `household.html` lines everyone up (`?who=<id>&view=head-three` for a close look at someone's hair, `?<id>=<outfit>` for another outfit, `?clothes=up,down,down` for the layers raised and lowered).
 
 ## Clothes and hair
@@ -44,7 +46,7 @@ The guest bedroom of Chapter 1, where Silas finds Goldie asleep among half-eaten
 ## Figures (`figures.html`)
 
 A heroine and Silas together in a plain space, as Meridian's figures page has them:
-- **What you can set:** any heroine in any of her outfits, or **None** (here only: nothing on, to see how the body moves without clothes masking it); her clothes raised or lowered; Silas's build, and him dressed, in his nightclothes or with nothing on; her defiance, submission, desire and comfort; her expression and her body's response; front, ¾, side, back or close on her head; a turntable.
+- **What you can set:** any heroine in any of her outfits, or **None** (here only: nothing on, to see how the body moves without clothes masking it); her clothes raised or lowered; Silas dressed, in his nightclothes or with nothing on (he has one build, average); her defiance, submission, desire and comfort; her expression and her body's response; front, ¾, side, back or close on her head; a turntable.
 - **Standing poses:** side by side, facing him, being told off (her stance from the sliders), in the corner.
 - **Correction poses:** across the knee (on a chair or the edge of a bed), hands on a table, over a table, and the aftercare on a settle.
 - **The correction loop:** in the correction poses, the correction itself runs on props where a room's furniture would be. The controls are the correction test's (run, pace, strength, side, where, soothe, clothes, end turn, cameras), with no dialogue and no meter. Round follows round: end the turn and Silas soothes her, dresses her, and she's placed again. Her marks build up, and nothing she goes through changes the sliders. **Reset** (**R**) clears her marks and lets what she feels settle. After her safe word it waits for Reset.

@@ -31,6 +31,18 @@ body.correcting #hud { display: flex; }
 .g-clothes .row { gap: 5px; } .g-pace .row, .g-str .row { justify-content: space-between; flex-wrap: nowrap; } .val { min-width: 38px; text-align: center; color: var(--amber); }
 #info { margin-top: 8px; font-size: 12px; color: var(--dim); min-height: 1.3em; } #info b { color: var(--ink); }
 kbd { font: 10px ui-monospace, monospace; color: var(--dim); }
+/* The pose editor (?edit=1, or poses.html): a second panel beside the first, its sliders laid over js/session.js's TUNE as they move */
+/* (in the right-hand column, under the correction's controls, scrolling in what room's left there) */
+#editor { padding: 12px 14px; display: none; overflow: auto; flex: 1 1 auto; min-height: 0; }
+body.editing #editor { display: block; } body.editing #hud { display: flex; max-height: calc(100% - 24px); }
+body.editing:not(.correcting) #who, body.editing:not(.correcting) #cams, body.editing:not(.correcting) #bar { display: none; }
+#editor .grp { border-top: 1px solid var(--line); margin-top: 10px; padding-top: 6px; } #editor .grp h2 { display: flex; justify-content: space-between; align-items: baseline; margin-top: 4px; }
+#editor .grp h2 a { font-size: 10px; letter-spacing: 0; text-transform: none; cursor: pointer; }
+#editor .sl { display: grid; grid-template-columns: 1fr 112px 46px; gap: 2px 8px; align-items: center; font-size: 12px; margin: 3px 0; }
+#editor .sl input[type=range] { width: 100%; accent-color: var(--amber); } #editor .sl span { text-align: right; font: 11px ui-monospace, monospace; color: var(--dim); }
+#editor .sl.changed label { color: #8a4a10; font-weight: 600; } #editor .sl.off { opacity: 0.45; }
+#editor textarea { width: 100%; box-sizing: border-box; height: 120px; font: 11px ui-monospace, monospace; border: 1px solid var(--line); border-radius: 8px; margin-top: 6px; }
+
 @media (max-width: 760px), (max-height: 520px) {
   #panel { width: auto; right: 12px; max-height: 42%; top: auto; bottom: calc(12px + env(safe-area-inset-bottom)); } #hide { left: auto; right: 12px; }
   #hud { width: auto; left: 12px; right: 12px; } #bar .top { gap: 6px; } kbd { display: none; }
@@ -43,7 +55,7 @@ kbd { font: 10px ui-monospace, monospace; color: var(--dim); }
   <h2>Heroine</h2><select id="who"></select>
   <h2>Outfit</h2><div class="row" id="outfit"></div>
   <h2>Clothes</h2><div class="row"><button id="pTop"></button><button id="pBot"></button><button id="pUnd"></button></div>
-  <h2>Silas</h2><div class="row" id="sbuild"></div><div class="row" id="sout"></div>
+  <h2>Silas</h2><div class="row" id="sout"></div>
   <h2>Pose</h2><div class="row" id="pose"></div>
   <small class="note" id="poseNote"></small>
   <h2>Where she is with him</h2><div class="rel" id="rel"></div>
@@ -73,6 +85,17 @@ kbd { font: 10px ui-monospace, monospace; color: var(--dim); }
   </div>
   <div id="info"></div>
 </div>
+<div id="editor" class="box">
+  <h1>Pose editor</h1>
+  <small class="note" style="margin-top:0">Each slider moves a number the posing is placed by, and shows at once. Your changes are kept in this browser and used by the correction test here too. Copy them to keep them for good. Pose, heroine and clothes are on the left; run and cameras above.</small>
+  <h2>Hold</h2>
+  <div class="row"><button id="eHold">Hold still</button><span style="color:var(--dim);font-size:12px">His right hand:</span></div>
+  <div class="row" id="eHand" style="margin-top:5px"></div>
+  <div id="eGroups"></div>
+  <h2>Your changes</h2>
+  <div class="row"><button id="eCopy">Copy settings</button><button id="ePaste">Paste…</button><button id="eReset">Reset all</button></div>
+  <textarea id="eText" spellcheck="false" placeholder="Copied settings appear here; paste settings here and press Paste… to load them."></textarea>
+</div>
 </div>
 
 <script src="vendor/three.min.js"></script><script src="vendor/OrbitControls.js"></script><script src="vendor/GLTFLoader.js"></script>
@@ -86,12 +109,12 @@ kbd { font: 10px ui-monospace, monospace; color: var(--dim); }
 // over a table, and the aftercare), the correction itself runs here (js/session.js, on props where a room would have its furniture), with
 // the correction test's controls, round after round, so what it does to her can be watched: no dialogue, no meter, and nothing it does
 // changes the sliders. Reset clears her marks and lets what she feels settle.
-//   ?who=goldie&outfit=maid&clothes=down,up,up&pose=otk&def=0&sub=0&des=0&com=0&expr=auto&resp=auto&view=three&build=average&spin=1
+//   ?who=goldie&outfit=maid&clothes=down,up,up&pose=otk&def=0&sub=0&des=0&com=0&expr=auto&resp=auto&view=three&spin=1
 const $ = id => document.getElementById(id), q = new URLSearchParams(location.search), V3 = THREE.Vector3;
 const num = (k, d) => (q.get(k) == null ? d : Math.max(0, Math.min(1, +q.get(k) || 0)));
 const cfg = { who: Cast.ROSTER[q.get('who')] ? q.get('who') : 'goldie', outfit: q.get('outfit'), pose: q.get('pose') || 'rest', expr: q.get('expr') || 'auto',
   resp: q.get('resp') && q.get('resp') !== 'auto' ? num('resp', 0) : 0, respAuto: !q.get('resp') || q.get('resp') === 'auto', view: q.get('view') || 'three', spin: !!q.get('spin'),
-  clothes: (q.get('clothes') || 'down,up,up').split(','), build: q.get('build') || 'average', sOutfit: ['none', 'night'].includes(q.get('sout')) ? q.get('sout') : 'dressed', sound: false,
+  clothes: (q.get('clothes') || 'down,up,up').split(','), sOutfit: ['none', 'night'].includes(q.get('sout')) ? q.get('sout') : 'dressed', sound: false,
   rel: { defiance: num('def', null), submission: num('sub', 0), desire: num('des', 0), comfort: num('com', 0) } };
 if (cfg.rel.defiance == null) cfg.rel.defiance = Cast.ROSTER[cfg.who].meters.wilfulness;
 // (her outfits, and here only, None: nothing on, to see how the body moves without clothes masking it)
@@ -161,7 +184,7 @@ function clear() {
 }
 function build() {
   clear(); round = 0; total = 0; inRound = 0; status = ''; needReset = false;
-  const silas = { build: cfg.build, outfit: cfg.sOutfit === 'dressed' ? null : cfg.sOutfit };
+  const silas = { outfit: cfg.sOutfit === 'dressed' ? null : cfg.sOutfit };
   if (BY_SESSION[cfg.pose]) {
     ses = Session.create(STAGE, BAY, { captain: silas, position: BY_SESSION[cfg.pose], between: 'aside', queue: [{ id: cfg.who, sex: 'f', outfit: cfg.outfit, spec: specFor() }], witnesses: [],
       rel: { [cfg.who]: relFor() }, sound: cfg.sound });
@@ -175,7 +198,8 @@ function build() {
   for (const k in PROPS) PROPS[k].visible = k === PROP_OF[cfg.pose];
   document.body.classList.toggle('correcting', correcting());
   if (!correcting()) view(cfg.view);
-  refresh(); drawCams();
+  if (ses) ses.st.holdHand = holdHand;
+  refresh(); drawCams(); drawEditor();
 }
 // The loop: a turn ended (Silas soothed her and dressed her), or she called her word: a moment, then another round, from where she is now (her
 // marks kept, what she feels fading as it would). Nothing she brings to it changes: each round starts from the sliders.
@@ -258,9 +282,8 @@ function clothesLabels() {
 function refresh() {
   $('who').value = cfg.who; $('expr').value = cfg.expr;
   seg('outfit', outfitsOf(cfg.who).map(o => [o, o === 'none' ? 'None · nothing on' : o + (Cast.OUTFIT_NOTES[o] ? ' · ' + Cast.OUTFIT_NOTES[o] : '')]), cfg.outfit, v => { cfg.outfit = v; build(); });
-  seg('sbuild', [['lean', 'Lean'], ['average', 'Average'], ['heavy', 'Heavy']], cfg.build, v => { cfg.build = v; build(); });
   seg('sout', [['dressed', 'Dressed'], ['night', 'Night · shirt and drawers'], ['none', 'None · nothing on']], cfg.sOutfit, v => { cfg.sOutfit = v; build(); });
-  seg('pose', POSES, cfg.pose, v => { const was = cfg.pose; cfg.pose = v; if (BY_SESSION[was] || BY_SESSION[v]) build(); else { for (const k in PROPS) PROPS[k].visible = false; view(cfg.view); } refresh(); });
+  seg('pose', POSES, cfg.pose, v => { const was = cfg.pose; cfg.pose = v; if (BY_SESSION[was] || BY_SESSION[v]) build(); else { for (const k in PROPS) PROPS[k].visible = false; view(cfg.view); drawEditor(); } refresh(); });
   $('poseNote').textContent = NOTES[cfg.pose] || '';
   seg('views', VIEWS.map(v => [v[0], v[1]]), cfg.view, view);
   const [t, b, u, legs, bare] = clothesLabels();
@@ -314,6 +337,56 @@ addEventListener('keydown', e => {
   refresh();
 });
 
+// ── The pose editor (?edit=1; poses.html): sliders over Session.TUNE, by the pose she's in ──
+// (each: [key, label, min, max, step]; a step of 1 over 0–1 is a switch)
+const M = 'm', EDIT = {
+  'otk.her': ['Her across his lap', [['along', 'Out along his thighs', 0.1, 0.5, 0.005], ['side', 'Toward his right (−)', -0.25, 0.1, 0.005], ['height', 'Raised on his lap', -0.06, 0.06, 0.002], ['pitch', 'Tipped head-down', -0.35, 0.35, 0.01], ['yaw', 'Turned toward his knees', -0.5, 0.5, 0.01]]],
+  'otk.rest': ['His left hand · skirt down', [['along', 'Up her back (− to hips)', -0.2, 0.2, 0.005], ['across', 'Round her far side', -0.08, 0.12, 0.005], ['off', 'Off her', 0, 0.05, 0.001], ['toHead', 'Fingers toward her head', -1, 1.5, 0.05], ['round', 'Fingers round her side', 0, 1.5, 0.05], ['elbowAlong', 'Elbow up her back', 0, 0.4, 0.01], ['elbowOut', 'Elbow out to him', -0.1, 0.2, 0.005], ['elbowUp', 'Elbow up', -0.05, 0.25, 0.005], ['grip', 'Hand closed', 0, 1, 0.02]]],
+  'otk.roll': ['His left hand · on the raised roll', [['along', 'Up her back (− to hips)', -0.2, 0.2, 0.005], ['across', 'Round her far side', -0.08, 0.12, 0.005], ['off', 'Off the roll', 0, 0.05, 0.001], ['toHead', 'Fingers toward her head', -1, 1.5, 0.05], ['round', 'Fingers round her side', 0, 1.5, 0.05], ['elbowAlong', 'Elbow up her back', 0, 0.4, 0.01], ['elbowOut', 'Elbow out to him', -0.1, 0.2, 0.005], ['elbowUp', 'Elbow up', -0.05, 0.25, 0.005], ['grip', 'Hand closed', 0, 1, 0.02]]],
+  'otk.hands': ['Her hands on the floor', [['ahead', 'Ahead of her shoulders', -0.1, 0.3, 0.005], ['out', 'Out to her sides', -0.05, 0.2, 0.005], ['height', 'Off the floor', 0, 0.12, 0.002]]],
+  'table.silas': ['Silas beside her', [['auto', 'Fitted automatically', 0, 1, 1], ['side', 'Out from her side', 0.2, 0.8, 0.005], ['along', 'Along toward her head', -0.3, 0.3, 0.005], ['turnIn', 'Turned in to the table', -0.5, 1.2, 0.01], ['back', 'Step back toward her legs', 0, 0.7, 0.01], ['turn', 'Turned with it', 0, 0.8, 0.01], ['lean', 'Leaning in', 0, 0.6, 0.01], ['crouch', 'Crouching', 0, 1, 0.01], ['inn', 'Closer in', 0, 0.14, 0.005]]],
+  'table.rest': ['His left hand on her back', [['along', 'Round toward her far ribs', -0.1, 0.15, 0.005], ['off', 'Off her', 0, 0.05, 0.001], ['elbowBack', 'Elbow back toward him', 0, 0.45, 0.01], ['elbowUp', 'Elbow up', -0.05, 0.35, 0.005], ['grip', 'Hand closed', 0, 1, 0.02]]],
+  'strike': ['His right hand', [['elbowDown', 'Elbow below his shoulder', 0.05, 0.4, 0.005], ['elbowOut', 'Elbow out to his side', -0.1, 0.25, 0.005], ['elbowBack', 'Elbow back', -0.1, 0.2, 0.005], ['raise', 'Raised: hand above elbow', 0.1, 0.4, 0.005], ['raiseLean', 'Raised: leaning toward her', -0.5, 1.2, 0.02], ['rest', 'At rest: off her', 0, 0.05, 0.001], ['off', 'At contact: palm off her', 0, 0.04, 0.001], ['palmBack', 'Wrist behind the palm', 0.04, 0.13, 0.002]]],
+};
+const GROUPS = { otk: ['otk.her', 'otk.rest', 'otk.roll', 'otk.hands', 'strike'], bed: ['otk.her', 'otk.rest', 'otk.roll', 'strike'], table: ['table.silas', 'table.rest', 'strike'] };
+const editing = q.get('edit') === '1', TUNE = Session.TUNE, TUNE0 = Session.TUNE_DEFAULTS, at_ = (o, path) => path.split('.').reduce((a, k) => a[k], o);
+let holdHand = null;
+function saveTune() { try { localStorage.setItem('fenwick.tune', JSON.stringify(TUNE)); } catch (e) {} }
+function drawEditor() {
+  if (!editing) return; document.body.classList.add('editing');
+  $('eHold').classList.toggle('on', !!cfg.hold);
+  seg('eHand', [['', 'As it goes'], ['raised', 'Raised'], ['contact', 'On her']], holdHand || '', v => { holdHand = v || null; if (ses) ses.st.holdHand = holdHand; drawEditor(); });
+  const el = $('eGroups'); el.innerHTML = '';
+  const groups = GROUPS[cfg.pose];
+  if (!groups) { el.innerHTML = '<small class="note">Choose a correction pose on the left: across the knee on the chair or the bed, or over the table.</small>'; return; }
+  for (const path of groups) {
+    const [title, items] = EDIT[path], obj = at_(TUNE, path), def = at_(TUNE0, path), g = document.createElement('div'); g.className = 'grp';
+    const h = document.createElement('h2'); h.textContent = title; const r = document.createElement('a'); r.textContent = 'reset'; r.onclick = () => { Object.assign(obj, def); saveTune(); drawEditor(); }; h.append(r); g.append(h);
+    for (const [k, label, lo, hi, step] of items) {
+      const row = document.createElement('div'); row.className = 'sl' + (Math.abs(obj[k] - def[k]) > 1e-9 ? ' changed' : '');
+      if (path === 'table.silas' && TUNE.table.silas.auto && ['back', 'turn', 'lean', 'crouch', 'inn'].includes(k)) row.classList.add('off');
+      const l = document.createElement('label'); l.textContent = label; const i = document.createElement('input'); i.type = 'range'; i.min = lo; i.max = hi; i.step = step; i.value = obj[k];
+      const v = document.createElement('span'), show = () => { v.textContent = step === 1 && hi === 1 ? (obj[k] ? 'on' : 'off') : (+obj[k]).toFixed(step < 0.002 ? 3 : step < 0.01 ? 3 : 2); };
+      i.oninput = () => { obj[k] = +i.value; show(); row.classList.toggle('changed', Math.abs(obj[k] - def[k]) > 1e-9); saveTune(); if (k === 'auto') drawEditor(); };
+      show(); row.append(l, i, v); g.append(row);
+    }
+    el.append(g);
+  }
+}
+$('eHold').onclick = () => { cfg.hold = !cfg.hold; drawEditor(); };
+$('eReset').onclick = () => { for (const g in TUNE0) for (const k in TUNE0[g]) Object.assign(TUNE[g][k], TUNE0[g][k]); saveTune(); drawEditor(); };
+$('eCopy').onclick = () => {
+  // (only what's changed from the defaults: what to lay over js/session.js's TUNE, or send on)
+  const out = {}; for (const g in TUNE) for (const k in TUNE[g]) for (const f in TUNE[g][k]) if (Math.abs(TUNE[g][k][f] - TUNE0[g][k][f]) > 1e-9) ((out[g] = out[g] || {})[k] = out[g][k] || {})[f] = TUNE[g][k][f];
+  const txt = JSON.stringify(out, null, 1).replace(/\n\s*/g, ' ');
+  $('eText').value = Object.keys(out).length ? txt : '(nothing changed from the defaults)';
+  try { navigator.clipboard.writeText($('eText').value).catch(() => {}); } catch (e) {} $('eText').select();      // (and selected, to copy by hand where the clipboard's not allowed)
+};
+$('ePaste').onclick = () => {
+  try { const o = JSON.parse($('eText').value); for (const g in o) for (const k in o[g]) if (TUNE[g] && TUNE[g][k]) for (const f in o[g][k]) if (f in TUNE[g][k]) TUNE[g][k][f] = +o[g][k][f]; saveTune(); drawEditor(); }
+  catch (e) { $('eText').value = 'Not settings: ' + e.message + '\n' + $('eText').value; }
+};
+
 // ── Run ──
 let last = performance.now(), hudT = 0;
 const loop = now => { frame(now); requestAnimationFrame(loop); };
@@ -322,7 +395,7 @@ function frame(now) {
   if (glide) { const k = Math.min(1, (now - glide.t0) / glide.ms), e = k * k * (3 - 2 * k); camera.position.lerpVectors(glide.p0, glide.p1, e); controls.target.lerpVectors(glide.l0, glide.l1, e); if (k >= 1) glide = null; }
   if (ses) {
     if (!cfg.respAuto) for (const P of ses.people) P.resp = cfg.resp;
-    ses.update(dt); if (cfg.expr !== 'auto') F.setExpr(cfg.expr);
+    ses.update(cfg.hold ? 1e-4 : dt); if (cfg.expr !== 'auto') F.setExpr(cfg.expr);      // (held still: time stands, the posing's still run, so the editor's changes show)
     if ((hudT += dt) > 0.2) { hudT = 0; refresh(); }
   } else if (F) {
     pose(); F.setExpr(cfg.expr === 'auto' ? Cast.ROSTER[cfg.who].base || 'calm' : cfg.expr);

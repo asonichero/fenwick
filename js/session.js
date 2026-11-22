@@ -15,6 +15,39 @@
 (function (root) {
 'use strict';
 const THREE = root.THREE, Fg = root.Figure, V3 = THREE.Vector3, Q = THREE.Quaternion;
+// (Fenwick: the numbers the posing is placed by, where they're worth fine-tuning by eye (poses.html, the pose editor): read every frame, so a
+// change shows at once. Distances in metres, on whoever they're placed on (scaled with them); angles in radians. Edits made in the editor
+// are kept in this browser (localStorage 'fenwick.tune') and laid over these here and in the correction test; to keep them for good, they're
+// copied from the editor into these.)
+const TUNE = {
+  otk: {
+    // (her, across his lap: how far out along his thighs her hips are, how far to his right of his middle, raised or lowered on it, tipped
+    // head-down, turned out toward his knees)
+    her: { along: 0.3, side: -0.1, height: 0, pitch: 0, yaw: 0 },
+    // (his left hand on the small of her back, her skirt down: along her back toward her head (−: toward her hips), round to her far side,
+    // off her; the fingers toward her head, and round her far side; the elbow along her back toward her shoulders, out toward him, up; how
+    // closed the hand)
+    rest: { along: -0.05, across: 0.04, off: 0.016, toHead: 1, round: 0.6, elbowAlong: 0.22, elbowOut: 0.03, elbowUp: 0.05, grip: 0.22 },
+    // (the same, on the roll of her raised skirt)
+    roll: { along: 0, across: 0.03, off: 0.016, toHead: 0.35, round: 1, elbowAlong: 0.22, elbowOut: 0.03, elbowUp: 0.05, grip: 0.38 },
+    // (her hands on the floor: ahead of her shoulders, out to their sides, how high off it)
+    hands: { ahead: 0.1, out: 0.05, height: 0.032 },
+  },
+  table: {
+    // (Silas over the table: fitted to her and where he's striking (auto), or placed by hand. Always: how far out from her side (from her
+    // middle), how far along from her hips toward her head, turned in toward the table. Placed by hand: how far he steps back toward her
+    // legs, turns with it, leans and crouches, comes in close)
+    silas: { auto: 1, side: 0.44, along: 0.04, turnIn: 0.5, back: 0.1, turn: 0, lean: 0, crouch: 0, inn: 0 },
+    // (his left hand on her middle back, the fingers round her far ribs: from her middle toward them, off her; the elbow back toward him and
+    // up; how closed)
+    rest: { along: 0.055, off: 0.016, elbowBack: 0.26, elbowUp: 0.16, grip: 0.62 },
+  },
+  // (his right hand, wherever she is: the elbow's place, down from his shoulder, out to his side, back; raised, the hand that far above the
+  // elbow and leaning that much toward her; at rest, lifted off her; the palm's centre, off her at the contact, and the wrist that far behind it)
+  strike: { elbowDown: 0.21, elbowOut: 0.08, elbowBack: 0.03, raise: 0.27, raiseLean: 0.4, rest: 0.012, off: 0.016, palmBack: 0.085 },
+};
+const TUNE_DEFAULTS = JSON.parse(JSON.stringify(TUNE));
+try { const o = root.localStorage && JSON.parse(root.localStorage.getItem('fenwick.tune') || 'null'); if (o) for (const g in o) for (const k in o[g]) if (TUNE[g] && TUNE[g][k]) Object.assign(TUNE[g][k], o[g][k]); } catch (e) {}
 const clamp = (x, a, b) => Math.max(a, Math.min(b, x)), lerp = (a, b, t) => a + (b - a) * t, ease = x => x * x * (3 - 2 * x);
 const spring = (w, z) => ({ x: 0, v: 0, w, z, to(t, dt) { this.v += (this.w * this.w * (t - this.x) - 2 * this.z * this.w * this.v) * dt; this.x += this.v * dt; return this.x; } });
 const TIMES = { lift: 0.42, hold: 0.14, strike: 0.1, contact: 0.24, back: 0.4 };
@@ -290,12 +323,12 @@ function create(stage, bay, opts) {
     // along the body toward the head (Silas's left, turned out toward their knees by the yaw), tipped head-down; front to the floor; left
     // side toward Silas
     const cl = toWorldDir(captain, 1, 0, 0), cf = toWorldDir(captain, 0, 0, 1);
-    const p = OTK.pitch, u = cl.multiplyScalar(Math.cos(OTK.yaw)).addScaledVector(cf, Math.sin(OTK.yaw)).normalize(), X = new V3(u.z, 0, -u.x), Y = u.clone().multiplyScalar(Math.cos(p)).addScaledVector(UP, -Math.sin(p)), Z = new V3().crossVectors(X, Y);
+    const TH = TUNE.otk.her, p = OTK.pitch + TH.pitch, yw = OTK.yaw + TH.yaw, u = cl.multiplyScalar(Math.cos(yw)).addScaledVector(cf, Math.sin(yw)).normalize(), X = new V3(u.z, 0, -u.x), Y = u.clone().multiplyScalar(Math.cos(p)).addScaledVector(UP, -Math.sin(p)), Z = new V3().crossVectors(X, Y);
     otkQ = new Q().setFromRotationMatrix(new THREE.Matrix4().makeBasis(X, Y, Z)); otkU.copy(u); otkX.copy(X);
     // the hips over Silas's right thigh, a little past its middle; a flinch presses them down into the lap and away from the hand
-    const at = local(captain, -0.1 * cs, 0, OTK.z * cs).addScaledVector(toWorldDir(captain, 1, 0, 0), 0.012 * flinch);
-    const lap = Math.max(lapAt(at), lapAt(local(captain, 0.1 * cs, 0, OTK.z * cs)) - 0.01);
-    otkH.set(at.x, lap + 0.115 * s * (0.9 + 0.2 * (P.r.body.fat + P.r.body.mass) / 2) - 0.012 * flinch, at.z);
+    const at = local(captain, TH.side * cs, 0, TH.along * cs).addScaledVector(toWorldDir(captain, 1, 0, 0), 0.012 * flinch);
+    const lap = Math.max(lapAt(at), lapAt(local(captain, -TH.side * cs, 0, TH.along * cs)) - 0.01);
+    otkH.set(at.x, lap + 0.115 * s * (0.9 + 0.2 * (P.r.body.fat + P.r.body.mass) / 2) - 0.012 * flinch + TH.height, at.z);
     F.root.quaternion.copy(otkQ); F.root.position.copy(otkH).sub(new V3(0, H(F).hips * s, 0).applyQuaternion(otkQ)); F.root.updateMatrixWorld(true);
   }
   // How far the hand is raised, 0 … 1, by the swing's phase (for the shoulder and the torso turning into it).
@@ -304,10 +337,10 @@ function create(stage, bay, opts) {
   // (standing: Silas placed by his fit, { back: the step toward their legs, turn: toward their legs from facing their side, lean and
   // crouch beyond his own, inn: closer in to them })
   function placeCaptain(fit, up_, rz) {
-    const F = captain, s_ = sc(cur.f), hipZ = cur.f.bone.hips.position.z * s_;
-    const at = local(cur.f, (0.44 - fit.inn) * s_, 0, hipZ + 0.04 - fit.back * s_); at.y = 0;
+    const F = captain, s_ = sc(cur.f), hipZ = cur.f.bone.hips.position.z * s_, TS = st.position === 'table' ? TUNE.table.silas : { side: 0.44, along: 0.04, turnIn: 0 };
+    const at = local(cur.f, (TS.side - fit.inn) * s_, 0, hipZ + TS.along - fit.back * s_); at.y = 0;
     // (turned toward their legs as he steps back; at the end of a table, turned in toward it, so his near foot is outside its leg, not under it)
-    const a = -0.1 + (fit.turn || 0) + (st.position === 'table' ? 0.5 : 0), face = toWorldDir(cur.f, -Math.cos(a), 0, Math.sin(a)).normalize(), yaw = Math.atan2(face.x, face.z);
+    const a = -0.1 + (fit.turn || 0) + TS.turnIn, face = toWorldDir(cur.f, -Math.cos(a), 0, Math.sin(a)).normalize(), yaw = Math.atan2(face.x, face.z);
     stand(F, at, yaw, { weight: 0.25, wide: 0.22 + 0.08 * fit.crouch, crouch: 0.22 + fit.crouch - 0.06 * up_, lean: 0.34 + fit.lean - 0.08 * rz - 0.26 * up_, look: 0.45 + 0.2 * fit.lean - 0.15 * up_, headYaw: 0.1 + 0.15 * up_, arms: null });
     F.bone.spine.rotation.y += 0.1 - 0.12 * rz; F.bone.chest.rotation.y += 0.06 - 0.08 * rz;
     F.root.updateMatrixWorld(true);
@@ -356,7 +389,7 @@ function create(stage, bay, opts) {
     return capFitWant;
   }
   function poseCaptain(dt) {
-    const F = captain, rz = sp.raise.to(raiseOf(st.swing), dt);
+    const F = captain, rz = sp.raise.to(st.holdHand === 'raised' && !st.swing ? 1 : raiseOf(st.swing), dt);      // (holdHand: the pose editor's, his right hand held up)
     if (st.phase === 'after') { seat(F, after.at, after.yaw, { look: 0.05, lean: -0.02, seatY: after.seatY }); return; }
     if (st.position === 'otk') {
       // leaning into it over the lap, turned a little to the right toward the seat, watching; the right shoulder lifts with the arm, the
@@ -368,8 +401,9 @@ function create(stage, bay, opts) {
       // waist, which leaves his shoulders free to come down and in. How far back, how low, how far over and how close: fitted to them and the
       // area, the least of each that brings both its spots (left and right) within his arm's reach, and eased to as it changes.
       // (and as a defiant one comes up off the rail, or stands taller to it, he straightens to give them room)
-      const up_ = Math.max(cur.rx.upK, 0.6 * cur.def), want = capFitFor(), k = 1 - Math.exp(-dt * 3);
-      for (const q of ['back', 'turn', 'lean', 'crouch', 'inn']) capFit[q] += (want[q] - capFit[q]) * (capFit.who === cur ? k : 1);
+      // (Fenwick: or, over the table, placed by hand (the pose editor))
+      const byHand = st.position === 'table' && !TUNE.table.silas.auto, up_ = Math.max(cur.rx.upK, 0.6 * cur.def), want = byHand ? TUNE.table.silas : capFitFor(), k = 1 - Math.exp(-dt * 3);
+      for (const q of ['back', 'turn', 'lean', 'crouch', 'inn']) capFit[q] += (want[q] - capFit[q]) * (capFit.who === cur && !byHand ? k : 1);
       capFit.who = cur; placeCaptain(capFit, up_, rz);
     }
     F.bone.clavR.rotation.z = -0.08 * rz; F.bone.clavR.rotation.y = 0.06 * rz;
@@ -483,7 +517,7 @@ function create(stage, bay, opts) {
       for (const [side, sx] of [['L', 1], ['R', -1]]) {
         const shd = W_(F, 'upperArm' + side), out = otkX.clone().multiplyScalar(sx), arm = (F.bone['foreArm' + side].position.length() + F.bone['hand' + side].position.length()) * s;
         const held = side === 'R' ? Math.max(R.pinK, R.coverK) : 0, up = Math.max(0, armUp[side]) * (1 - held), back = clamp(rb[side], 0, 0.55) * (1 - held);
-        const Wt = new V3(shd.x, 0, shd.z).addScaledVector(otkU, 0.1 * s + 0.02 * lift - 0.05 * up * s).addScaledVector(out, 0.05 * s); Wt.y = 0.032 + 0.02 * Math.max(0, lift) + 0.09 * up * s;
+        const TH_ = TUNE.otk.hands, Wt = new V3(shd.x, 0, shd.z).addScaledVector(otkU, TH_.ahead * s + 0.02 * lift - 0.05 * up * s).addScaledVector(out, TH_.out * s); Wt.y = TH_.height + 0.02 * Math.max(0, lift) + 0.09 * up * s;
         // (a seat sat on square, a bunk (`bench.rest`: its top and how far out its edge is): the near arm can't hang down through it, so it rests
         // on it beside Silas: the elbow on the mattress, a little toward their head end so it clears Silas's hip, and the forearm on
         // along the edge, the hand gripping it, the fingers over it. Solved to their own arm's lengths, so the elbow lands on the mattress.)
@@ -650,7 +684,7 @@ function create(stage, bay, opts) {
     cur.f.surface(spotKey, sv, lift());
     const n = sv.n.clone(), away = st.position === 'otk' ? toWorldDir(captain, 0.15, 0, 1) : toWorldDir(cur.f, -1, 0.4, 0.2).normalize();
     const f = away.addScaledVector(n, -away.dot(n)).normalize();
-    const W = sv.p.clone().addScaledVector(n, 0.016).addScaledVector(f, -0.085 * sc(captain));
+    const W = sv.p.clone().addScaledVector(n, TUNE.strike.off).addScaledVector(f, -TUNE.strike.palmBack * sc(captain));
     return { W, n, f, P: sv.p.clone() };
   }
   const handPose = { n: new V3(0, 1, 0), f: new V3(0, 0, 1), cock: 0 };
@@ -663,11 +697,11 @@ function create(stage, bay, opts) {
     // hips (there over her skirt, while it's down): the palm over it, the fingers over its far side and a little toward her hips)
     const rollOut = cur.f.backOf ? cur.f.backOf('roll') : null;
     if (st.position === 'otk') {
-      const onRoll = rollOut != null, bk = cur.f.surface(onRoll ? 'roll' : 'back', { p: new V3(), n: new V3() }, onRoll ? rollOut : cloth), far = otkX.clone().negate(), s_ = sc(cur.f);
-      const fing = otkU.clone().negate().multiplyScalar(onRoll ? 0.35 : 1).addScaledVector(far, onRoll ? 1 : 0.6); fing.addScaledVector(bk.n, -fing.dot(bk.n)).normalize();
-      const palmAt = bk.p.clone().addScaledVector(otkU, onRoll ? 0 : -0.05 * s_).addScaledVector(far, (onRoll ? 0.03 : 0.04) * s_).addScaledVector(bk.n, 0.016);
+      const onRoll = rollOut != null, bk = cur.f.surface(onRoll ? 'roll' : 'back', { p: new V3(), n: new V3() }, onRoll ? rollOut : cloth), far = otkX.clone().negate(), s_ = sc(cur.f), T_ = onRoll ? TUNE.otk.roll : TUNE.otk.rest;
+      const fing = otkU.clone().negate().multiplyScalar(T_.toHead).addScaledVector(far, T_.round); fing.addScaledVector(bk.n, -fing.dot(bk.n)).normalize();
+      const palmAt = bk.p.clone().addScaledVector(otkU, T_.along * s_).addScaledVector(far, T_.across * s_).addScaledVector(bk.n, T_.off);
       const LW = palmAt.clone().addScaledVector(fing, -0.06 * cs), pn = bk.n.clone().negate();
-      const elbowAt = bk.p.clone().addScaledVector(otkU, 0.22 * s_).addScaledVector(otkX, 0.03 * s_).addScaledVector(bk.n, 0.05), sh = W_(F, 'upperArmL');
+      const elbowAt = bk.p.clone().addScaledVector(otkU, T_.elbowAlong * s_).addScaledVector(otkX, T_.elbowOut * s_).addScaledVector(bk.n, T_.elbowUp), sh = W_(F, 'upperArmL');
       // (holding their far wrist at the small of their back: the hand over it from above, the fingers round it toward their feet)
       const pK = cur.rx.pinK;
       if (pK > 0.001) {
@@ -675,16 +709,16 @@ function create(stage, bay, opts) {
         LW.lerp(wr.addScaledVector(wf, -0.05 * cs), pK); fing.lerp(wf, pK).normalize();
       }
       reach(F, 'L', LW, elbowAt.sub(sh.clone().lerp(LW, 0.5)).normalize(), pn, fing);
-      F.grip('L', lerp(onRoll ? 0.38 : 0.22, 0.62, pK), 0.15, lerp(0.2, 0.5, pK));
+      F.grip('L', lerp(T_.grip, 0.62, pK), 0.15, lerp(0.2, 0.5, pK));
     } else if (st.position === 'table' && rollOut != null) {
       // (Fenwick: over the table, his hand on her middle back, the fingers curled round her ribs on the far side, away from him; the elbow up
       // on his side)
       const ex = cur.f.backOf('mid'), mid = cur.f.surface('mid', { p: new V3(), n: new V3() }, ex), rib = cur.f.surface('ribR', { p: new V3(), n: new V3() }, ex), s_ = sc(cur.f);
       const fing = rib.p.clone().sub(mid.p); fing.addScaledVector(mid.n, -fing.dot(mid.n)).normalize();
-      const palmAt = mid.p.clone().addScaledVector(fing, 0.055 * s_).addScaledVector(mid.n, 0.016), LW = palmAt.clone().addScaledVector(fing, -0.06 * cs);
-      const elbowAt = mid.p.clone().addScaledVector(fing, -0.26 * s_).addScaledVector(mid.n, 0.16), sh = W_(F, 'upperArmL');
+      const TR = TUNE.table.rest, palmAt = mid.p.clone().addScaledVector(fing, TR.along * s_).addScaledVector(mid.n, TR.off), LW = palmAt.clone().addScaledVector(fing, -0.06 * cs);
+      const elbowAt = mid.p.clone().addScaledVector(fing, -TR.elbowBack * s_).addScaledVector(mid.n, TR.elbowUp), sh = W_(F, 'upperArmL');
       reach(F, 'L', LW, elbowAt.sub(sh.clone().lerp(LW, 0.5)).normalize(), mid.n.clone().negate(), fing);
-      F.grip('L', 0.62, 0.08, 0.35);
+      F.grip('L', TR.grip, 0.08, 0.35);
     } else if (st.position === 'table') {
       // (bent over the table: as across the knee, the hand on the small of their back, the fingers toward their hips and round the far side)
       const U = toWorldDir(cur.f, 0, 0, 1), X = toWorldDir(cur.f, 1, 0, 0), far = X.clone().negate(), s_ = sc(cur.f);
@@ -708,12 +742,13 @@ function create(stage, bay, opts) {
     const sh = W_(F, 'upperArmR'), toSh = sh.clone().sub(c.W); toSh.addScaledVector(c.n, -toSh.dot(c.n)).normalize();
     // the elbow's place: low at Silas's side, a little out and back (where it stays as the forearm swings up from it and down again).
     // Raised, the hand is a forearm's length above it, leaning a little toward the seat.
-    const E0 = sh.clone().addScaledVector(UP, -0.21 * cs).addScaledVector(toWorldDir(F, -1, 0, 0), 0.08 * cs).addScaledVector(toWorldDir(F, 0, 0, -1), 0.03 * cs);
+    const TK = TUNE.strike, E0 = sh.clone().addScaledVector(UP, -TK.elbowDown * cs).addScaledVector(toWorldDir(F, -1, 0, 0), TK.elbowOut * cs).addScaledVector(toWorldDir(F, 0, 0, -1), TK.elbowBack * cs);
     const toSeat = c.W.clone().sub(E0); toSeat.y = 0; toSeat.normalize();
-    const raised = E0.clone().addScaledVector(UP.clone().multiplyScalar(0.92).addScaledVector(toSeat, 0.4).normalize(), 0.27 * cs);
-    const rest = c.W.clone().addScaledVector(c.n, 0.012 * cs);      // (between smacks the hand rests on the seat)
+    const raised = E0.clone().addScaledVector(UP.clone().multiplyScalar(0.92).addScaledVector(toSeat, TK.raiseLean).normalize(), TK.raise * cs);
+    const rest = c.W.clone().addScaledVector(c.n, TK.rest * cs);      // (between smacks the hand rests on the seat)
     let W = rest, cock = 0.05, curl = 0.06, phase = sw ? swingPhase(sw) : null;
-    if (phase) {
+    if (!phase && st.holdHand) { W = st.holdHand === 'raised' ? raised : c.W; cock = st.holdHand === 'raised' ? 0.85 : 0; curl = 0.03; }      // (the pose editor: held raised, or on her)
+    else if (phase) {
       const at = x => (x === 'rest' ? rest : x === 'raised' ? raised : c.W), A_ = at(phase.from), B_ = at(phase.to);
       W = A_.clone().lerp(B_, phase.e); if (phase.arc) W.addScaledVector(c.n, 0.05 * Math.sin(Math.PI * phase.e)).addScaledVector(toSh, 0.04 * Math.sin(Math.PI * phase.e));
       // the wrist: cocked back raised, flat on the skin at contact; on the way down it stays cocked till the last moment, then snaps flat
@@ -739,7 +774,7 @@ function create(stage, bay, opts) {
       handPose.n.lerp(nn, 0.3); handPose.f.lerp(ff, 0.3); cock = 0.1; curl = u > 0.25 && u < 0.86 ? 0.55 : 0.12;
     }
     if ((!st.soothe || sw) && !st.act) { handPose.n.lerp(c.n, 0.5); handPose.f.lerp(c.f, 0.5); }
-    handPose.cock = lerp(handPose.cock, cock, sw ? 1 : 0.15);
+    handPose.cock = lerp(handPose.cock, cock, sw || st.holdHand ? 1 : 0.15);
     // the hand's frame: fingers along the skin, cocked back toward the normal by the wrist
     const n = handPose.n.clone().normalize(), f = handPose.f.clone().addScaledVector(n, -handPose.f.dot(n)).normalize(), a = handPose.cock;
     const fC = f.clone().multiplyScalar(Math.cos(a)).addScaledVector(n, Math.sin(a)), nC = n.clone().multiplyScalar(Math.cos(a)).addScaledVector(f, -Math.sin(a));
@@ -1178,5 +1213,5 @@ function create(stage, bay, opts) {
   return api;
 }
 
-root.Session = { create };
+root.Session = { create, TUNE, TUNE_DEFAULTS };
 })(typeof window !== 'undefined' ? window : globalThis);

@@ -125,7 +125,6 @@ small.note { display: block; color: var(--dim); font-size: 11px; line-height: 1.
   <div class="row" id="cskin"></div>
   <div class="row" id="chair" style="margin-top:6px"></div>
   <div class="row" id="cstyle" style="margin-top:6px"></div>
-  <div class="row seg" id="cbuild" style="margin-top:6px"><button data-v="lean">Lean</button><button data-v="average" class="on">Average</button><button data-v="heavy">Heavy</button></div>
   <h2>Relationship</h2>
   <div class="row"><select id="relWho" class="pick"></select></div>
   <div class="vols" id="rel" style="margin-top:6px"></div>
@@ -171,7 +170,7 @@ small.note { display: block; color: var(--dim); font-size: 11px; line-height: 1.
 'use strict';
 const $ = id => document.getElementById(id), q = new URLSearchParams(location.search);
 const KEY = 'fenwick:session:v1';
-const cfg = Object.assign({ time: 'day', position: 'otk', state: 'restored', clues: false, terms: false, order: ['goldie'], silas: { build: 'average' } },
+const cfg = Object.assign({ time: 'day', position: 'otk', state: 'restored', clues: false, terms: false, order: ['goldie'], silas: {} },
   (() => { try { return JSON.parse(localStorage.getItem(KEY) || '{}'); } catch (e) { return {}; } })());
 const save = () => { try { localStorage.setItem(KEY, JSON.stringify(cfg)); } catch (e) { /* no storage */ } };
 const seg = (id, val, fn) => { const el = $(id); el.querySelectorAll('button').forEach(b => { b.classList.toggle('on', b.dataset.v === val); b.onclick = () => { el.querySelectorAll('button').forEach(x => x.classList.toggle('on', x === b)); fn(b.dataset.v); }; }); };
@@ -206,7 +205,6 @@ function drawSilas() {
   const sw = (id, list, k) => { const el = $(id); el.innerHTML = ''; for (const c of list) { const b = document.createElement('button'); b.className = 'sw' + ((C[k] || Cast.SQUIRE.look[k]) === c ? ' on' : ''); b.style.background = c; b.onclick = () => { C[k] = c; save(); drawSilas(); }; el.append(b); } };
   sw('cskin', O.skin, 'skin'); sw('chair', O.hair, 'hair');
   const el = $('cstyle'); el.innerHTML = ''; for (const s of O.hairStyle) { const b = document.createElement('button'); b.textContent = s; b.className = (C.hairStyle || Cast.SQUIRE.look.hairStyle) === s ? 'on' : ''; b.onclick = () => { C.hairStyle = s; save(); drawSilas(); }; el.append(b); }
-  seg('cbuild', C.build || 'average', v => { C.build = v; save(); });
 }
 drawCrew(); drawSilas();
 seg('terms', cfg.terms ? 'on' : 'off', v => { cfg.terms = v === 'on'; save(); });
