@@ -1844,7 +1844,7 @@ function prepare(sx, gltf, M) {
         ink_.setX(i, ink_.getX(i) * f);
       }
     }
-    else if (/^(Tunic|Shirt|Dress|Kirtle)/.test(name)) for (let i = 0; i < n; i++) reg[i] = ARM_BONES.test(dom[i]) ? 1 : 0;
+    else if (/^(Tunic|Shirt|Dress|Kirtle|NightDress|NightShirt|Chemise)/.test(name)) for (let i = 0; i < n; i++) reg[i] = ARM_BONES.test(dom[i]) ? 1 : 0;      // (its sleeves: kept when a skirt's taken off for its cloth)
     g.setAttribute('region', new THREE.Float32BufferAttribute(reg, 1));
     g.userData.shared = true;
     mesh[name] = { geo: g, keys: Object.assign({}, o.morphTargetDictionary || {}) };
@@ -2560,7 +2560,7 @@ function dressGLB(F) {
     for (const k of on) garmentGLB(F, k);
     for (const k in F.gm) { const m = F.gm[k], v = on.has(k); m.visible = v; if (m.userData.hull) m.userData.hull.visible = v; }
     F.clothes = { top: F.gm.NightShirt || null, bottoms: null, under: F.gm.Drawers || null }; F.bootL = F.bootR = null; F.layers = ['top', 'under']; F.skirt = null;
-    let hide = 0; for (const r of ['CHEST', 'UPARM', 'WAIST_HI', 'WAIST', 'HIPS', 'HIPS_LO', 'SEAT', 'THIGH', 'FOREARM']) hide |= 1 << R[r];
+    let hide = 0; for (const r of ['CHEST', 'UPARM', 'WAIST_HI', 'WAIST', 'HIPS', 'HIPS_LO', 'SEAT', 'THIGH']) hide |= 1 << R[r];      // (its sleeves rolled, as his day shirt's: the forearms bare)
     F.skinMat.userData.u.uHide.value = hide;
     if (F.spot) for (const k of SPOTS) F.mark(k, 0);
     return;

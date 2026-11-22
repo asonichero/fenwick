@@ -1423,7 +1423,7 @@ def period_garments(sex, torso, leg, arm, body, label, rig, only=None):
     L['seatPeak'], L['seatFold'], L['seatTop'] = seat_marks(body_field(torso, leg, arm, sex), L['hipX'] * 0.8)
     # (her landmarks for the period wardrobe: the neckline lower and rounder than a shirt's; the skirt's and kirtle's hems; the drawers' and
     # smalls' leg openings; where lowered drawers come to rest above the knees; no high-cut briefs any more, so no briefCut)
-    L['neckline'] = L['neck'] - 0.026; L['skirtHem'] = SKIRT_HEM; L['kirtleHem'] = KIRTLE_HEM; L['chemiseHem'] = CROTCH_Y - 0.03; L['nightHem'] = ANKLE_Y + 0.07; L['nightShirtHem'] = CROTCH_Y - 0.03
+    L['neckline'] = L['neck'] - 0.026; L['skirtHem'] = SKIRT_HEM; L['kirtleHem'] = KIRTLE_HEM; L['chemiseHem'] = CROTCH_Y - 0.03; L['nightHem'] = ANKLE_Y + 0.07; L['nightShirtHem'] = KNEE_Y + 0.05
     L['drawersLeg'] = DRAWERS_LEG; L['briefLeg'] = SMALLS_LEG      # (a chemise and his nightshirt a shirt's length or a little more: what's under them still shows below)
     L['drawersDown'] = KNEE_Y + 0.165; L['sleeveE'] = L['rollA'] + 0.012;      # (an elbow sleeve ends just past where the forearm's skin is hidden from: no gap)
     L['period'] = 1.0; L.pop('briefCut', None)
@@ -1456,7 +1456,7 @@ def period_garments(sex, torso, leg, arm, body, label, rig, only=None):
     yb = L['briefDown']
     Lsd = [Cloth(leg, lambda y: 0.006 + 0.004 * gauss(y - (yb + 0.004), 0.008), sx) for sx in (1, -1)]
     make('SmallsDown', lambda P: smax(legs_(Lsd)(P), sling(yb - 0.002, 0.012, 0.034, 0.008, 0.0038)(P), 0.008), (-0.24, yb - 0.1, -0.16), (0.24, yb + 0.03, 0.16), 3000,
-         [((0, yb + 0.006, 0), up_), ((0, yb - 0.05, 0), down_)], LEGS_L, h=0.0025)
+         [((0, yb + 0.006, 0), up_), ((0, yb - 0.062, 0), down_)], LEGS_L, h=0.0025)      # (below the gusset's lowest point, as the briefs': cut higher, it left a hole there)
     Td = Cloth(torso, lambda y: 0.011, slope=0.9, below=CROTCH_Y + 0.12)
     dleg = lambda y: 0.014 + 0.016 * ss(CROTCH_Y - 0.1, DRAWERS_LEG + 0.02, y) + (0.01 * gauss(y - (DRAWERS_LEG + 0.014), 0.009) + 0.0025 * math.sin(y * 210) if sex == 'f' else 0.0)      # (his plain: no frill)
     Ldw = [Cloth(leg, dleg, sx) for sx in (1, -1)]
@@ -1631,9 +1631,25 @@ def period_garments(sex, torso, leg, arm, body, label, rig, only=None):
     # joined to the sleeves round the armhole; below the hips it hangs straight down to its hem, a little below his crotch (or hers), over
     # the drawers; and raised, the hem taken up above the waist and rolled, as his shirt is. Its weights below the waist go to the hips and
     # both thighs alike, so its tail doesn't split between the legs.)
+    # (his day shirt's sleeves, as his own tops build them: 'rolled' to the forearm, or 'long' to the cuff)
+    def day_sleeves(kind):
+        a_end = L['cuffA'] if kind == 'long' else L['rollA']
+        sl_ease = (lambda a: 0.0085 + 0.003 * ss(0.15, ARM_LEN, a)) if kind == 'long' else (lambda a, e=a_end: 0.011 + 0.011 * gauss(a - (e - 0.012), 0.012))
+        S_ = [Cloth(arm, sl_ease, sx, arm_axis(1)) for sx in (1, -1)]
+        C_ = [arm_at(sx, 0.008) + np.array([sx * 0.004, 0, 0.0]) for sx in (1, -1)]
+        def sleeve(P):
+            f = -np.ones(len(P))
+            for S1, C in zip(S_, C_): f = np.maximum(f, smax(S1.f(P), dr + 0.006 - np.linalg.norm(P - C, axis=1), 0.02))
+            return f
+        cuffs = []
+        for sx in (1, -1): J, d, e1 = arm_axis(sx); cuffs.append((tuple(arm_at(sx, a_end)), tuple(d)))
+        return sleeve, cuffs
+    # (sleeves: a chemise's own ('elbow'), or his day shirt's ('rolled', 'day-long'). Below the armpit the body is carved back from the sleeve
+    # and the arm in it, as a dress's is: a tail hanging past his hips otherwise swallows the forearms beside it, and the sleeves are cut there)
     def shirt(name, sleeves, hem, under_f, faces, ease0=0.016, slope=0.32):
         if only and name not in only: return
-        _, sleeve, cuffs = bodice_and_sleeves(sleeves, under_f, L['trouserTop'])
+        if sleeves in ('rolled', 'day-long'): sleeve, cuffs = day_sleeves('long' if sleeves == 'day-long' else 'rolled')
+        else: _, sleeve, cuffs = bodice_and_sleeves(sleeves, under_f, L['trouserTop'])
         under_top = over(under_f, 0.008, L['trouserTop']); yh = HIP_Y
         neck = [((0, L['neckline'], 0.0), (0, math.cos(0.42), math.sin(0.42)))]
         def shirt_w(X, G, names):
@@ -1647,7 +1663,8 @@ def period_garments(sex, torso, leg, arm, body, label, rig, only=None):
             T = Cloth(torso, ease, slope=slope, below=L['armpit'] + 0.04)
             def body(P, T=T):
                 Q = P.copy(); Q[:, 1] = np.maximum(Q[:, 1], yh)      # (below the hips, hanging straight down from them)
-                return np.maximum(np.where(P[:, 1] >= yh, T.f(P), T.f(Q)), under_top(P))
+                a = np.maximum(np.where(P[:, 1] >= yh, T.f(P), T.f(Q)), under_top(P))
+                return np.where(P[:, 1] < L['armpit'] - 0.06, np.minimum(a, -sleeve(P) - 0.007), a)
             def top(P, body=body):
                 k = 0.001 + 0.022 * ss(L['armpit'] - 0.07, L['armpit'] + 0.01, P[:, 1])
                 a, b = body(P), sleeve(P); hh = np.maximum(k - np.abs(a - b), 0) / k
@@ -1663,9 +1680,9 @@ def period_garments(sex, torso, leg, arm, body, label, rig, only=None):
     # than a shirt, her drawers or smalls showing below it; or a night-dress, long-sleeved and to the ankle. Both loose: hanging from her bust and shoulder blades, not fitted to the waist.
     # Raised, as the dresses are on their drapes: their backs lifted, so no raised mesh of their own)
     shirt('Chemise', 'elbow', L['chemiseHem'], drawers_f, 12000)
-    dress('NightDress', 'long', L['nightHem'], 0.05, 0.016, 1.0, 1.2, drawers_f, L['trouserTop'], 16000, top=L['armpit'] + 0.02, bease=0.014, raised=False)
+    dress('NightDress', 'long', L['nightHem'], 0.035, 0.012, 1.0, 1.2, drawers_f, L['trouserTop'], 16000, top=L['armpit'] + 0.02, bease=0.014, raised=False)      # (no wider than a dress at her hips: her hands hang outside it)
     # (his: a nightshirt, long-sleeved, loose, a little longer than a shirt, over his drawers)
-    if sex == 'm': shirt('NightShirt', 'long', L['nightShirtHem'], drawers_f, 12000)
+    if sex == 'm': shirt('NightShirt', 'rolled', L['nightShirtHem'], drawers_f, 12000, ease0=0.014)      # (his day shirt, to above the knee)
     # ── boots, as the men's: round the foot and up the shin ──
     Lk = [Cloth(leg, lambda y: 0.0095 + 0.003 * ss(0.12, 0.2, y), sx) for sx in (1, -1)]
     ft = [foot_part(sx, leg)[0].last for sx in (1, -1)]      # (round the last: no toes through the leather)
