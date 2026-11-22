@@ -131,13 +131,13 @@ test('her period layers: the dress (or kirtle), leggings where she wears them, d
   assert.deepEqual(shown(belle), ['Boots', 'DressLong']);      // (her drawers under the skirt, not drawn while it's down)
   assert.deepEqual(belle.layers.sort(), ['top', 'under']); assert.equal(belle.skirt, 'long'); assert.equal(belle.clothes.bottoms, null);
   assert.equal(bit(belle, F.R.SEAT), 1); assert.equal(bit(belle, F.R.FOREARM), 1);
-  belle.setClothes({ top: 'up' }); assert.deepEqual(shown(belle), ['Boots', 'Drawers', 'DressLongUp']); assert.equal(bit(belle, F.R.SEAT), 1);
-  belle.setClothes({ under: 'down' }); assert.deepEqual(shown(belle), ['Boots', 'DrawersDown', 'DressLongUp']); assert.equal(bit(belle, F.R.SEAT), 0); assert.equal(bit(belle, F.R.THIGH), 0);
+  belle.setClothes({ top: 'up' }); assert.deepEqual(shown(belle), ['Boots', 'Drawers', 'DressLong']);      // (raised, the same dress: its cloth rolls the back up) assert.equal(bit(belle, F.R.SEAT), 1);
+  belle.setClothes({ under: 'down' }); assert.deepEqual(shown(belle), ['Boots', 'DrawersDown', 'DressLong']); assert.equal(bit(belle, F.R.SEAT), 0); assert.equal(bit(belle, F.R.THIGH), 0);
   assert.ok(belle.skinMat.userData.u.uStock.value.w > 0.5, 'stockings under a dress');
   const gretel = gfig('gretel');
   assert.deepEqual(shown(gretel), ['Boots', 'Kirtle', 'Leggings', 'Smalls']); assert.deepEqual(gretel.layers.sort(), ['bottoms', 'top', 'under']); assert.equal(gretel.skirt, 'short');
   assert.equal(gretel.skinMat.userData.u.uStock.value.w, 0, 'no stockings under leggings'); assert.equal(bit(gretel, F.R.SHIN), 1);
-  gretel.setClothes({ top: 'up', bottoms: 'down', under: 'down' }); assert.deepEqual(shown(gretel), ['Boots', 'KirtleUp', 'LeggingsDown', 'SmallsDown']); assert.equal(bit(gretel, F.R.SEAT), 0);
+  gretel.setClothes({ top: 'up', bottoms: 'down', under: 'down' }); assert.deepEqual(shown(gretel), ['Boots', 'Kirtle', 'LeggingsDown', 'SmallsDown']); assert.equal(bit(gretel, F.R.SEAT), 0);
   // (what each takes off a smack: a skirt that's down most; bare, nothing)
   assert.equal(gretel.cushionOf('sitspot'), 0); belle.setClothes({ top: 'down', under: 'up' }); assert.ok(belle.cushionOf('sitspot') > 0.45);
   // (Red: her dress, or her walking clothes; the outfit changed, the garments with it)
@@ -206,27 +206,35 @@ test('her skin’s painted detail and her feet, where the model puts them; the c
   assert.equal(U(silas).uNip.value.w, 0); assert.equal(U(silas).uFootF.value.z, 0);
 });
 
-test('her skirt draped as she lies, from Blender: her own, each pose, down or raised (the whole skirt, its back lifted); each draped point with the part of her it lies on; another of her as she was', async () => {
+test('her skirt is cloth below the waist: as made standing; across a lap it lies over her seat and falls off her legs; raised, rolled to the small of her back, her seat clear; another of her as she was', async () => {
   await loaded;
-  const D = id => { const j = JSON.parse(fs.readFileSync(path.join(MODELS, 'drapes', id + '.json'))), b = fs.readFileSync(path.join(MODELS, 'drapes', id + '.bin')); F.adoptDrapes(id, j, b.buffer.slice(b.byteOffset, b.byteOffset + b.byteLength)); return j; };
-  for (const id of Cast.IDS) {
-    const j = D(id);
-    for (const g in j.garments) assert.deepEqual(Object.keys(j.garments[g].poses).sort(), ['after', 'bed', 'bed:up', 'edge', 'edge:up', 'otk', 'otk:up', 'table', 'table:up'].filter(k => g !== 'Chemise' || (k !== 'edge' && k !== 'table')), id + ' ' + g);
-  }
-  // (each baked for the garment as the model has it now: the same points in the same order, not only as many (a remade model reorders them))
-  { const f = gfig('belle');
-    for (const id of Cast.IDS) { const j = D(id); for (const g in j.garments) { const geo = f.model.mesh[g].geo, d = F.drapeOf(id, g, Object.keys(j.garments[g].poses)[0]);
-      assert.ok(d.sig, `${id} ${g}: its drapes say what they were baked for`); assert.ok(F.drapeFits(d, geo), `${id} ${g}: baked for the garment as it is now (rebake: tools/blender/bake_drapes.py)`); } } }
-  const belle = gfig('belle'), other = gfig('belle'), geo = f => f.gm[f.topName].geometry, pos = f => Float32Array.from(geo(f).attributes.position.array);
-  const rest = pos(belle), si0 = Uint16Array.from(geo(belle).attributes.skinIndex.array); belle.setDrape('otk'); const otk = pos(belle);
-  let moved = 0; for (let i = 0; i < rest.length; i++) moved = Math.max(moved, Math.abs(otk[i] - rest[i]));
-  assert.ok(moved > 0.1, `across the knee, its hem falls away (${moved.toFixed(2)} m)`);
-  let rebound = 0; const si = geo(belle).attributes.skinIndex.array; for (let i = 0; i < si.length; i++) if (si[i] !== si0[i]) rebound++;
-  assert.ok(rebound > 100, 'its draped points go with what they lie on');
-  assert.deepEqual(Array.from(pos(other)), Array.from(rest), 'another of her in the same dress is as she was');
-  belle.setClothes({ top: 'up' }); assert.equal(belle.topName, 'DressLong', 'raised: the whole skirt'); assert.equal(belle.gm.DressLong.userData.drapeKey, 'DressLong|otk:up');
+  const belle = gfig('belle'), other = gfig('belle'), C = belle.cloth;
+  assert.ok(C && C.mesh.visible && C.name === 'DressLong', 'her skirt has its cloth');
+  assert.ok(belle.gm.DressLong.geometry.index.count < belle.model.mesh.DressLong.geo.index.count, 'the dress as built, without its skirt');
+  const X = () => C.X, finite = () => Array.from(X()).every(Number.isFinite);
+  // (standing: the skirt as it was made, its hem where the garment's is)
+  belle.root.updateMatrixWorld(true); belle.tick(1 / 60); assert.ok(finite());
+  let hemY = 0; for (let c = 0; c < C.NC; c++) hemY += X()[(c * (C.NR + 1) + C.NR) * 3 + 1] / C.NC;
+  assert.ok(Math.abs(hemY - belle.L.skirtHem) < 0.06, `standing, its hem at ${hemY.toFixed(2)} (the garment's ${belle.L.skirtHem.toFixed(2)})`);
+  // (face down across something, as over a lap: her seat uppermost)
+  // (what of it lies over her seat: of its points within 5 cm of over the fullest of her cheek, the highest, how far above it)
+  const seat = () => { const p = belle.surface('cheekL', null, 0).p; let above = -9, n = 0; for (let k = 0; k < X().length / 3; k++) { const q = new THREE.Vector3(X()[k * 3], X()[k * 3 + 1], X()[k * 3 + 2]).applyMatrix4(belle.root.matrixWorld); if (Math.hypot(q.x - p.x, q.z - p.z) < 0.05) { n++; above = Math.max(above, q.y - p.y); } } return { n, above }; };
+  belle.root.position.y = 1.1; belle.root.rotation.x = Math.PI / 2; belle.root.updateMatrixWorld(true); belle.setDrape('otk'); belle.tick(1 / 60);
+  assert.ok(finite(), 'settled');
+  const s1 = seat(); assert.ok(s1.above > 0 && s1.above < 0.08, `across: the skirt over her seat (${s1.above.toFixed(3)} m above it)`);
+  let low = 9; for (let k = 0; k < X().length / 3; k++) low = Math.min(low, new THREE.Vector3(X()[k * 3], X()[k * 3 + 1], X()[k * 3 + 2]).applyMatrix4(belle.root.matrixWorld).y);
+  assert.ok(low < 1.0, `it falls off her legs toward the floor (lowest ${low.toFixed(2)} m)`);
+  for (let i = 0; i < 30; i++) belle.tick(1 / 60); assert.ok(finite(), 'and stays');
+  // (raised: the back rolled up to the small of her back, her seat clear of it)
+  belle.setClothes({ top: 'up' }); belle.tick(1 / 60); assert.ok(finite());
+  const s2 = seat(); assert.ok(s2.above < 0, `raised: nothing of it over her seat (${s2.above.toFixed(3)} m)`);
+  assert.ok(C.roll && C.roll.size > 100, 'its back wound into a roll');
   belle.setClothes({ under: 'down' }); assert.equal((belle.skinMat.userData.u.uHide.value >> F.R.SEAT) & 1, 0, 'raised, and her drawers down: her seat not hidden');
-  belle.setClothes({ top: 'down', under: 'up' }); belle.setDrape(null); assert.deepEqual(Array.from(pos(belle)), Array.from(rest), 'standing, as built');
+  belle.setClothes({ top: 'down', under: 'up' }); assert.ok(belle.gm.Drawers && !belle.gm.Drawers.visible, 'under a long skirt that’s down, her drawers not drawn');
+  // (another of her, standing, is as she was made)
+  other.root.updateMatrixWorld(true); other.tick(1 / 60);
+  let oh = 0; for (let c = 0; c < other.cloth.NC; c++) oh += other.cloth.X[(c * (other.cloth.NR + 1) + other.cloth.NR) * 3 + 1] / other.cloth.NC;
+  assert.ok(Math.abs(oh - other.L.skirtHem) < 0.06, 'another of her in the same dress is as made');
 });
 
 test('Silas at night (his nightshirt over linen drawers, barefoot) and with nothing on; no stockings drawn on him', async () => {

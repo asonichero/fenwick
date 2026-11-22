@@ -1491,16 +1491,25 @@ function tickBraid(F, dt) {
   const jump = !T.live || X[1].distanceToSquared(W[1]) > 0.09;
   if (jump) { for (let i = 0; i < nb; i++) { X[i].copy(W[i]); Xp[i].copy(W[i]); } T.live = true; }
   const h = 1 / 60, steps = jump ? 240 : Math.min(8, Math.ceil(Math.min(dt, 0.12) / h)), hs = jump ? h : Math.min(dt, 0.12) / steps, damp = jump ? 0.8 : 0.9;
+  // (its end heavier: the joints down it slower to take up a swing and quicker to lose it, each drawn a little toward hanging plumb below the
+  // one above, more so toward the tie; and in keeping their lengths, a heavier joint gives less than the lighter one above it)
+  const mass = i => 1 + 2.5 * Math.pow((i - 1) / (nb - 2), 2);
   for (let k = 0; k < steps; k++) {
     X[0].copy(W[0]); X[1].copy(W[1]); Xp[0].copy(W[0]); Xp[1].copy(W[1]);
     for (let i = 2; i < nb; i++) {
-      _bv.copy(X[i]).sub(Xp[i]).multiplyScalar(damp); Xp[i].copy(X[i]); X[i].add(_bv); X[i].y -= 9.8 * hs * hs;
+      const f = (i - 1) / (nb - 2);
+      _bv.copy(X[i]).sub(Xp[i]).multiplyScalar(damp * (1 - 0.06 * f)); Xp[i].copy(X[i]); X[i].add(_bv); X[i].y -= 9.8 * hs * hs;
+      if (i > 2) { _bv2.copy(X[i - 1]); _bv2.y -= T.len[i]; X[i].lerp(_bv2, 1 - Math.exp(-hs * 1.6 * f * f)); }
       // (its stiffness: the first length held toward where the head has it, as it leaves the tie at the back of the head; the rest each drawn
       // toward going straight on from the one above, less so down the plait: a bend that gravity wins, whichever way up the head is)
       if (i === 2) X[i].lerp(W[i], 1 - Math.exp(-hs * 3));
       else { _bv2.copy(X[i - 1]).sub(X[i - 2]).normalize().multiplyScalar(T.len[i]).add(X[i - 1]); X[i].lerp(_bv2, 1 - Math.exp(-hs * lerp(1.2, 0.2, (i - 3) / Math.max(1, nb - 4)))); }
     }
-    for (let it = 0; it < 3; it++) for (let i = 2; i < nb; i++) { _bv.copy(X[i]).sub(X[i - 1]); X[i].copy(X[i - 1]).addScaledVector(_bv.normalize(), T.len[i]); out(X[i]); if (X[i].y < rb) X[i].y = rb; }      // (and on the floor)
+    for (let it = 0; it < 3; it++) for (let i = 2; i < nb; i++) {
+      _bv.copy(X[i]).sub(X[i - 1]); const d = _bv.length() || 1e-6, e = d - T.len[i], wa = i - 1 > 1 ? 1 / mass(i - 1) : 0, wb = 1 / mass(i);
+      X[i - 1].addScaledVector(_bv, e / d * wa / (wa + wb)); X[i].addScaledVector(_bv, -e / d * wb / (wa + wb));
+      out(X[i]); if (X[i].y < rb) X[i].y = rb;      // (and on the floor)
+    }
   }
   // (each bone turned so the next joint lies along the line to where the plait has it)
   T.mesh.getWorldQuaternion(_bq);
@@ -1578,6 +1587,7 @@ function tickFace(F, dt) {
     const down = new V3(0, -1, 0).applyQuaternion(q.invert());
     const kx = 1 - Math.exp(-dt * 5); pv.rotation.x = lerp(pv.rotation.x, Math.atan2(-down.z, -down.y) * 0.85, kx); pv.rotation.z = lerp(pv.rotation.z, Math.atan2(down.x, -down.y) * 0.85, kx);
   }
+  if (F.cloth) tickCloth(F, dt);
 }
 
 
@@ -1594,39 +1604,11 @@ function preload(base) {
   if (!THREE.GLTFLoader || typeof fetch === 'undefined') return (GLB.ready = Promise.resolve(false));
   // (Fenwick: the hair too, built in Blender to fit the head: tools/blender/build_hair.py. Without it, the hair is built in code, as before.)
   const hair = fetch(base + 'fenwick_hair.glb').then(r => r.arrayBuffer()).then(adoptHair).catch(e => { console.warn('Figure: no Blender-built hair; building it in code.', e); });
-  GLB.base = base;      // (Fenwick: each heroine's drapes are fetched from here when her figure's made: needDrapes)
   GLB.ready = fetch(base + 'fenwick_meta.json').then(r => r.json())
     .then(meta => Promise.all(['f', 'm'].map(sx => fetch(base + 'fenwick_' + sx + '.glb').then(r => r.arrayBuffer()).then(buf => adopt(meta, sx, buf)))))
     .then(() => hair).then(() => true).catch(e => { console.warn('Figure: the Blender-built models did not load; building the figures in code.', e); GLB.sex = {}; return false; });
   return GLB.ready;
 }
-// (Fenwick: each heroine's skirts as they lie in each pose, draped in Blender: tools/blender/bake_drapes.py, models/drapes/<who>.*. For each
-// garment, the points that move, and for each pose their offsets (int16, at the index's scale) and the two bones each goes with and its
-// weight. Fetched when her figure's first made; until then, or without them, a skirt keeps its shape)
-function adoptDrapes(who, index, buf) { (GLB.drapes = GLB.drapes || {})[who] = { index, buf }; return GLB.drapes[who]; }
-function needDrapes(F) {
-  const who = F.spec.who, D = (GLB.drapes = GLB.drapes || {}); if (!who || D[who] === null) return;
-  if (!D[who]) {
-    if (!GLB.base || typeof fetch === 'undefined') return;
-    const load = Promise.all([fetch(GLB.base + 'drapes/' + who + '.json').then(r => r.json()), fetch(GLB.base + 'drapes/' + who + '.bin').then(r => r.arrayBuffer())])
-      .then(([j, b]) => adoptDrapes(who, j, b)).catch(() => { D[who] = null; });
-    D[who] = { loading: load };
-  }
-  if (D[who] && D[who].loading) D[who].loading.then(() => { if (F.spec.outfit === 'period' && F.setClothes) F.setClothes(); });
-}
-function drapeOf(who, name, key) {
-  const D = GLB.drapes && GLB.drapes[who], e = D && D.index && D.index.garments[name], p = e && key && e.poses[key]; if (!p) return null;
-  return { count: e.count, sig: e.sig, verts: new Uint16Array(D.buf, e.verts, e.n), off: new Int16Array(D.buf, p.off, e.n * 3), skin: new Uint8Array(D.buf, p.skin, e.n * 3), scale: D.index.scale };
-}
-// (the garment's points summed, weighted by their order, as the baker sums them (tools/blender/bake_drapes.py, sig): a drape baked for the
-// garment as it was made then, not one remade since with its points in another order, however many there are)
-function garmentSig(geo) {
-  if (geo.userData.sig) return geo.userData.sig;
-  const p = geo.attributes.position.array, out = [0, 0, 0];
-  for (let i = 0, n = p.length / 3; i < n; i++) { const k = 1 + (i % 7); out[0] += p[i * 3] * k; out[1] += p[i * 3 + 1] * k; out[2] += p[i * 3 + 2] * k; }
-  return (geo.userData.sig = out);
-}
-const drapeFits = (D, B) => !!D.sig && D.count === B.attributes.position.count && garmentSig(B).every((v, c) => Math.abs(v - D.sig[c]) < 0.05);      // (one baked before drapes said what they were baked for: not trusted)
 // The hair styles: each a mesh in head units (the head group's space), with its colour per point (darker at the roots) to multiply into the
 // hair's own; shared by everyone who wears the style.
 function adoptHair(buf) {
@@ -1706,12 +1688,14 @@ function prepare(sx, gltf, M) {
       const trunk = [BIx.chest, BIx.spine, cl, BIx.neck];
       for (let i = 0; i < n; i++) {
         const x = p.getX(i) * sx, y = p.getY(i); if (x < -0.01 || y < pit - 0.2 || y > jy + 0.1) continue;
-        lin[i] = Math.max(lin[i], (1 - sm(jy - 0.04, jy - 0.005, y)) * sm(xb - 0.05, xb - 0.03, x) * (1 - sm(jx + 0.03, jx + 0.06, x)));
+        const near = sm(pit - 0.13, pit - 0.07, y);      // (the armpit, not the waist below it, where the arm hangs clear of her side)
+        lin[i] = Math.max(lin[i], near * (1 - sm(jy - 0.04, jy - 0.005, y)) * sm(xb - 0.05, xb - 0.03, x) * (1 - sm(jx + 0.03, jx + 0.06, x)));
         let ua0 = 0, tw = 0; for (let q = 0; q < 4; q++) { const b = idx[i * 4 + q]; if (b === ua) ua0 += wt[i * 4 + q]; else if (trunk.includes(b)) tw += wt[i * 4 + q]; }
         if (ua0 + tw <= 0) continue;
         // (below the joint, the arm's whole share of what the trunk and arm hold between them, by which side of the crease; above, Blender's
         // own, less toward the neck)
-        const below = 1 - sm(jy - 0.05, jy - 0.005, y), want = lerp(ua0 * sm(jx - 0.065, jx + 0.004, x), (ua0 + tw) * sm(xb - 0.009, xb + 0.009, x), below);
+        // (well below the armpit, only taken off the trunk's side, never given to the arm)
+        const below = 1 - sm(jy - 0.05, jy - 0.005, y), kb = sm(xb - 0.009, xb + 0.009, x), want = lerp(ua0 * sm(jx - 0.065, jx + 0.004, x), lerp(ua0 * kb, (ua0 + tw) * kb, near), below);
         if (Math.abs(want - ua0) < 1e-4) continue;
         if (want > ua0) {
           const f = 1 - (want - ua0) / tw; for (let q = 0; q < 4; q++) if (trunk.includes(idx[i * 4 + q]) && idx[i * 4 + q] !== ua) wt[i * 4 + q] *= f;
@@ -1893,7 +1877,7 @@ function setKeys(mesh, keys) {
 }
 function makeGLB(spec, T) {
   const S = shapeOf(spec), F = { spec, S, root: new THREE.Group(), bone: {}, bones: [], model: T, L: T.L };
-  F.root.scale.setScalar(spec.height / T.L.height);
+  F.root.scale.setScalar(spec.height / T.L.height); F.root.userData.figure = F; FIGS.add(F);      // (for skirts' cloth to find anyone near: see tickCloth)
   for (const name of T.order) {
     const par = T.parents[name], p = T.joints[name], q = par ? T.joints[par] : [0, 0, 0];
     const b = new THREE.Bone(); b.name = name; b.position.set(p[0] - q[0], p[1] - q[1], p[2] - q[2]);
@@ -1943,7 +1927,6 @@ function makeGLB(spec, T) {
   F.state = { top: 'down', bottoms: 'up', under: 'up' };
   F.setClothes = st => { Object.assign(F.state, st || {}); if (F.spec.outfit === 'period') dressPeriod(F); else dressGLB(F); };
   F.drapePose = null; F.setDrape = pose => { F.drapePose = pose || null; if (F.spec.outfit === 'period') F.setClothes(); };
-  needDrapes(F);
   F.cushionOf = area => (F.spec.outfit === 'period' ? cushionPeriod(F, area) : null);
   F.liftOf = () => (F.spec.outfit === 'period' ? liftPeriod(F) : null); F.backOf = where => (F.spec.outfit === 'period' ? backPeriod(F, where) : null);
   F.setPeriod = period => { spec.period = period; spec.outfit = 'period'; for (const k in F.gm) { const m = F.gm[k]; for (const x of [m, m.userData.hull]) if (x) x.parent.remove(x); } F.gm = {}; F.underMat = null; F.setClothes(); };
@@ -2011,8 +1994,8 @@ const TOPS_P = { chemise: 'Chemise', nightdress: 'NightDress' }, SHIFT = /^(Chem
 function periodNames(F) {
   const P = F.spec.period || {}, st = F.state, kirtle = P.kind === 'kirtle';
   if (P.none) return { top: null, bottoms: null, under: null, boots: null };
-  const base = TOPS_P[P.kind] || (kirtle ? 'Kirtle' : P.sleeves === 'long' ? 'DressLong' : 'DressElbow'), dr = st.top === 'up' && drapeOf(F.spec.who, base, drapeKey(F)), draped = dr && F.model.mesh[base] && drapeFits(dr, F.model.mesh[base].geo);
-  return { top: base + (st.top === 'up' && !draped && F.model.mesh[base + 'Up'] ? 'Up' : ''),      // (raised: as draped for her pose, the whole skirt, its back lifted; else the one cut and rolled)
+  const base = TOPS_P[P.kind] || (kirtle ? 'Kirtle' : P.sleeves === 'long' ? 'DressLong' : 'DressElbow');
+  return { top: base,      // (raised or not, the same: below the waist it's cloth, which rolls its back up (makeCloth))
     bottoms: P.legs === 'leggings' ? (st.bottoms === 'down' ? 'LeggingsDown' : 'Leggings') : null,
     under: (P.under === 'smalls' ? 'Smalls' : 'Drawers') + (st.under === 'down' ? 'Down' : ''), boots: P.shoes ? 'Boots' : null };      // (barefoot, in her nightclothes)
 }
@@ -2039,61 +2022,308 @@ function garmentPeriod(F, name) {
     m = opt('shoeG', P.shoe || '#4a3424', { rimK: 0.4, rim: '#3a4048' }); const U = m.userData.u; U.uParam.value.set(sh, F.H.ankle, 0, 0);
     if (sh) { U.uPat0.value.copy(srgb(P.sole || '#2a2018')); U.uPat1.value.copy(srgb(P.trimShoe || P.sole || '#2a2018')); U.uPat2.value.copy(srgb(P.stockings || P.legCol || '#d8d0c0')); }
   }
-  if (/^(Dress|Kirtle|Chemise|NightDress)/.test(name)) geo = ownGeo(geo);      // (her own copy of where its points are: draped as she's posed)
+  if (CLOTHED.test(name)) geo = skirtless(geo, F.L.waist - 0.009);      // (below the waist, its cloth: makeCloth)
   const depth = /^(Drawers|Smalls)/.test(name) ? 2 : /^Leggings/.test(name) ? 1 : 0;
   if (depth) { m.polygonOffset = true; m.polygonOffsetFactor = depth; m.polygonOffsetUnits = 2 * depth; }
   const sm = skinned(F, geo, m); sm.castShadow = true; sm.receiveShadow = false; ink(sm, INK_W, F, null, HEM_R);
-  if (geo.userData.built) sm.userData.drapeKey = name + '|';      // (as built: no drape yet)
   F.gm[name] = sm; return sm;
 }
-// ── Fenwick: her skirt draped as she's posed (F.setDrape(pose): 'otk', 'bed', 'edge', 'table', 'after', or none). Draped in Blender for
-// each pose, down and raised (tools/blender/bake_drapes.py); here each point of the skirt as built is moved by its offset for the pose, and
-// its normals and outline made again. Nothing moves it between: the scene's cut to black when it changes. ──
-function ownGeo(geo) {
-  const g = new THREE.BufferGeometry(); g.setIndex(geo.index); g.name = geo.name;
-  for (const k in geo.attributes) g.setAttribute(k, /^(position|normal|skinIndex|skinWeight)$/.test(k) ? geo.attributes[k].clone() : geo.attributes[k]);
-  g.morphAttributes = geo.morphAttributes; g.morphTargetsRelative = geo.morphTargetsRelative;
-  g.userData = Object.assign({}, geo.userData, { shared: false, hull: undefined, built: geo }); return g;
+const CLOTHED = /^(Dress|Kirtle|Chemise|NightDress)(Long|Elbow)?$/;
+// (a garment as built, without its skirt: the triangles wholly below the waist and not of a sleeve taken out, for its cloth to hang there)
+function skirtless(geo, y) {
+  const p = geo.attributes.position, reg = geo.attributes.region, ix = geo.index.array, keep = [];
+  for (let t = 0; t < ix.length; t += 3) { const a = ix[t], b = ix[t + 1], c = ix[t + 2]; if (p.getY(a) >= y || p.getY(b) >= y || p.getY(c) >= y || (reg && reg.getX(a) > 0.5)) keep.push(a, b, c); }
+  const g = new THREE.BufferGeometry(); g.name = geo.name; for (const k in geo.attributes) g.setAttribute(k, geo.attributes[k]); g.setIndex(keep);
+  g.morphAttributes = geo.morphAttributes; g.morphTargetsRelative = geo.morphTargetsRelative; g.userData = Object.assign({}, geo.userData, { shared: false, hull: undefined }); return g;
 }
-// (the key of the drape she's in: the pose, raised or not)
-const drapeKey = F => (F.drapePose ? F.drapePose + (F.state.top === 'up' ? ':up' : '') : null);
-function applyDrape(F, name) {
-  const m = name && F.gm[name]; if (!m) return;
-  const g = m.geometry, B = g.userData.built; if (!B) return;
-  const key = drapeKey(F), D = /Up$/.test(name) ? null : drapeOf(F.spec.who, name, key), tag = name + '|' + (D ? key : '');
-  if (m.userData.drapeKey === tag) return;
-  const P = g.attributes.position, SI = g.attributes.skinIndex, SW = g.attributes.skinWeight;
-  P.array.set(B.attributes.position.array); SI.array.set(B.attributes.skinIndex.array); SW.array.set(B.attributes.skinWeight.array);
-  if (D && drapeFits(D, B)) {
-    const k = 1 / D.scale;
-    for (let q = 0; q < D.verts.length; q++) {
-      const i = D.verts[q], w = D.skin[q * 3 + 2] / 255;
-      P.setXYZ(i, P.getX(i) + D.off[q * 3] * k, P.getY(i) + D.off[q * 3 + 1] * k, P.getZ(i) + D.off[q * 3 + 2] * k);
-      SI.setXYZW(i, D.skin[q * 3], D.skin[q * 3 + 1], 0, 0); SW.setXYZW(i, w, 1 - w, 0, 0);
+// ── Fenwick: her skirt's cloth. Below the waist her skirt (or kirtle, or nightclothes) is a sheet of cloth simulated live: a grid of points,
+// columns round her and rows from the waist to the hem, its shape at rest taken from the garment as built (so standing it's the skirt as it
+// was made, its folds and all). The top row is held to the waist where the bodice ends; the rest falls with gravity (verlet, position-based:
+// each point kept its distance from its neighbours across, down and diagonally, and from the next but one, which is the cloth's stiffness),
+// over her (her body as spheres, measured from her own body and carried by her bones), over Silas, the furniture and the floor. It settles
+// at once whenever it's put somewhere new (a pose, raised or let down: always behind a cut); after that it's damped hard, so it follows her
+// as she moves without twitching. Raised, the back is rolled up to the small of her back: a smooth roll laid there, not simulated, wound
+// from the cloth's own rows, with the sides hanging free from its ends into the front. ──
+const CL = { NC: 56, NR: 30, FOLDS: 14, M: 0.02, MS: 0.02 };
+const _cv = new V3(), _cv2 = new V3(), _cm = new THREE.Matrix4(), _cm2 = new THREE.Matrix4();
+// (the points of a mesh as her build shapes them: its shape keys at their amounts, in the model's space)
+function shapedPos(geo, keys) {
+  const P = Float32Array.from(geo.attributes.position.array), M = geo.morphAttributes && geo.morphAttributes.position, dict = geo.userData.keys || {};
+  if (M) for (const k in dict) { const w = keys[k] || 0, D = M[dict[k]]; if (!w || !D) continue; const d = D.array; for (let i = 0; i < P.length; i++) P[i] += w * d[i]; }
+  return P;
+}
+// (a spatial hash of points, for nearest-point questions)
+function pointHash(P, n, cell) {
+  const H = new Map(), key = (x, y, z) => ((x * 73856093) ^ (y * 19349663) ^ (z * 83492791)) | 0;
+  for (let i = 0; i < n; i++) { const k = key(Math.floor(P[i * 3] / cell), Math.floor(P[i * 3 + 1] / cell), Math.floor(P[i * 3 + 2] / cell)); let a = H.get(k); if (!a) H.set(k, (a = [])); a.push(i); }
+  return { near(x, y, z, r, fn) { const c0 = Math.floor((x - r) / cell), c1 = Math.floor((x + r) / cell), d0 = Math.floor((y - r) / cell), d1 = Math.floor((y + r) / cell), e0 = Math.floor((z - r) / cell), e1 = Math.floor((z + r) / cell);
+    for (let a = c0; a <= c1; a++) for (let b = d0; b <= d1; b++) for (let c = e0; c <= e1; c++) { const L = H.get(key(a, b, c)); if (L) for (const i of L) fn(i); } } };
+}
+// Her body (or his) as spheres, for cloth to lie on: centres inside the body, each as big as reaches its surface, chosen so together they
+// cover it (the trunk from below the chest down, the legs; not the arms, which move through a skirt as they will), each carried by the bone
+// of the body's nearest point. Measured once for each body and build.
+const SPHERES = new Map();
+function bodySpheres(F, extra) {
+  extra = (extra || []).filter(k => F.model.mesh[k]);
+  const key = F.spec.sex + JSON.stringify(F.keys || {}) + extra.join(',');
+  if (SPHERES.has(key)) return SPHERES.get(key);
+  // (her body's points, and those of what she has on close over it that a skirt raised off her lies on: her drawers, leggings)
+  const geos = [F.model.mesh.Body.geo, ...extra.map(k => F.model.mesh[k].geo)], cat = f => { const a = geos.map(f), out = new Float32Array(a.reduce((t, x) => t + x.length, 0)); let o = 0; for (const x of a) { out.set(x, o); o += x.length; } return out; };
+  const P = cat(g => shapedPos(g, F.keys || {})), N = cat(g => g.attributes.normal.array), n = P.length / 3, SI = cat(g => g.attributes.skinIndex.array), SW = cat(g => g.attributes.skinWeight.array);
+  const names = F.bones.map(b => b.name), dom = new Int16Array(n), top = F.L.armpit + 0.02;
+  for (let i = 0; i < n; i++) { let b = 0; for (let k = 1; k < 4; k++) if (SW[i * 4 + k] > SW[i * 4 + b]) b = k; dom[i] = SI[i * 4 + b]; }
+  const use = i => P[i * 3 + 1] < top && !ARM_BONES.test(names[dom[i]]), H = pointHash(P, n, 0.03);
+  let x0 = 9, x1 = -9, z0 = 9, z1 = -9; for (let i = 0; i < n; i++) if (use(i)) { x0 = Math.min(x0, P[i * 3]); x1 = Math.max(x1, P[i * 3]); z0 = Math.min(z0, P[i * 3 + 2]); z1 = Math.max(z1, P[i * 3 + 2]); }
+  const cand = [], st = 0.016;
+  for (let x = x0; x <= x1; x += st) for (let y = 0.02; y <= top; y += st) for (let z = z0; z <= z1; z += st) {
+    let best = -1, bd = 1e9; const nb = [];
+    for (const r of [0.03, 0.07, 0.12]) { nb.length = 0; H.near(x, y, z, r, i => { const dx = P[i * 3] - x, dy = P[i * 3 + 1] - y, dz = P[i * 3 + 2] - z, d = dx * dx + dy * dy + dz * dz; if (d < r * r) nb.push([d, i]); if (d < bd) { bd = d; best = i; } }); if (best >= 0 && bd < r * r) break; }
+    if (best < 0 || !use(best) || bd > 0.12 * 0.12) continue;
+    // (inside: on the inner side of each of the nearest few points of its surface, not just the one)
+    nb.sort((a, b) => a[0] - b[0]); let inside = true;
+    for (const [, i] of nb.slice(0, 6)) if ((x - P[i * 3]) * N[i * 3] + (y - P[i * 3 + 1]) * N[i * 3 + 1] + (z - P[i * 3 + 2]) * N[i * 3 + 2] >= 0) { inside = false; break; }
+    const d = Math.sqrt(bd);
+    if (inside && d > 0.01) cand.push([x, y, z, d, best]);
+  }
+  cand.sort((a, b) => b[3] - a[3]);
+  const cov = new Uint8Array(n), out = [];
+  for (const [x, y, z, r, i0] of cand) {
+    let k = 0; const hit = [];
+    H.near(x, y, z, r + 0.008, i => { if (cov[i] || !use(i)) return; const dx = P[i * 3] - x, dy = P[i * 3 + 1] - y, dz = P[i * 3 + 2] - z; if (dx * dx + dy * dy + dz * dz <= (r + 0.008) * (r + 0.008)) { k++; hit.push(i); } });
+    if (k < 4) continue;
+    for (const i of hit) cov[i] = 1;
+    out.push({ c: new V3(x, y, z), r, bone: dom[i0] });
+  }
+  SPHERES.set(key, out); return out;
+}
+// (where each of a figure's spheres is now, in another's space: centre and radius)
+function spheresIn(G, inv, out, pad, extra) {
+  const ek = (extra || []).join(',');
+  if (!G._sph || G._sphKey !== ek) { G._sphKey = ek; G._sph = bodySpheres(G, extra).map(s => ({ s, local: s.c.clone().applyMatrix4(G.bindM).applyMatrix4(G.skeleton.boneInverses[s.bone]) })); }
+  const S = G._sph;
+  const k = G.root.matrixWorld.getMaxScaleOnAxis() / Math.max(1e-6, 1 / inv.getMaxScaleOnAxis());
+  for (const q of S) { _cv.copy(q.local).applyMatrix4(G.bones[q.s.bone].matrixWorld).applyMatrix4(inv); out.push(_cv.x, _cv.y, _cv.z, q.s.r * k + pad); }
+}
+// The furniture near her, as boxes: what the room's made of (each a box), found when the cloth's put somewhere.
+function clothBoxes(F) {
+  let top = F.root; while (top.parent) top = top.parent;
+  const hp = F.bone.hips.getWorldPosition(new V3()), out = [];
+  top.traverse(o => {
+    if (!o.isMesh || !o.geometry || o.geometry.type !== 'BoxGeometry' || o.userData.noCloth) return;
+    let p = o; while (p && !p.userData.figure && p.visible) p = p.parent; if (p) return;      // (not a figure's own, nor anything hidden, itself or what it's in)
+    const g = o.geometry.parameters; o.updateMatrixWorld(true); const c = o.getWorldPosition(new V3()), sc = new V3().setFromMatrixScale(o.matrixWorld);
+    const half = new V3(g.width / 2 * sc.x, g.height / 2 * sc.y, g.depth / 2 * sc.z);
+    if (c.distanceTo(hp) > 1.8 + half.length()) return;
+    out.push({ m: o.matrixWorld.clone(), half: new V3(g.width / 2, g.height / 2, g.depth / 2) });
+  });
+  return out;
+}
+// The cloth for a garment: its grid, its rest shape from the garment as built, the points it's held by at the waist.
+function makeCloth(F, name) {
+  const L = F.L, gm = F.gm[name], geo = F.model.mesh[name].geo, NC = CL.NC, NR = CL.NR;
+  const hem = /^Chemise/.test(name) ? L.chemiseHem : /^NightDress/.test(name) ? L.nightHem : /^Kirtle/.test(name) ? L.kirtleHem : L.skirtHem;
+  const y0 = L.waist - 0.006, cx = L.skirtC[0], cz = L.skirtC[1], P = shapedPos(geo, F.keys || {}), n = P.length / 3;
+  const SI = gm.geometry.attributes.skinIndex.array, SW = gm.geometry.attributes.skinWeight.array, names = F.bones.map(b => b.name);
+  const arm = new Uint8Array(n); for (let i = 0; i < n; i++) { let b = 0; for (let k = 1; k < 4; k++) if (SW[i * 4 + k] > SW[i * 4 + b]) b = k; arm[i] = ARM_BONES.test(names[SI[i * 4 + b]]) ? 1 : 0; }
+  // (its outline at each height and angle round her: the furthest of the garment's own points there)
+  const R = new Float32Array(NC * (NR + 1)).fill(-1), dy = (y0 - hem) / NR;
+  for (let i = 0; i < n; i++) {
+    if (arm[i]) continue; const x = P[i * 3] - cx, y = P[i * 3 + 1], z = P[i * 3 + 2] - cz; if (y > y0 + dy || y < hem - dy) continue;
+    const r = Math.hypot(x, z), a = (Math.atan2(z, x) + 2 * Math.PI) % (2 * Math.PI), c = Math.round(a / (2 * Math.PI) * NC) % NC, row = Math.round((y0 - y) / dy);
+    for (const rr of [row - 1, row, row + 1]) if (rr >= 0 && rr <= NR && Math.abs(y0 - rr * dy - y) < dy * 0.75) { const k = c * (NR + 1) + rr; if (r > R[k]) R[k] = r; }
+  }
+  for (let it = 0; it < 4; it++) for (let c = 0; c < NC; c++) for (let r = 0; r <= NR; r++) {      // (gaps filled from round about)
+    const k = c * (NR + 1) + r; if (R[k] > 0) continue; let s = 0, w = 0;
+    for (const [dc, dr] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { const cc = (c + dc + NC) % NC, r2 = r + dr; if (r2 < 0 || r2 > NR) continue; const v = R[cc * (NR + 1) + r2]; if (v > 0) { s += v; w++; } }
+    if (w) R[k] = s / w;
+  }
+  // (the rest shape: that outline, with soft folds below the hips; the points' own rest positions are what its pattern's drawn by)
+  const B = new Float32Array(NC * (NR + 1) * 3), hipY = L.skirtC[2];
+  for (let c = 0; c < NC; c++) for (let r = 0; r <= NR; r++) {
+    const k = c * (NR + 1) + r, a = c / NC * 2 * Math.PI, y = y0 - r * dy, f = 0.06 * ss(hipY, hipY - 0.18, y), rad = Math.max(R[k], 0.05) * (1 + f * Math.cos(CL.FOLDS * a));
+    B[k * 3] = cx + rad * Math.cos(a); B[k * 3 + 1] = y; B[k * 3 + 2] = cz + rad * Math.sin(a);
+  }
+  // (the constraints: across, down, both diagonals, and the next but one each way)
+  const C = [], idx = (c, r) => ((c + NC) % NC) * (NR + 1) + r, dist = (i, j) => Math.hypot(B[i * 3] - B[j * 3], B[i * 3 + 1] - B[j * 3 + 1], B[i * 3 + 2] - B[j * 3 + 2]);
+  const add = (i, j, k) => C.push(i, j, dist(i, j), k);
+  for (let c = 0; c < NC; c++) for (let r = 0; r <= NR; r++) {
+    const i = idx(c, r); add(i, idx(c + 1, r), 1);
+    if (r < NR) { add(i, idx(c, r + 1), 1); add(i, idx(c + 1, r + 1), 0.85); add(idx(c + 1, r), idx(c, r + 1), 0.85); }
+    if (r < NR - 1) add(i, idx(c, r + 2), 0.3); add(i, idx(c + 2, r), 0.3);
+  }
+  // (and each point tethered to the top of its own column: never further from the waist than the cloth between them is long, so the skirt
+  // can't slide round her, its back off her seat, however gravity pulls across her)
+  const tether = new Float32Array(NC * (NR + 1));
+  for (let c = 0; c < NC; c++) { let L_ = 0; for (let r = 1; r <= NR; r++) { L_ += dist(idx(c, r - 1), idx(c, r)); tether[idx(c, r)] = L_ * 1.01; } }
+  // (the waist: each top point held where the garment's nearest point is, skinned as it is)
+  const pin = [];
+  for (let c = 0; c < NC; c++) {
+    const k = idx(c, 0); let best = -1, bd = 1e9;
+    for (let i = 0; i < n; i++) { if (arm[i]) continue; const d = (P[i * 3] - B[k * 3]) ** 2 + (P[i * 3 + 1] - B[k * 3 + 1]) ** 2 + (P[i * 3 + 2] - B[k * 3 + 2]) ** 2; if (d < bd) { bd = d; best = i; } }
+    const w = Array.from(SW.slice(best * 4, best * 4 + 4)), ws = w.reduce((a, b) => a + b, 0) || 1;      // (to one: see DQS_PARS)
+    pin.push({ k, bind: new V3(B[k * 3], B[k * 3 + 1], B[k * 3 + 2]), j: Array.from(SI.slice(best * 4, best * 4 + 4)), w: w.map(v => v / ws) });
+  }
+  // (the mesh: the grid's quads, its points' rest positions for its pattern)
+  const N = NC * (NR + 1), X = new Float32Array(N * 3), Xp = new Float32Array(N * 3), Nm = new Float32Array(N * 3), I = [];
+  for (let c = 0; c < NC; c++) for (let r = 0; r < NR; r++) { const a = idx(c, r), b = idx(c + 1, r), d = idx(c, r + 1), e = idx(c + 1, r + 1); I.push(a, b, d, b, e, d); }
+  const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.BufferAttribute(X, 3)); g.setAttribute('normal', new THREE.BufferAttribute(Nm, 3));
+  g.setAttribute('bind', new THREE.BufferAttribute(B, 3)); g.setAttribute('region', new THREE.BufferAttribute(new Float32Array(N), 1)); g.setIndex(I);
+  const dm = gm.material, m = tmat('#ffffff', { side: THREE.DoubleSide, rim: '#3a3028', rimK: 0.55, pattern: 'dressG', bindAttr: true, unique: true });
+  m.polygonOffset = true; m.polygonOffsetFactor = -1; m.polygonOffsetUnits = -2;      // (over her drawers wherever it lies close on them)
+  { const prev = m.onBeforeCompile, key = m.customProgramCacheKey();      // (and drawn a few millimetres out from where it is: its own thickness)
+    m.onBeforeCompile = (sh, r) => { prev(sh, r); sh.vertexShader = sh.vertexShader.replace('#include <begin_vertex>', '#include <begin_vertex>\n  transformed += normalize(objectNormal) * 0.004;'); };
+    m.customProgramCacheKey = () => key + '|cloth'; }
+  for (const k in dm.userData.u) if (k !== 'uHide' && k !== 'uCut') m.userData.u[k] = dm.userData.u[k];
+  m.color.copy(dm.color);
+  const mesh = new THREE.Mesh(g, m); mesh.frustumCulled = false; mesh.castShadow = true; mesh.userData.figure = F;
+  const hull = new THREE.Mesh(g, CLOTH_INK); hull.frustumCulled = false; mesh.add(hull);
+  F.root.add(mesh);
+  return { name, mesh, hull, g, X, Xp, Nm, B, C: Float32Array.from(C), tether, pin, NC, NR, hem, y0, live: false, key: null, boxes: [], sph: [], arm };
+}
+const CLOTH_INK = (() => {
+  const m = new THREE.MeshBasicMaterial(Object.assign({ color: srgb(INK), side: THREE.BackSide }, HULL_OFS));
+  m.onBeforeCompile = sh => { sh.vertexShader = sh.vertexShader.replace('#include <begin_vertex>', '#include <begin_vertex>\n  transformed += normalize(normal) * ' + (INK_W + 0.004).toFixed(4) + ';'); };
+  return m;
+})();
+// (a point in the model's space, skinned by the given bones and weights, in the figure's own space now)
+function skinPoint(F, p, J, W, inv, out) {
+  _cv2.copy(p).applyMatrix4(F.bindM); out.set(0, 0, 0);
+  for (let k = 0; k < J.length; k++) { if (!W[k]) continue; _cm2.multiplyMatrices(F.bones[J[k]].matrixWorld, F.skeleton.boneInverses[J[k]]); out.addScaledVector(_cv.copy(_cv2).applyMatrix4(_cm2), W[k]); }
+  return out.applyMatrix4(inv);
+}
+// Raised: the back of the skirt rolled up to the small of her back. Each column within about 60° of the middle of her back is wound from the
+// row level with the roll down to the hem round a tube lying across her back just above her seat (lower toward its ends), the hem at its
+// heart; the roll as thick as there's cloth in it. Its points are laid there, carried by her hips; the cloth above it, from her waist, and
+// all of the rest, the sides and the front, is free, and falls from it.
+function rollOf(F, C) {
+  const L = F.L, NC = C.NC, NR = C.NR, B = C.B, cx = L.skirtC[0], cz = L.skirtC[1], out = new Map(), span = 1.05;
+  const yR = L.rollY, dy = (C.y0 - C.hem) / NR, rTop = Math.max(1, Math.ceil((C.y0 - yR) / dy));
+  const len = (C.hem < yR ? (yR - C.hem) : 0.05) * 1.05, rho = Math.sqrt(len * 0.0055 / Math.PI + 0.012 * 0.012);
+  for (let c = 0; c < NC; c++) {
+    const a = c / NC * 2 * Math.PI, d = Math.atan2(Math.sin(a + Math.PI / 2), Math.cos(a + Math.PI / 2));      // (from the middle of her back)
+    if (Math.abs(d) > span) continue;
+    const e = Math.abs(d) / span, rr = rho * (1 - 0.45 * e * e), yc = yR - 0.035 * e * e;
+    const k0 = c * (NR + 1) + rTop, base = Math.hypot(B[k0 * 3] - cx, B[k0 * 3 + 2] - cz) * 0.97;      // (the skirt's own outline there, over her)
+    const Nv = new V3(Math.cos(a), 0, Math.sin(a)), Up = new V3(0, 1, 0), ctr = new V3(cx, yc, cz).addScaledVector(Nv, base + rr);
+    let th = Math.PI * 0.95, s = 0;
+    for (let r = rTop; r <= NR; r++) {
+      const k = c * (NR + 1) + r, rad = rr * (1 - 0.62 * Math.min(1, s / len)) + 0.003;
+      out.set(k, ctr.clone().addScaledVector(Nv, rad * Math.cos(th)).addScaledVector(Up, rad * Math.sin(th)));
+      const step = r < NR ? Math.hypot(B[(k + 1) * 3] - B[k * 3], B[(k + 1) * 3 + 1] - B[k * 3 + 1], B[(k + 1) * 3 + 2] - B[k * 3 + 2]) : 0;
+      s += step; th += step / Math.max(rad, 0.006);
     }
-    weldedNormals(g);
-  } else { g.attributes.normal.array.set(B.attributes.normal.array); g.attributes.normal.needsUpdate = true; }
-  P.needsUpdate = SI.needsUpdate = SW.needsUpdate = true;
-  // (its outline made again, round it as it now lies)
-  const h = m.userData.hull; if (h) { h.parent.remove(h); h.geometry.dispose(); }
-  const nh = ink(m, INK_W, F, null, HEM_R); nh.visible = m.visible; m.userData.drapeKey = tag;
+  }
+  return out;
 }
-// (normals the same at every copy of a point, where the export split it: no seams in the shading)
-function weldedNormals(g) {
-  const B = g.userData.built, p = g.attributes.position, n = g.attributes.normal, ix = g.index.array;
-  if (!B.userData.weld) {
-    const at = new Map(), id = new Uint32Array(p.count);
-    for (let i = 0; i < p.count; i++) { const k = B.attributes.position.getX(i).toFixed(5) + ',' + B.attributes.position.getY(i).toFixed(5) + ',' + B.attributes.position.getZ(i).toFixed(5); if (!at.has(k)) at.set(k, at.size); id[i] = at.get(k); }
-    B.userData.weld = { id, n: at.size };
+// (her bones for where the skirt starts as it's put somewhere: her hips above, both thighs alike below, as a skirt hangs between her legs)
+function clothStart(F, C, inv, k, out) {
+  const L = F.L, y = C.B[k * 3 + 1], h = clamp((L.skirtC[2] + 0.02 - y) / (L.skirtC[2] + 0.02 - (L.crotch - 0.11)), 0, 1), hs = h * h * (3 - 2 * h);
+  const kb = 0.6 * clamp((L.knee + 0.14 - y) / 0.26, 0, 1), bi = n => F.bones.indexOf(F.bone[n]);
+  return skinPoint(F, _cv.set(C.B[k * 3], y, C.B[k * 3 + 2]).clone(), [bi('hips'), bi('thighL'), bi('thighR'), bi('shinL'), bi('shinR')], [1 - hs, hs * (1 - kb) / 2, hs * (1 - kb) / 2, hs * kb / 2, hs * kb / 2], inv, out);
+}
+const FIGS = new Set();
+// (what's showing under her raised skirt, that it lies on: her drawers or smalls, her leggings, up or lowered)
+const clothUnder = F => { const w = F.spec.outfit === 'period' ? periodNames(F) : {}; return [w.under, w.bottoms].filter(Boolean); };
+// A step of the cloth: held at the waist (and, raised, in its roll), falling, kept its shape, out of her, Silas, the furniture and the floor.
+// Put somewhere new (a pose; raised or let down; moved bodily), it's settled at once, behind the cut: she's brought into the pose from
+// standing, her hips where the pose has them and the rest of her easing from her rest pose into it, the cloth (starting as the skirt is on
+// her, standing) following as it would, so it ends where it would hang on her, never started through her legs; then it settles.
+function tickCloth(F, dt) {
+  const C = F.cloth; if (!C || !C.mesh.visible) return;
+  F.root.updateMatrixWorld(true);
+  const inv = new THREE.Matrix4().copy(F.root.matrixWorld).invert(), X = C.X, Xp = C.Xp, N = X.length / 3, up = F.state.top === 'up', key = (F.drapePose || '-') + (up ? ':up' : '');
+  const W = C.W || (C.W = new Float32Array(N)), hb = F.bones.indexOf(F.bone.hips), R = up ? C.roll || (C.roll = rollOf(F, C)) : null;
+  const pins = () => { const T = new Map(); for (const q of C.pin) T.set(q.k, skinPoint(F, q.bind, q.j, q.w, inv, new V3())); if (R) for (const [k, p] of R) T.set(k, skinPoint(F, p, [hb], [1], inv, new V3())); return T; };
+  let T = pins();
+  const t0 = T.get(C.pin[0].k), jump = !C.live || C.key !== key || !C.last || C.last.distanceTo(t0) > 0.2;
+  // (what it lies on besides her: anyone near her, the furniture, the floor; her own spheres each step, as she moves)
+  const hp = F.bone.hips.getWorldPosition(new V3()), others = [];
+  for (const G of FIGS) { if (G === F || !G.root.parent || !G.root.visible || !G.model) continue; if (G.bone.hips.getWorldPosition(new V3()).distanceTo(hp) > 2.2) continue; spheresIn(G, inv, others, CL.MS); }
+  if (jump) C.boxes = clothBoxes(F);
+  const BX = C.boxes.map(b => { const m = new THREE.Matrix4().multiplyMatrices(inv, b.m), mi = m.clone().invert(), sx = new V3().setFromMatrixColumn(m, 0).length(), sy = new V3().setFromMatrixColumn(m, 1).length(), sz = new V3().setFromMatrixColumn(m, 2).length();
+    const h = [b.half.x + CL.M / sx, b.half.y + CL.M / sy, b.half.z + CL.M / sz], bb = new THREE.Box3();
+    for (const a of [-1, 1]) for (const b_ of [-1, 1]) for (const c of [-1, 1]) bb.expandByPoint(new V3(a * h[0], b_ * h[1], c * h[2]).applyMatrix4(m));
+    return { m, mi, h, bb }; });
+  const fn = new V3(0, 1, 0).transformDirection(inv), f0 = new V3(0, 0.004, 0).applyMatrix4(inv), fd = fn.dot(f0);
+  const cell = 0.1, skey = (a, b, c) => ((a * 73856093) ^ (b * 19349663) ^ (c * 83492791)) | 0;
+  let S = [], SH = new Map();
+  const colliders = () => {
+    S = []; spheresIn(F, inv, S, CL.M, up ? clothUnder(F) : []); for (let q = 0; q < others.length; q++) S.push(others[q]); SH = new Map();
+    for (let q = 0; q < S.length; q += 4) { const r = S[q + 3]; for (let a = Math.floor((S[q] - r) / cell); a <= Math.floor((S[q] + r) / cell); a++) for (let b = Math.floor((S[q + 1] - r) / cell); b <= Math.floor((S[q + 1] + r) / cell); b++) for (let c = Math.floor((S[q + 2] - r) / cell); c <= Math.floor((S[q + 2] + r) / cell); c++) { const k = skey(a, b, c); let L_ = SH.get(k); if (!L_) SH.set(k, (L_ = [])); L_.push(q); } }
+  };
+  // (cloth on something holds there: pushed out of it, and what it's moved across it since the last step mostly undone, so it doesn't slide
+  // off her thighs into the gap between them, or creep)
+  const fric = (i, nx, ny, nz) => {
+    const mx = X[i * 3] - Xp[i * 3], my = X[i * 3 + 1] - Xp[i * 3 + 1], mz = X[i * 3 + 2] - Xp[i * 3 + 2], dn = mx * nx + my * ny + mz * nz, f = 0.85;
+    X[i * 3] -= (mx - dn * nx) * f; X[i * 3 + 1] -= (my - dn * ny) * f; X[i * 3 + 2] -= (mz - dn * nz) * f;
+  };
+  const collide = i => {
+    let x = X[i * 3], y = X[i * 3 + 1], z = X[i * 3 + 2], hit = false, nx = 0, ny = 0, nz = 0;
+    const L_ = SH.get(skey(Math.floor(x / cell), Math.floor(y / cell), Math.floor(z / cell)));
+    if (L_) for (const q of L_) { const dx = x - S[q], dy = y - S[q + 1], dz = z - S[q + 2], r = S[q + 3], d2 = dx * dx + dy * dy + dz * dz; if (d2 < r * r) { const d = Math.sqrt(d2) || 1e-6, k = r / d; x = S[q] + dx * k; y = S[q + 1] + dy * k; z = S[q + 2] + dz * k; nx += dx / d; ny += dy / d; nz += dz / d; hit = true; } }
+    for (const b of BX) {
+      if (x < b.bb.min.x || x > b.bb.max.x || y < b.bb.min.y || y > b.bb.max.y || z < b.bb.min.z || z > b.bb.max.z) continue;
+      _cv.set(x, y, z).applyMatrix4(b.mi); const px = b.h[0] - Math.abs(_cv.x), py = b.h[1] - Math.abs(_cv.y), pz = b.h[2] - Math.abs(_cv.z);
+      if (px > 0 && py > 0 && pz > 0) {
+        _cv2.set(0, 0, 0); if (px <= py && px <= pz) { _cv.x = Math.sign(_cv.x) * b.h[0]; _cv2.x = Math.sign(_cv.x); } else if (py <= pz) { _cv.y = Math.sign(_cv.y) * b.h[1]; _cv2.y = Math.sign(_cv.y); } else { _cv.z = Math.sign(_cv.z) * b.h[2]; _cv2.z = Math.sign(_cv.z); }
+        _cv.applyMatrix4(b.m); _cv2.transformDirection(b.m); x = _cv.x; y = _cv.y; z = _cv.z; nx += _cv2.x; ny += _cv2.y; nz += _cv2.z; hit = true;
+      }
+    }
+    const fl = fn.x * x + fn.y * y + fn.z * z - fd; if (fl < 0) { x -= fn.x * fl; y -= fn.y * fl; z -= fn.z * fl; nx += fn.x; ny += fn.y; nz += fn.z; hit = true; }
+    X[i * 3] = x; X[i * 3 + 1] = y; X[i * 3 + 2] = z;
+    if (hit) { const l = Math.hypot(nx, ny, nz) || 1; fric(i, nx / l, ny / l, nz / l); }
+  };
+  const g = new V3(0, -9.8, 0).transformDirection(inv).multiplyScalar(9.8 / F.root.matrixWorld.getMaxScaleOnAxis()), CC = C.C, R1 = C.NR + 1, TE = C.tether;
+  const run = (steps, h, damp, its) => {
+    W.fill(1); for (const k of T.keys()) W[k] = 0;
+    for (let s = 0; s < steps; s++) {
+      for (let k = 0; k < N; k++) {
+        if (!W[k]) { const p = T.get(k); X[k * 3] = Xp[k * 3] = p.x; X[k * 3 + 1] = Xp[k * 3 + 1] = p.y; X[k * 3 + 2] = Xp[k * 3 + 2] = p.z; continue; }
+        for (let a = 0; a < 3; a++) { const v = (X[k * 3 + a] - Xp[k * 3 + a]) * damp; Xp[k * 3 + a] = X[k * 3 + a]; X[k * 3 + a] += v + g.getComponent(a) * h * h; }
+      }
+      for (let it = 0; it < its; it++) {
+        for (let q = 0; q < CC.length; q += 4) {
+          const i = CC[q], j = CC[q + 1], wi = W[i], wj = W[j], ws = wi + wj; if (!ws) continue;
+          const dx = X[j * 3] - X[i * 3], dy = X[j * 3 + 1] - X[i * 3 + 1], dz = X[j * 3 + 2] - X[i * 3 + 2], d = Math.sqrt(dx * dx + dy * dy + dz * dz) || 1e-9;
+          const rest = CC[q + 2], k = CC[q + 3] * (d < rest ? 0.7 : 1) * (d - rest) / (d * ws);      // (it gives a little more easily to being pushed together, into folds, than to stretching)
+          X[i * 3] += dx * k * wi; X[i * 3 + 1] += dy * k * wi; X[i * 3 + 2] += dz * k * wi; X[j * 3] -= dx * k * wj; X[j * 3 + 1] -= dy * k * wj; X[j * 3 + 2] -= dz * k * wj;
+        }
+        for (let k = 0; k < N; k++) {
+          if (!W[k]) continue; const top = k - (k % R1);      // (tethered to the waist, at the top of its column)
+          const dx = X[k * 3] - X[top * 3], dy = X[k * 3 + 1] - X[top * 3 + 1], dz = X[k * 3 + 2] - X[top * 3 + 2], d = Math.sqrt(dx * dx + dy * dy + dz * dz);
+          if (d > TE[k]) { const f = TE[k] / d; X[k * 3] = X[top * 3] + dx * f; X[k * 3 + 1] = X[top * 3 + 1] + dy * f; X[k * 3 + 2] = X[top * 3 + 2] + dz * f; }
+          collide(k);
+        }
+      }
+    }
+  };
+  if (jump) {
+    // (from standing into the pose: every bone but her hips eased from rest to where the pose has it)
+    const fin = F.bones.map(b => [b.quaternion.clone(), b.position.clone()]), I = new THREE.Quaternion();
+    const at = t => { F.bones.forEach((b, i) => { if (i === hb) return; b.quaternion.copy(I).slerp(fin[i][0], t); b.position.copy(F.rest0[b.name]).lerp(fin[i][1], t); }); F.root.updateMatrixWorld(true); };
+    at(0); T = pins();
+    const q = new V3(); for (let k = 0; k < N; k++) { skinPoint(F, _cv.set(C.B[k * 3], C.B[k * 3 + 1], C.B[k * 3 + 2]).clone(), [hb], [1], inv, q); X[k * 3] = q.x; X[k * 3 + 1] = q.y; X[k * 3 + 2] = q.z; }
+    Xp.set(X);
+    const TN = CL.debugSteps != null ? Math.min(CL.debugSteps, 40) : 40;
+    for (let i = 1; i <= TN; i++) { at(i / TN); T = pins(); colliders(); run(2, 1 / 60, 0.85, 6); }
+    F.bones.forEach((b, i) => { b.quaternion.copy(fin[i][0]); b.position.copy(fin[i][1]); }); F.root.updateMatrixWorld(true); T = pins();
+    colliders(); run(CL.debugSteps != null ? Math.max(0, CL.debugSteps - 40) : 100, 1 / 60, 0.88, 8);
+    C.key = key; C.live = true;
+  } else {
+    // (after: a step a frame (two when frames come slowly), damped hard: it follows her, it doesn't swing about)
+    colliders(); const steps = dt > 1 / 40 ? 2 : 1; run(steps, Math.min(dt, 0.1) / steps, 0.93, 5);
   }
-  const { id, n: nw } = B.userData.weld, acc = new Float32Array(nw * 3), a = new V3(), b = new V3(), c = new V3();
-  for (let t = 0; t < ix.length; t += 3) {
-    a.fromBufferAttribute(p, ix[t]); b.fromBufferAttribute(p, ix[t + 1]); c.fromBufferAttribute(p, ix[t + 2]);
-    c.sub(b); b.sub(a); b.cross(c);
-    for (let e = 0; e < 3; e++) { const w = id[ix[t + e]] * 3; acc[w] += b.x; acc[w + 1] += b.y; acc[w + 2] += b.z; }
+  C.last = T.get(C.pin[0].k).clone();
+  clothNormals(C); C.g.attributes.position.needsUpdate = true; C.g.attributes.normal.needsUpdate = true;
+}
+function clothNormals(C) {
+  const X = C.X, Nm = C.Nm, NC = C.NC, NR = C.NR, R1 = NR + 1;
+  for (let c = 0; c < NC; c++) for (let r = 0; r <= NR; r++) {
+    const k = c * R1 + r, a = ((c + 1) % NC) * R1 + r, b = ((c + NC - 1) % NC) * R1 + r, d = c * R1 + Math.min(NR, r + 1), e = c * R1 + Math.max(0, r - 1);
+    const ux = X[a * 3] - X[b * 3], uy = X[a * 3 + 1] - X[b * 3 + 1], uz = X[a * 3 + 2] - X[b * 3 + 2], vx = X[d * 3] - X[e * 3], vy = X[d * 3 + 1] - X[e * 3 + 1], vz = X[d * 3 + 2] - X[e * 3 + 2];
+    let nx = uy * vz - uz * vy, ny = uz * vx - ux * vz, nz = ux * vy - uy * vx; const l = Math.hypot(nx, ny, nz) || 1;
+    Nm[k * 3] = nx / l; Nm[k * 3 + 1] = ny / l; Nm[k * 3 + 2] = nz / l;
   }
-  for (let i = 0; i < p.count; i++) { const w = id[i] * 3; a.set(acc[w], acc[w + 1], acc[w + 2]).normalize(); n.setXYZ(i, a.x, a.y, a.z); }
-  n.needsUpdate = true;
 }
 // (Fenwick: a chemise, shirt-length, isn't raised by hand: at the table it rides up of itself, and across the knee it goes up when her drawers
 // (or smalls) come down, and down again when they're back up)
@@ -2105,16 +2335,19 @@ function autoTop(F) {
 function dressPeriod(F) {
   autoTop(F);
   const want = periodNames(F), on = new Set(Object.values(want).filter(Boolean));
-  // (under a dress's skirt that's down, her drawers aren't drawn: nothing of them shows, and their frill, weighted to her knees, would come
-  // through the skirt, weighted to her thighs, as her legs bend. Not under a kirtle, nor a chemise, which is shirt-length: they show below it)
-  const hidden = !['kirtle', 'chemise'].includes((F.spec.period || {}).kind) && F.state.top !== 'up' ? want.under : null;
+  // (under a long skirt that's down, her drawers aren't drawn, nor the skin it covers: nothing of them shows, and its cloth lies close
+  // enough over them that they'd come through it. Not under a kirtle or a chemise, which they show below)
+  const covered = F.state.top !== 'up' && !['kirtle', 'chemise'].includes((F.spec.period || {}).kind) && !(F.spec.period || {}).none;
   for (const k of on) garmentPeriod(F, k);
-  for (const k in F.gm) { const m = F.gm[k], v = on.has(k) && k !== hidden; m.visible = v; if (m.userData.hull) m.userData.hull.visible = v; }
+  for (const k in F.gm) { const m = F.gm[k], v = on.has(k) && !(covered && k === want.under); m.visible = v; if (m.userData.hull) m.userData.hull.visible = v; }
   F.clothes = { top: F.gm[want.top], bottoms: want.bottoms ? F.gm[want.bottoms] : null, under: F.gm[want.under] }; F.bootL = F.bootR = F.gm.Boots;
-  F.topName = want.top; applyDrape(F, want.top);
+  F.topName = want.top;
+  // (below the waist, her skirt's cloth: made for the garment she's in, kept while she's in it)
+  if (F.cloth && F.cloth.name !== want.top) { F.root.remove(F.cloth.mesh); F.cloth = null; }
+  if (want.top && CLOTHED.test(want.top) && F.gm[want.top]) { if (!F.cloth) F.cloth = makeCloth(F, want.top); F.cloth.mesh.visible = true; }
   F.layers = (F.spec.period || {}).none ? [] : (F.autoTop ? [] : ['top']).concat(['under'], want.bottoms ? ['bottoms'] : []);
   F.skirt = (F.spec.period || {}).none ? null : (F.spec.period || {}).kind === 'kirtle' ? 'short' : 'long';
-  let hide = 0; for (const k of on) for (const r of PHIDE[k === want.top && F.state.top === 'up' ? k.replace(/Up$/, '') + 'Up' : k] || []) hide |= 1 << R[r];
+  let hide = 0; for (const k of on) for (const r of PHIDE[CLOTHED.test(k) && !covered ? k + 'Up' : k] || []) hide |= 1 << R[r];      // (raised, nothing under the cloth hidden: it hangs clear of her)
   F.skinMat.userData.u.uHide.value = hide;
   // (stockings under a dress, to above the knee; none under leggings)
   const P = F.spec.period || {}; F.skinMat.userData.u.uStock.value.set(0, 0, 0, 0);
@@ -2261,6 +2494,6 @@ function hairTop(F) {
   const b = m ? m.geometry.boundingBox : null, p = new V3(0, b ? b.max.y : 2.12, b ? (b.min.z + b.max.z) * 0.5 * 0.4 : 0);
   H.updateMatrixWorld(true); return H.localToWorld(p);
 }
-const api = { presence, tickPresence, need, adoptHair, adoptDrapes, drapeOf, drapeFits, garmentSig, needDrapes, hairTop, braidTip, hairStyles: () => Object.keys(GLB.hair || {}), tmat, ink, dqs, grip, FINGERS, make, preload, adopt, models: () => Object.keys(GLB.sex), EXPRS, MOUTHS, HEAD_SCALE, OUTFITS, SPOTS, ik2, aim, setWorldQuat, mat, paint, srgb, shade, R };
+const api = { _bodySpheres: bodySpheres, _spheresIn: spheresIn, _CL: CL, presence, tickPresence, need, adoptHair, hairTop, braidTip, hairStyles: () => Object.keys(GLB.hair || {}), tmat, ink, dqs, grip, FINGERS, make, preload, adopt, models: () => Object.keys(GLB.sex), EXPRS, MOUTHS, HEAD_SCALE, OUTFITS, SPOTS, ik2, aim, setWorldQuat, mat, paint, srgb, shade, R };
 root.Figure = api;
 })(typeof window !== 'undefined' ? window : globalThis);
