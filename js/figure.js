@@ -2651,6 +2651,6 @@ function hairTop(F) {
   const b = m ? m.geometry.boundingBox : null, p = new V3(0, b ? b.max.y : 2.12, b ? (b.min.z + b.max.z) * 0.5 * 0.4 : 0);
   H.updateMatrixWorld(true); return H.localToWorld(p);
 }
-const api = { _bodySpheres: bodySpheres, _spheresIn: spheresIn, _CL: CL, presence, tickPresence, need, adoptHair, hairTop, braidTip, hairStyles: () => Object.keys(GLB.hair || {}), tmat, ink, dqs, grip, FINGERS, make, preload, adopt, models: () => Object.keys(GLB.sex), EXPRS, MOUTHS, HEAD_SCALE, OUTFITS, SPOTS, ik2, aim, setWorldQuat, mat, paint, srgb, shade, R };
+const api = { _bodySpheres: bodySpheres, _spheresIn: spheresIn, _CL: CL, carryCloth: F => { if (F.cloth) tickCloth(F, 0); }, presence, tickPresence, need, adoptHair, hairTop, braidTip, hairStyles: () => Object.keys(GLB.hair || {}), tmat, ink, dqs, grip, FINGERS, make, preload, adopt, models: () => Object.keys(GLB.sex), EXPRS, MOUTHS, HEAD_SCALE, OUTFITS, SPOTS, ik2, aim, setWorldQuat, mat, paint, srgb, shade, R };
 root.Figure = api;
 })(typeof window !== 'undefined' ? window : globalThis);

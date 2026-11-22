@@ -38,7 +38,8 @@ body.editing #editor { display: block; } body.editing #hud { display: flex; max-
 body.editing:not(.correcting) #who, body.editing:not(.correcting) #cams, body.editing:not(.correcting) #bar { display: none; }
 #editor .grp { border-top: 1px solid var(--line); margin-top: 10px; padding-top: 6px; } #editor .grp h2 { display: flex; justify-content: space-between; align-items: baseline; margin-top: 4px; }
 #editor .grp h2 a { font-size: 10px; letter-spacing: 0; text-transform: none; cursor: pointer; }
-#editor .sl { display: grid; grid-template-columns: 1fr 112px 46px; gap: 2px 8px; align-items: center; font-size: 12px; margin: 3px 0; }
+#editor .sl { display: grid; grid-template-columns: 54px 1fr 64px; gap: 2px 8px; align-items: center; font-size: 12px; margin: 3px 0; }
+#editor .sl input[type=number] { width: 100%; box-sizing: border-box; font: 11px ui-monospace, monospace; border: 1px solid var(--line); border-radius: 6px; padding: 2px 4px; }
 #editor .sl input[type=range] { width: 100%; accent-color: var(--amber); } #editor .sl span { text-align: right; font: 11px ui-monospace, monospace; color: var(--dim); }
 #editor .sl.changed label { color: #8a4a10; font-weight: 600; } #editor .sl.off { opacity: 0.45; }
 #editor textarea { width: 100%; box-sizing: border-box; height: 120px; font: 11px ui-monospace, monospace; border: 1px solid var(--line); border-radius: 8px; margin-top: 6px; }
@@ -87,14 +88,15 @@ body.editing:not(.correcting) #who, body.editing:not(.correcting) #cams, body.ed
 </div>
 <div id="editor" class="box">
   <h1>Pose editor</h1>
-  <small class="note" style="margin-top:0">Each slider moves a number the posing is placed by, and shows at once. Your changes are kept in this browser and used by the correction test here too. Copy them to keep them for good. Pose, heroine and clothes are on the left; run and cameras above.</small>
-  <h2>Hold</h2>
-  <div class="row"><button id="eHold">Hold still</button><span style="color:var(--dim);font-size:12px">His right hand:</span></div>
-  <div class="row" id="eHand" style="margin-top:5px"></div>
-  <div id="eGroups"></div>
-  <h2>Your changes</h2>
-  <div class="row"><button id="eCopy">Copy settings</button><button id="ePaste">Paste…</button><button id="eReset">Reset all</button></div>
-  <textarea id="eText" spellcheck="false" placeholder="Copied settings appear here; paste settings here and press Paste… to load them."></textarea>
+  <small class="note" style="margin-top:0">Freeze the correction at a moment and reshape it. Drag a dot in the view: blue for the left side, red for the right, white for the middle. The hips move the whole figure; a hand or foot is placed and its arm or leg follows; any other joint turns the bone above it. Click a dot to set its joint exactly below. <b>Copy report</b> gives each joint you changed, its rotation and where it is, to send back to be built in. Nothing here changes the game by itself.</small>
+  <div class="row" style="margin-top:8px"><button id="peOn">Edit pose</button><button id="pePin" class="on" title="Hold both hands where they are while the rest moves">Pin hands</button></div>
+  <h2>Editing</h2><div class="row" id="peWho"></div>
+  <h2>His right hand</h2><div class="row" id="eHand"></div>
+  <small class="note" id="peStatus"></small>
+  <div id="peJoint" style="display:none"><h2 id="peJointName"></h2><div id="peRows"></div><div class="row" style="margin-top:4px"><button id="peResetJ">Reset joint</button><button id="peResetAll">Reset all</button></div></div>
+  <h2>Report</h2>
+  <div class="row"><button id="peReport">Copy report</button><button id="peClear">Forget edits</button></div>
+  <textarea id="eText" spellcheck="false" readonly placeholder="The report appears here, and is copied."></textarea>
 </div>
 </div>
 
@@ -199,7 +201,8 @@ function build() {
   document.body.classList.toggle('correcting', correcting());
   if (!correcting()) view(cfg.view);
   if (ses) ses.st.holdHand = holdHand;
-  refresh(); drawCams(); drawEditor();
+  PE.on = false; PE.sel = null; PE.base = null; PE.drag = null;      // (a new scene: editing stops; edits already made are kept, by moment)
+  refresh(); drawCams(); peRefresh(true);
 }
 // The loop: a turn ended (Silas soothed her and dressed her), or she called her word: a moment, then another round, from where she is now (her
 // marks kept, what she feels fading as it would). Nothing she brings to it changes: each round starts from the sliders.
@@ -283,7 +286,7 @@ function refresh() {
   $('who').value = cfg.who; $('expr').value = cfg.expr;
   seg('outfit', outfitsOf(cfg.who).map(o => [o, o === 'none' ? 'None · nothing on' : o + (Cast.OUTFIT_NOTES[o] ? ' · ' + Cast.OUTFIT_NOTES[o] : '')]), cfg.outfit, v => { cfg.outfit = v; build(); });
   seg('sout', [['dressed', 'Dressed'], ['night', 'Night · shirt and drawers'], ['none', 'None · nothing on']], cfg.sOutfit, v => { cfg.sOutfit = v; build(); });
-  seg('pose', POSES, cfg.pose, v => { const was = cfg.pose; cfg.pose = v; if (BY_SESSION[was] || BY_SESSION[v]) build(); else { for (const k in PROPS) PROPS[k].visible = false; view(cfg.view); drawEditor(); } refresh(); });
+  seg('pose', POSES, cfg.pose, v => { const was = cfg.pose; cfg.pose = v; if (BY_SESSION[was] || BY_SESSION[v]) build(); else { stopEdit(); for (const k in PROPS) PROPS[k].visible = false; view(cfg.view); peRefresh(true); } refresh(); });
   $('poseNote').textContent = NOTES[cfg.pose] || '';
   seg('views', VIEWS.map(v => [v[0], v[1]]), cfg.view, view);
   const [t, b, u, legs, bare] = clothesLabels();
@@ -337,55 +340,167 @@ addEventListener('keydown', e => {
   refresh();
 });
 
-// ── The pose editor (?edit=1; poses.html): sliders over Session.TUNE, by the pose she's in ──
-// (each: [key, label, min, max, step]; a step of 1 over 0–1 is a switch)
-const M = 'm', EDIT = {
-  'otk.her': ['Her across his lap', [['along', 'Out along his thighs', 0.1, 0.5, 0.005], ['side', 'Toward his right (−)', -0.25, 0.1, 0.005], ['height', 'Raised on his lap', -0.06, 0.06, 0.002], ['pitch', 'Tipped head-down', -0.35, 0.35, 0.01], ['yaw', 'Turned toward his knees', -0.5, 0.5, 0.01]]],
-  'otk.rest': ['His left hand · skirt down', [['along', 'Up her back (− to hips)', -0.2, 0.2, 0.005], ['across', 'Round her far side', -0.08, 0.12, 0.005], ['off', 'Off her', 0, 0.05, 0.001], ['toHead', 'Fingers toward her head', -1, 1.5, 0.05], ['round', 'Fingers round her side', 0, 1.5, 0.05], ['elbowAlong', 'Elbow up her back', 0, 0.4, 0.01], ['elbowOut', 'Elbow out to him', -0.1, 0.2, 0.005], ['elbowUp', 'Elbow up', -0.05, 0.25, 0.005], ['grip', 'Hand closed', 0, 1, 0.02]]],
-  'otk.roll': ['His left hand · on the raised roll', [['along', 'Up her back (− to hips)', -0.2, 0.2, 0.005], ['across', 'Round her far side', -0.08, 0.12, 0.005], ['off', 'Off the roll', 0, 0.05, 0.001], ['toHead', 'Fingers toward her head', -1, 1.5, 0.05], ['round', 'Fingers round her side', 0, 1.5, 0.05], ['elbowAlong', 'Elbow up her back', 0, 0.4, 0.01], ['elbowOut', 'Elbow out to him', -0.1, 0.2, 0.005], ['elbowUp', 'Elbow up', -0.05, 0.25, 0.005], ['grip', 'Hand closed', 0, 1, 0.02]]],
-  'otk.hands': ['Her hands on the floor', [['ahead', 'Ahead of her shoulders', -0.1, 0.3, 0.005], ['out', 'Out to her sides', -0.05, 0.2, 0.005], ['height', 'Off the floor', 0, 0.12, 0.002]]],
-  'table.silas': ['Silas beside her', [['auto', 'Fitted automatically', 0, 1, 1], ['side', 'Out from her side', 0.2, 0.8, 0.005], ['along', 'Along toward her head', -0.3, 0.3, 0.005], ['turnIn', 'Turned in to the table', -0.5, 1.2, 0.01], ['back', 'Step back toward her legs', 0, 0.7, 0.01], ['turn', 'Turned with it', 0, 0.8, 0.01], ['lean', 'Leaning in', 0, 0.6, 0.01], ['crouch', 'Crouching', 0, 1, 0.01], ['inn', 'Closer in', 0, 0.14, 0.005]]],
-  'table.rest': ['His left hand on her back', [['along', 'Round toward her far ribs', -0.1, 0.15, 0.005], ['off', 'Off her', 0, 0.05, 0.001], ['elbowBack', 'Elbow back toward him', 0, 0.45, 0.01], ['elbowUp', 'Elbow up', -0.05, 0.35, 0.005], ['grip', 'Hand closed', 0, 1, 0.02]]],
-  'strike': ['His right hand', [['elbowDown', 'Elbow below his shoulder', 0.05, 0.4, 0.005], ['elbowOut', 'Elbow out to his side', -0.1, 0.25, 0.005], ['elbowBack', 'Elbow back', -0.1, 0.2, 0.005], ['raise', 'Raised: hand above elbow', 0.1, 0.4, 0.005], ['raiseLean', 'Raised: leaning toward her', -0.5, 1.2, 0.02], ['rest', 'At rest: off her', 0, 0.05, 0.001], ['off', 'At contact: palm off her', 0, 0.04, 0.001], ['palmBack', 'Wrist behind the palm', 0.04, 0.13, 0.002]]],
-};
-const GROUPS = { otk: ['otk.her', 'otk.rest', 'otk.roll', 'otk.hands', 'strike'], bed: ['otk.her', 'otk.rest', 'otk.roll', 'strike'], table: ['table.silas', 'table.rest', 'strike'] };
-const editing = q.get('edit') === '1', TUNE = Session.TUNE, TUNE0 = Session.TUNE_DEFAULTS, at_ = (o, path) => path.split('.').reduce((a, k) => a[k], o);
+// ── The pose editor (?edit=1; poses.html), after the one in fairy-shoe: the correction frozen at a moment, a dot on each joint of the
+// figure being edited, dragged to reshape it (the hips move the whole figure; a hand or foot is placed and its limb follows; any other joint
+// turns the bone above it), or set exactly; then a report of every joint changed, its rotation and where it is. A preview: what's built in
+// is built in from the report. ──
+const editing = q.get('edit') === '1', R2D = 180 / Math.PI, D2R = Math.PI / 180;
+const PE = { on: false, who: 'f', pin: true, sel: null, base: null, drag: null, saved: {}, key: null, label: '', src: null };
 let holdHand = null;
-function saveTune() { try { localStorage.setItem('fenwick.tune', JSON.stringify(TUNE)); } catch (e) {} }
-function drawEditor() {
-  if (!editing) return; document.body.classList.add('editing');
-  $('eHold').classList.toggle('on', !!cfg.hold);
-  seg('eHand', [['', 'As it goes'], ['raised', 'Raised'], ['contact', 'On her']], holdHand || '', v => { holdHand = v || null; if (ses) ses.st.holdHand = holdHand; drawEditor(); });
-  const el = $('eGroups'); el.innerHTML = '';
-  const groups = GROUPS[cfg.pose];
-  if (!groups) { el.innerHTML = '<small class="note">Choose a correction pose on the left: across the knee on the chair or the bed, or over the table.</small>'; return; }
-  for (const path of groups) {
-    const [title, items] = EDIT[path], obj = at_(TUNE, path), def = at_(TUNE0, path), g = document.createElement('div'); g.className = 'grp';
-    const h = document.createElement('h2'); h.textContent = title; const r = document.createElement('a'); r.textContent = 'reset'; r.onclick = () => { Object.assign(obj, def); saveTune(); drawEditor(); }; h.append(r); g.append(h);
-    for (const [k, label, lo, hi, step] of items) {
-      const row = document.createElement('div'); row.className = 'sl' + (Math.abs(obj[k] - def[k]) > 1e-9 ? ' changed' : '');
-      if (path === 'table.silas' && TUNE.table.silas.auto && ['back', 'turn', 'lean', 'crouch', 'inn'].includes(k)) row.classList.add('off');
-      const l = document.createElement('label'); l.textContent = label; const i = document.createElement('input'); i.type = 'range'; i.min = lo; i.max = hi; i.step = step; i.value = obj[k];
-      const v = document.createElement('span'), show = () => { v.textContent = step === 1 && hi === 1 ? (obj[k] ? 'on' : 'off') : (+obj[k]).toFixed(step < 0.002 ? 3 : step < 0.01 ? 3 : 2); };
-      i.oninput = () => { obj[k] = +i.value; show(); row.classList.toggle('changed', Math.abs(obj[k] - def[k]) > 1e-9); saveTune(); if (k === 'auto') drawEditor(); };
-      show(); row.append(l, i, v); g.append(row);
-    }
-    el.append(g);
-  }
+const fig = w => (w === 'f' ? F : C), whoName = w => (w === 'f' ? Cast.ROSTER[cfg.who].name : 'Silas');
+const EDITABLE = n => !/^(glute|sex)/.test(n) && !/^(index|middle|ring|pinky|thumb)2/.test(n);
+const SMALLJ = n => /^(index|middle|ring|pinky|thumb)/.test(n);
+const NO_DRAG = new Set(['spine', 'thighL', 'thighR']);      // (hung straight off the hips: dragged, they'd turn the whole figure; set them below)
+const ARM = s => ['upperArm' + s, 'foreArm' + s, 'hand' + s], LEG = s => ['thigh' + s, 'shin' + s, 'foot' + s];
+const HAND_CHAIN = { L: new Set(['clavL', ...ARM('L'), 'index1L', 'middle1L', 'ring1L', 'pinky1L', 'thumb1L']), R: new Set(['clavR', ...ARM('R'), 'index1R', 'middle1R', 'ring1R', 'pinky1R', 'thumb1R']) };
+const wpos = o => o.getWorldPosition(new V3()), wquat = o => o.getWorldQuaternion(new THREE.Quaternion());
+const r1 = v => Math.round(v * 10) / 10 || 0, fmt = a => '[' + a.map(r1).join(', ') + ']';
+const eulerDeg = b => [b.rotation.x * R2D, b.rotation.y * R2D, b.rotation.z * R2D];
+function setWQ(bone, q) { bone.quaternion.copy(wquat(bone.parent).invert().multiply(q)); bone.updateMatrixWorld(true); }
+function turnWorld(bone, dq) { setWQ(bone, dq.clone().multiply(wquat(bone))); }
+// (two-bone IK: the end joint of [a, b, c] on target, the middle joint bending the way it already does, each bone turned as little as it can be)
+function limbIK(G, [a, b, c], target) {
+  const A = G.bone[a], B = G.bone[b], Cc = G.bone[c], keep = wquat(Cc), pa = wpos(A), pb = wpos(B), pc = wpos(Cc);
+  const L1 = pa.distanceTo(pb), L2 = pb.distanceTo(pc), d = target.clone().sub(pa), dist = THREE.MathUtils.clamp(d.length(), Math.abs(L1 - L2) + 1e-4, (L1 + L2) * 0.9999); d.normalize();
+  const bend = pb.clone().sub(pa); bend.addScaledVector(d, -bend.dot(d)); if (bend.lengthSq() < 1e-10) bend.set(0, 1, 0).cross(d); bend.normalize();
+  const cosA = THREE.MathUtils.clamp((L1 * L1 + dist * dist - L2 * L2) / (2 * L1 * dist), -1, 1), E = pa.clone().addScaledVector(d, L1 * cosA).addScaledVector(bend, L1 * Math.sqrt(1 - cosA * cosA));
+  turnWorld(A, new THREE.Quaternion().setFromUnitVectors(pb.clone().sub(pa).normalize(), E.clone().sub(pa).normalize()));
+  const pb2 = wpos(B), pc2 = wpos(Cc), T = pa.clone().addScaledVector(d, dist);
+  turnWorld(B, new THREE.Quaternion().setFromUnitVectors(pc2.sub(pb2).normalize(), T.sub(pb2).normalize()));
+  return keep;
 }
-$('eHold').onclick = () => { cfg.hold = !cfg.hold; drawEditor(); };
-$('eReset').onclick = () => { for (const g in TUNE0) for (const k in TUNE0[g]) Object.assign(TUNE[g][k], TUNE0[g][k]); saveTune(); drawEditor(); };
-$('eCopy').onclick = () => {
-  // (only what's changed from the defaults: what to lay over js/session.js's TUNE, or send on)
-  const out = {}; for (const g in TUNE) for (const k in TUNE[g]) for (const f in TUNE[g][k]) if (Math.abs(TUNE[g][k][f] - TUNE0[g][k][f]) > 1e-9) ((out[g] = out[g] || {})[k] = out[g][k] || {})[f] = TUNE[g][k][f];
-  const txt = JSON.stringify(out, null, 1).replace(/\n\s*/g, ' ');
-  $('eText').value = Object.keys(out).length ? txt : '(nothing changed from the defaults)';
-  try { navigator.clipboard.writeText($('eText').value).catch(() => {}); } catch (e) {} $('eText').select();      // (and selected, to copy by hand where the clipboard's not allowed)
-};
-$('ePaste').onclick = () => {
-  try { const o = JSON.parse($('eText').value); for (const g in o) for (const k in o[g]) if (TUNE[g] && TUNE[g][k]) for (const f in o[g][k]) if (f in TUNE[g][k]) TUNE[g][k][f] = +o[g][k][f]; saveTune(); drawEditor(); }
-  catch (e) { $('eText').value = 'Not settings: ' + e.message + '\n' + $('eText').value; }
-};
+const handTo = (G, s, at, q) => { limbIK(G, ARM(s), at); setWQ(G.bone['hand' + s], q); };
+// (the state of both: each bone's rotation, each figure's place)
+function snap() { const o = {}; for (const w of ['f', 'c']) { const G = fig(w); G.root.updateMatrixWorld(true); o[w] = { q: {}, pos: G.root.position.clone(), rq: G.root.quaternion.clone(), at: {} }; for (const b of G.bones) if (EDITABLE(b.name)) { o[w].q[b.name] = b.quaternion.clone(); o[w].at[b.name] = wpos(b); } } return o; }
+function applySnap(o) { for (const w of ['f', 'c']) { const G = fig(w); for (const b of G.bones) if (o[w].q[b.name]) b.quaternion.copy(o[w].q[b.name]); G.root.position.copy(o[w].pos); G.root.quaternion.copy(o[w].rq); G.root.updateMatrixWorld(true); } }
+function diff(A, B) {
+  const out = []; for (const w of ['f', 'c']) { for (const n in A[w].q) if (A[w].q[n].angleTo(B[w].q[n]) * R2D > 0.1) out.push([w, n]); }
+  const moved = ['f', 'c'].filter(w => A[w].pos.distanceTo(B[w].pos) > 5e-4 || A[w].rq.angleTo(B[w].rq) * R2D > 0.1);
+  return { bones: out, moved, any: out.length > 0 || moved.length > 0 };
+}
+// (every edit through here: the hands not being edited held where they were)
+function peEdit(bone, fn) {
+  const G = fig(PE.who), pins = PE.pin ? ['L', 'R'].filter(s => !HAND_CHAIN[s].has(bone)).map(s => [s, wpos(G.bone['hand' + s]), wquat(G.bone['hand' + s])]) : [];
+  fn(G); G.root.updateMatrixWorld(true);
+  for (const [s, p, q] of pins) handTo(G, s, p, q);
+  G.root.updateMatrixWorld(true); peRefresh(false);
+}
+function dragBone(b, t) {
+  const s = b.slice(-1);
+  if (b === 'hips') return peEdit(b, G => G.root.position.add(t.clone().sub(wpos(G.bone.hips))));
+  if (b === 'hand' + s) return peEdit(b, G => handTo(G, s, t, wquat(G.bone[b])));
+  if (b === 'foot' + s) return peEdit(b, G => setWQ(G.bone[b], limbIK(G, LEG(s), t)));
+  peEdit(b === 'foreArm' + s ? 'elbow' : fig(PE.who).bone[b].parent.name, G => { const P = G.bone[b].parent, pp = wpos(P); turnWorld(P, new THREE.Quaternion().setFromUnitVectors(wpos(G.bone[b]).sub(pp).normalize(), t.clone().sub(pp).normalize())); });
+}
+// ── the dots
+const peGroup = new THREE.Group(); peGroup.visible = false; scene.add(peGroup);
+const dotGeo = new THREE.SphereGeometry(1, 14, 10), dots = {};
+function dotsFor(G) {
+  for (const k in dots) { peGroup.remove(dots[k]); } for (const k in dots) delete dots[k];
+  for (const b of G.bones) { if (!EDITABLE(b.name)) continue;
+    const col = /L$/.test(b.name) ? 0x3d8bff : /R$/.test(b.name) ? 0xff4d4d : 0xf2f2f2, r = SMALLJ(b.name) ? 0.006 : 0.012;
+    const m = new THREE.Mesh(dotGeo, new THREE.MeshBasicMaterial({ color: col, depthTest: false, transparent: true, opacity: 0.9, toneMapped: false })); m.renderOrder = 10; m.userData = { col, r }; m.scale.setScalar(r); peGroup.add(m); dots[b.name] = m; }
+}
+PE.frame = () => { if (!PE.on) return; const G = fig(PE.who); G.root.updateMatrixWorld(true); for (const n in dots) G.bone[n].getWorldPosition(dots[n].position); };
+const ray = new THREE.Raycaster();
+function pointerRay(e) { const r = renderer.domElement.getBoundingClientRect(); ray.setFromCamera(new THREE.Vector2((e.clientX - r.left) / r.width * 2 - 1, -(e.clientY - r.top) / r.height * 2 + 1), camera); return ray.ray; }
+function pick(e) {
+  const r = renderer.domElement.getBoundingClientRect(); let best = null, bd = 14;
+  for (const n in dots) { const v = dots[n].position.clone().project(camera); if (v.z > 1) continue; const d = Math.hypot((v.x + 1) / 2 * r.width - (e.clientX - r.left), (1 - v.y) / 2 * r.height - (e.clientY - r.top)); if (d < bd) { bd = d; best = n; } }
+  return best;
+}
+$('view').addEventListener('pointerdown', e => {
+  if (!PE.on || e.button !== 0) return; const id = pick(e); if (!id) return;
+  e.stopPropagation(); e.preventDefault(); PE.sel = id; peRefresh(true);
+  const at = dots[id].position.clone(), plane = new THREE.Plane().setFromNormalAndCoplanarPoint(camera.getWorldDirection(new V3()), at), hit = pointerRay(e).intersectPlane(plane, new V3());
+  PE.drag = { id, plane, off: hit ? at.sub(hit) : new V3(), x: e.clientX, y: e.clientY, moved: false };
+}, true);
+addEventListener('pointermove', e => {
+  const D = PE.drag; if (!D) return; if (!D.moved && Math.hypot(e.clientX - D.x, e.clientY - D.y) < 3) return; D.moved = true;
+  const t = pointerRay(e).intersectPlane(D.plane, new V3()); if (!t) return; t.add(D.off); if (!NO_DRAG.has(D.id)) dragBone(D.id, t);
+});
+addEventListener('pointerup', () => { PE.drag = null; });
+// ── the selected joint's rows: a slider and an exact number
+function peRow(el, label, min, max, step, get, set) {
+  const row = document.createElement('div'); row.className = 'sl'; row.innerHTML = `<label>${label}</label><input type="range" min="${min}" max="${max}" step="${step}"><input type="number" step="${step}">`;
+  const [rng, num] = row.querySelectorAll('input'), apply = v => { PE.src = 'row'; set(v); PE.src = null; };
+  rng.oninput = () => { num.value = (+rng.value).toFixed(1); apply(+rng.value); }; num.onchange = () => { const v = parseFloat(num.value); if (isFinite(v)) { rng.value = v; apply(v); } };
+  el.append(row); const show = () => { const v = get(); rng.value = v; num.value = v.toFixed(1); }; show(); return show;
+}
+function buildJoint() {
+  const box = $('peRows'), b = PE.on && PE.sel; $('peJoint').style.display = b ? '' : 'none'; box.innerHTML = ''; PE.jointUI = null; if (!b) return;
+  const G = fig(PE.who), bone = G.bone[b];
+  $('peJointName').textContent = `${b} · ${whoName(PE.who)}` + (NO_DRAG.has(b) ? ' (set here, not dragged)' : '');
+  let e = eulerDeg(bone);
+  const rows = ['X', 'Y', 'Z'].map((ax, i) => peRow(box, ax + ' °', -180, 180, 0.5, () => e[i], v => { e[i] = v; peEdit(b, () => { bone.rotation.set(e[0] * D2R, e[1] * D2R, e[2] * D2R); bone.updateMatrixWorld(true); }); }));
+  if (b === 'hips') {
+    box.insertAdjacentHTML('beforeend', '<small class="note">The whole figure: where it is (cm, in the room) and turned (° about the vertical).</small>');
+    const home = PE.base[PE.who].pos;
+    rows.push(...['x', 'y', 'z'].map(ax => peRow(box, ax.toUpperCase() + ' cm', r1((home[ax] - 0.4) * 100), r1((home[ax] + 0.4) * 100), 0.1, () => G.root.position[ax] * 100, v => peEdit('hips', g => { g.root.position[ax] = v / 100; }))));
+    const yaw = () => new THREE.Euler().setFromQuaternion(G.root.quaternion, 'YXZ').y * R2D;
+    rows.push(peRow(box, 'Turn °', -180, 180, 0.5, yaw, v => peEdit('hips', g => { const E = new THREE.Euler().setFromQuaternion(g.root.quaternion, 'YXZ'); E.y = v * D2R; g.root.quaternion.setFromEuler(E); })));
+  }
+  PE.jointUI = () => { if (PE.src) return; e = eulerDeg(bone); rows.forEach(r => r()); };
+}
+function peRefresh(rebuild) {
+  if (!editing) return; document.body.classList.add('editing');
+  $('peOn').textContent = PE.on ? 'Stop editing' : 'Edit pose'; $('peOn').classList.toggle('on', PE.on); $('pePin').classList.toggle('on', PE.pin);
+  seg('peWho', [['f', whoName('f')], ['c', 'Silas']], PE.who, v => { PE.who = v; PE.sel = null; if (PE.on) dotsFor(fig(v)); peRefresh(true); });
+  seg('eHand', [['', 'As it goes'], ['raised', 'Raised'], ['contact', 'On her']], holdHand || '', v => { holdHand = v || null; if (ses) ses.st.holdHand = holdHand; if (PE.on) { stopEdit(); } peRefresh(true); });
+  peGroup.visible = PE.on;
+  for (const n in dots) { const m = dots[n], sel = n === PE.sel; m.material.color.setHex(sel ? 0xffe27a : m.userData.col); m.scale.setScalar(m.userData.r * (sel ? 1.6 : 1)); }
+  if (rebuild) buildJoint(); else if (PE.jointUI) PE.jointUI();
+  if (!PE.on) { $('peStatus').textContent = BY_SESSION[cfg.pose] || POSES.find(p => p[0] === cfg.pose) ? 'Set the pose, her clothes and his hand, then Edit pose.' : ''; return; }
+  const D = diff(PE.base, snap()), parts = [];
+  if (D.bones.length) parts.push(`${D.bones.length} joint${D.bones.length > 1 ? 's' : ''}`); for (const w of D.moved) parts.push(`${whoName(w)} moved`);
+  const others = Object.keys(PE.saved).filter(k => k !== PE.key).length;
+  $('peStatus').textContent = `Frozen: ${PE.label}. ` + (parts.length ? `Changed: ${parts.join(', ')}.` : 'Nothing changed yet.') + (others ? ` ${others} other moment${others > 1 ? 's' : ''} edited.` : '');
+}
+// (what's frozen: the pose, who, her clothes, his right hand)
+const peKey = () => [cfg.pose, cfg.who, cfg.outfit, clothesNow().join(','), holdHand || ''].join('|');
+const clothesNow = () => { const s = ses && ses.current ? ses.current.f.state : worn(); return [s.top, s.bottoms, s.under]; };
+function peLabel() { const P = POSES.find(p => p[0] === cfg.pose), c = clothesNow(); return `${P ? P[1] : cfg.pose} · ${whoName('f')} (${cfg.outfit}) · skirt ${c[0]}, drawers ${c[2]}${holdHand ? ' · his right hand ' + (holdHand === 'raised' ? 'raised' : 'on her') : ''}`; }
+function startEdit() {
+  if (ses) ses.run(false);
+  PE.on = true; PE.base = snap(); PE.key = peKey(); PE.label = peLabel();
+  const saved = PE.saved[PE.key]; if (saved) applySnap(saved.edit);
+  dotsFor(fig(PE.who)); PE.frame(); peRefresh(true);
+}
+function keepEdit() { if (!PE.on || !PE.base) return; const edit = snap(); if (diff(PE.base, edit).any) PE.saved[PE.key] = { label: PE.label, base: PE.base, edit }; else delete PE.saved[PE.key]; }
+function stopEdit() { if (!PE.on) return; keepEdit(); applySnap(PE.base); PE.on = false; PE.drag = null; PE.sel = null; PE.base = null; peRefresh(true); }
+$('peOn').onclick = () => (PE.on ? stopEdit() : startEdit());
+$('pePin').onclick = () => { PE.pin = !PE.pin; peRefresh(false); };
+$('peResetJ').onclick = () => { if (!PE.on || !PE.sel) return; const b = PE.sel; peEdit(b, G => { G.bone[b].quaternion.copy(PE.base[PE.who].q[b]); if (b === 'hips') { G.root.position.copy(PE.base[PE.who].pos); G.root.quaternion.copy(PE.base[PE.who].rq); } }); };
+$('peResetAll').onclick = () => { if (!PE.on) return; applySnap(PE.base); peRefresh(false); };
+$('peClear').onclick = () => { PE.saved = {}; if (PE.on) { applySnap(PE.base); } $('eText').value = ''; peRefresh(false); };
+// ── the report: every moment edited, each joint changed (its own rotation, degrees, as the posing code sets it; where it is, in the room and
+// from the other figure's hips), and each figure moved
+function peReport() {
+  keepEdit(); const recs = Object.values(PE.saved);
+  const L = ['Fenwick Hall pose editor report, ' + new Date().toISOString().slice(0, 16).replace('T', ' '),
+    'Rotations: each bone\'s own (local) Euler angles in degrees [x, y, z], order XYZ, as the posing code sets bone.rotation; "was" is the posing\'s own.',
+    'Positions: cm, in the room (y up); "from her hips" / "from his hips" in the other figure\'s hips frame (x her left, y up her spine, z out of her front).', ''];
+  if (!recs.length) L.push('Nothing edited yet: Edit pose, then drag or set a joint.');
+  for (const R of recs) {
+    L.push(`== ${R.label} ==`); const D = diff(R.base, R.edit);
+    for (const w of ['f', 'c']) {
+      const names = D.bones.filter(x => x[0] === w).map(x => x[1]), moved = D.moved.includes(w); if (!names.length && !moved) continue;
+      L.push(`${whoName(w)}:`);
+      const yaw = q => new THREE.Euler().setFromQuaternion(q, 'YXZ').y * R2D;
+      if (moved) L.push(`  whole figure: at ${fmt(R.edit[w].pos.toArray().map(v => v * 100))} cm (was ${fmt(R.base[w].pos.toArray().map(v => v * 100))}), turned ${r1(yaw(R.edit[w].rq))}° (was ${r1(yaw(R.base[w].rq))}°)`);
+      // (each joint where it ends up: put the edit in place to measure, then back)
+      const now = snap(); applySnap(R.edit); const other = fig(w === 'f' ? 'c' : 'f'), oInv = other.bone.hips.matrixWorld.clone().invert(), G = fig(w);
+      for (const n of names) {
+        const b = G.bone[n], e = eulerDeg(b), was = new THREE.Euler().setFromQuaternion(R.base[w].q[n], 'XYZ'), p = wpos(b), rel = p.clone().applyMatrix4(oInv);
+        L.push(`  ${n}: ${fmt(e)} (was ${fmt([was.x, was.y, was.z].map(v => v * R2D))}) · at ${fmt(p.toArray().map(v => v * 100))} cm (was ${fmt(R.base[w].at[n].toArray().map(v => v * 100))}) · from ${w === 'f' ? 'his' : 'her'} hips ${fmt(rel.toArray().map(v => v * 100))} cm`);
+      }
+      applySnap(now);
+    }
+    L.push('');
+  }
+  $('eText').value = L.join('\n'); try { navigator.clipboard.writeText($('eText').value).catch(() => {}); } catch (e) {} $('eText').select();
+}
+$('peReport').onclick = peReport;
 
 // ── Run ──
 let last = performance.now(), hudT = 0;
@@ -393,9 +508,10 @@ const loop = now => { frame(now); requestAnimationFrame(loop); };
 function frame(now) {
   const dt = Math.min(0.05, (now - last) / 1000); last = now;
   if (glide) { const k = Math.min(1, (now - glide.t0) / glide.ms), e = k * k * (3 - 2 * k); camera.position.lerpVectors(glide.p0, glide.p1, e); controls.target.lerpVectors(glide.l0, glide.l1, e); if (k >= 1) glide = null; }
-  if (ses) {
+  if (PE.on) { if (F) Figure.carryCloth(F); PE.frame(); }      // (the pose editor: frozen, as edited; only her skirt carried with her)
+  else if (ses) {
     if (!cfg.respAuto) for (const P of ses.people) P.resp = cfg.resp;
-    ses.update(cfg.hold ? 1e-4 : dt); if (cfg.expr !== 'auto') F.setExpr(cfg.expr);      // (held still: time stands, the posing's still run, so the editor's changes show)
+    ses.update(dt); if (cfg.expr !== 'auto') F.setExpr(cfg.expr);
     if ((hudT += dt) > 0.2) { hudT = 0; refresh(); }
   } else if (F) {
     pose(); F.setExpr(cfg.expr === 'auto' ? Cast.ROSTER[cfg.who].base || 'calm' : cfg.expr);

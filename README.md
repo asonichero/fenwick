@@ -18,7 +18,10 @@ node tools/export-head.js                                     # the head the gam
 .blender/bin/python tools/blender/build_hair.py                # the hair styles and Silas's beard (seconds)
 ```
 
-`poses.html` is the pose editor: the figures page with a panel of sliders under the correction's controls. They fine-tune where things are placed in a correction: her across his lap, his left hand on her back (skirt down, or on the raised roll), her hands on the floor, his right hand (its elbow, how high it's raised, where it rests), and over the table where Silas stands (fitted automatically, or placed by hand) and his hand on her back. Changes show at once, held still or running, with his right hand held raised or on her if you like. They're kept in that browser and used by the correction test there too. **Copy settings** gives just what you've changed, to keep (paste it into `TUNE` in `js/session.js`, or send it on).
+`poses.html` is the pose editor (the figures page with `?edit=1`), after the one in fairy-shoe. Set up a moment of a correction (the pose, her clothes, his right hand as it goes, raised or on her), then **Edit pose** freezes it.
+- **Editing by dragging:** a dot sits on each joint of whoever you're editing, her or Silas (blue left, red right, white the middle). Dragging the hips moves the whole figure; dragging a hand or foot places it and the arm or leg follows; dragging any other joint turns the bone above it. **Pin hands** holds both hands still while the rest moves.
+- **Exact values:** click a dot to set that joint's rotation exactly, in degrees. For the hips, you also get the figure's place in centimetres and its turn.
+- **Report:** **Copy report** lists every moment you edited and each joint you changed: its own rotation (and what it was), where it is in the room, and where it is from the other figure's hips. Send it back to be built in. Nothing in the editor changes the game by itself.
 
 `model.html` shows the bodies and clothes as a turnaround; `household.html` lines everyone up (`?who=<id>&view=head-three` for a close look at someone's hair, `?<id>=<outfit>` for another outfit, `?clothes=up,down,down` for the layers raised and lowered).
 
