@@ -7,7 +7,7 @@
 //   who, text, face, to     a line: who says it, the face they say it with, who they say it to (their head turns that way; the rest look at
 //                           the speaker). Without a `to`, they speak to the table.
 //   listen: { id: face }    the others' faces as it's said
-//   look: { id: id|null }   heads turned (null: back to where they'd look anyway); kept till changed
+//   look: { id: id|'down'|null }  heads turned to someone, or down (null: back to where they'd look anyway); kept till changed
 //   act: 'name'             something done (adelaIn, nod, sonRises, sonToAdela, bow), shot and played before the line, if any
 //   name: { id: 'Name' }    from here on, called this (the reveal)
 //   pause: ms               held a moment, no line
@@ -30,7 +30,7 @@ const HALL = {
   cast: {
     master: { spec: ['man', 'master'], seat: 'master', face: 'calm' },
     heir: { spec: ['man', 'heir'], seat: 'son', face: 'calm' },
-    cicely: { spec: ['her', 'cicely', 'gown'], seat: 'cicely', face: 'smile' },
+    cicely: { spec: ['her', 'cicely', 'gown'], seat: 'cicely', face: 'haughty' },
     silas: { spec: ['silas'], mark: 'silas', face: 'calm', arms: 'rest' },
     adela: { spec: ['her', 'adela', 'goose'], mark: 'adela', off: true, face: 'shy', arms: 'clasp', demure: true },      // (demure: her eyes down, but for whoever speaks to her)
   },
@@ -50,33 +50,45 @@ const HALL = {
   beats: [
     { shot: 'foot', push: 'footIn', ms: 11000 },
     { pause: 1400 },
-    { who: 'cicely', to: 'master', face: 'smile', text: 'I could grow used to such a table, sir.' },
-    { who: 'master', to: 'cicely', face: 'calm', text: 'I hope you may have the chance, my dear.' },
+    // (Cicely playing the great lady, and enjoying it: the house's food, its servants, its steward, all beneath her)
+    { who: 'cicely', to: 'master', face: 'haughty', text: 'The venison was a little dry, sir. At my father’s table, a cook who sent it up so would be turned off without a character.' },
+    { who: 'master', to: 'cicely', face: 'calm', text: 'We’re slower to turn people off at Thornleigh, my dear. You may come to be glad of it.' },
     { shot: 'head' },
     { who: 'master', to: 'silas', face: 'calm', text: 'Is the girl come to pour?' },
     { who: 'silas', to: 'master', face: 'calm', text: 'She’s at the door, sir.' },
     { act: 'adelaIn', shot: 'arch' },
     { who: 'master', to: 'adela', face: 'calm', text: 'Come in, child. Stand by till you’re wanted.', listen: { adela: 'shy' } },
-    { shot: 'bride', look: { cicely: 'adela' }, listen: { cicely: 'cheeky' }, pause: 1500 },
-    { shot: 'master', act: 'nod', who: 'master', to: 'silas', face: 'calm', text: 'Now, Silas. You’ve a matter to put to us, you said. Put it.', look: { cicely: null } },
-    { shot: 'silas', who: 'silas', to: 'master', face: 'calm', text: 'A case brought to me by a neighbouring estate, sir. They’d have our judgement on it.' },
-    { who: 'silas', face: 'calm', text: 'A journeyman was sent with his master’s son to a new place. On the road he took the son’s coat and his papers, and swore him to silence.' },
-    { who: 'silas', face: 'calm', text: 'At the journey’s end he was received as the son. The son was set to herd swine.' },
+    { shot: 'bride', who: 'cicely', to: 'master', face: 'pout', look: { cicely: 'adela' }, text: 'Must it be that one, sir? She’s slow, and she brings the yard in with her.' },
+    { shot: 'master', who: 'master', to: 'cicely', face: 'calm', text: 'She’ll do very well where she is.', look: { cicely: null } },
+    { act: 'nod', who: 'master', to: 'silas', face: 'calm', text: 'Now, Silas. You had a matter for us, you said.' },
+    { shot: 'bride', who: 'cicely', to: 'master', face: 'pout', text: 'Must we have the steward’s business at table, sir? It’s been a long dinner.' },
+    { shot: 'head', who: 'master', to: 'cicely', face: 'calm', text: 'Indulge an old man, my dear. You’ll be mistress here, and asked to judge such things. Let us see how you would.' },
+    { shot: 'bride', who: 'cicely', to: 'silas', face: 'haughty', text: 'Very well. Go on, then. Silas, is it?' },
+    // (the case: a trade quarrel from a neighbouring estate, near enough her own story to be it, and dull enough that she doesn't listen for it)
+    { shot: 'silas', who: 'silas', to: 'cicely', face: 'calm', text: 'It is, my lady. A case brought me by a neighbouring estate. They’d have Thornleigh’s judgement on it.' },
+    { who: 'silas', face: 'calm', text: 'A farrier of some name was engaged to a great house, a long ride off. He set out with his apprentice, and his old grey mare.' },
+    { who: 'silas', face: 'calm', text: 'On the road the apprentice took his master’s letter and his good coat, and went on ahead. At the gate he gave himself out as the farrier, and they took him in as one.' },
+    { who: 'silas', face: 'calm', text: 'When the farrier came after, the apprentice had him put to muck out the stables. And the old mare, that knew her master, he sold at the first fair, so she couldn’t give him away.' },
     { shot: 'adela', look: { adela: 'silas' }, listen: { adela: 'concerned' }, pause: 1600 },
     { shot: 'silas', who: 'silas', to: 'cicely', face: 'calm', text: 'What should be done with such a man?', look: { adela: null } },
-    { shot: 'head', who: 'master', to: 'cicely', face: 'calm', text: 'You’ve a quick mind, my dear. What would you say?' },
-    { shot: 'bride', who: 'cicely', to: 'silas', face: 'cheeky', text: 'Why, that’s simple. Strip him of everything he took, to the last stitch, and have him soundly thrashed for his lies.' },
-    { who: 'cicely', to: 'master', face: 'defiant', text: 'Then turn him out of doors with nothing. It’s no more than he deserves.' },
+    { shot: 'bride', who: 'cicely', to: 'silas', face: 'haughty', text: 'A servant who’d make himself his master? There’s nothing to weigh.' },
+    { who: 'cicely', to: 'master', face: 'defiant', text: 'Strip him of all he took, to the last stitch. Have him soundly thrashed for his lies, and turn him out of doors with nothing.' },
+    { who: 'cicely', to: 'master', face: 'haughty', text: 'That is how my father would deal with it.' },
     { shot: 'master', pause: 900 },
     { who: 'master', to: 'cicely', face: 'stern', text: 'You have named your own sentence.' },
     { shot: 'bride', who: 'cicely', to: 'master', face: 'surprised', text: 'Sir?' },
-    { shot: 'master', who: 'master', to: 'cicely', face: 'stern', text: 'You came into my house as my son’s bride. You are her waiting-maid. Your name is Cicely.', name: { cicely: 'Cicely' } },
-    { who: 'master', to: 'cicely', face: 'stern', text: 'You took her gown and her name on the road, and had her sent out to the geese.', listen: { cicely: 'wince' } },
-    { shot: 'adela', who: 'master', to: 'adela', face: 'soft', text: 'Her name is Adela.', name: { adela: 'Adela' }, listen: { adela: 'surprised' } },
+    // (the master translates it, piece by piece, to her face)
+    { shot: 'master', who: 'master', to: 'cicely', face: 'stern', text: 'The farrier was no farrier, and no man. She was a lady, sent here to marry my son. The apprentice was her waiting-maid.' },
+    { who: 'master', to: 'cicely', face: 'stern', text: 'The letter was her name. The good coat was a gown.' },
+    { shot: 'bride', who: 'master', to: 'cicely', face: 'stern', text: 'That gown.', look: { cicely: 'down' }, listen: { cicely: 'wince' } },
+    { shot: 'master', who: 'master', to: 'cicely', face: 'stern', text: 'The stables were my goose-yard.', look: { cicely: null } },
+    { shot: 'adela', who: 'master', to: 'cicely', face: 'stern', text: 'And the mare that knew her mistress, and was sold so she couldn’t tell, was called Falada.', look: { adela: 'master' }, listen: { adela: 'surprised' } },
+    { shot: 'master', who: 'master', to: 'cicely', face: 'stern', text: 'Your name is Cicely.', name: { cicely: 'Cicely' }, look: { adela: null } },
+    { shot: 'adela', who: 'master', to: 'adela', face: 'soft', text: 'And hers is Adela.', name: { adela: 'Adela' } },
     { who: 'adela', to: 'master', face: 'surprised', text: 'Sir… I swore I would tell no living soul.' },
     { who: 'master', to: 'adela', face: 'soft', text: 'And you told none. You told an old iron stove, and Silas was on the other side of the wall.', listen: { adela: 'teary' } },
     { look: { adela: 'silas' }, pause: 1200 },
-    { shot: 'bride', who: 'cicely', to: 'heir', face: 'wince', text: 'My lord, it isn’t so — you can’t believe a goose girl over me —' },
+    { shot: 'bride', who: 'cicely', to: 'heir', face: 'wince', text: 'My lord, you’ll not take a goose girl’s word over mine. Over your own bride’s!' },
     { shot: 'head', act: 'sonRises', look: { adela: null }, pause: 1100 },
     { act: 'sonToAdela', shot: 'pair', who: 'heir', to: 'adela', face: 'concerned', text: 'Lady. You’ve been a month with the geese under my own roof, and I never once looked at you.' },
     { who: 'heir', to: 'adela', face: 'tender', text: 'Forgive me. You’ll be treated as you should have been from the first, and better, to make amends.' },

@@ -424,24 +424,42 @@ bride judge herself.
 
 The hall at Thornleigh, in the evening. The master sits at the head of
 the table with his son beside him, and Cicely at his son's side in
-Adela's gown. Adela, called in on a pretext to wait at table, stands by
-the door in the goose girl's plain dress, knowing nothing of what is
-coming. Silas stands before them.
+Adela's gown. Adela, called in on a pretext to wait at table, comes in
+through the archway at the master's left in the goose girl's plain
+dress, knowing nothing of what is coming. Silas stands before them.
+
+- **The lady.** Cicely plays the entitled lady, and enjoys it. She finds
+  fault with the venison (at her father's table, she says, a cook who
+  sent it up so would be turned off without a character), asks why it
+  must be that slow goose girl who pours, and is bored by the steward's
+  business at table. Her hubris is what keeps her from hearing her own
+  story. The master flatters her into judging: she'll be mistress here,
+  and asked to judge such things.
 
 - **The parallel.** At his master's nod, Silas brings the table a case
-  he says was put to him by a neighbouring estate, for its judgement: a
-  journeyman sent with his master's son to a new place took the son's
-  coat and papers on the road, was received there as the son, and had
-  the son set to herd swine. What should be done with such a man? It's
-  close enough to be her own story, and far enough that she doesn't see
-  it.
+  he says was brought him by a neighbouring estate, for its judgement.
+  It's told as a trade quarrel, not as her story told back: a farrier
+  engaged to a great house set out with his apprentice and his old grey
+  mare; on the road the apprentice took his master's letter and his good
+  coat and went on ahead, and was taken in at the gate as the farrier;
+  when the farrier came after, the apprentice had him put to muck out
+  the stables, and sold the old mare, that knew her master, at the first
+  fair so she couldn't give him away. What should be done with such a
+  man? It's near enough to be her own story, and dull enough that she
+  doesn't listen for it.
 
 - **The sentence.** Glad to be asked, and sure of herself, Cicely names
-  a harsh one: stripped of all he took, soundly thrashed, and turned out
-  with nothing.
+  a harsh one: stripped of all he took, soundly thrashed for his lies,
+  and turned out with nothing. That, she says, is how her father would
+  deal with it.
 
-- **The reveal.** "You have named your own sentence." The master says
-  the truth aloud. It's a surprise to both women: Cicely didn't know
+- **The reveal.** "You have named your own sentence." The master
+  translates the case to her face, piece by piece: the farrier was no
+  farrier and no man, but a lady sent to marry his son; the apprentice
+  was her waiting-maid; the letter was her name; the good coat was a
+  gown, that gown; the stables were his goose-yard; and the mare that
+  knew her mistress, sold so she couldn't tell, was called Falada. Then
+  he names them both. It's a surprise to both women: Cicely didn't know
   she'd been found out, and Adela didn't know anyone had heard her.
 
 - **The apology.** The young lord goes to Adela. He apologises, and

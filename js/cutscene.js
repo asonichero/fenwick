@@ -79,10 +79,12 @@ function create(o) {
       if (!s.base) { F.tick(dt); continue; }
       // where they're looking: whoever they've been turned to, else the speaker (or whoever the speaker's speaking to); eased there
       let tgt = s.look !== undefined ? s.look : s.auto, wantY = 0, wantP = 0;
-      if (tgt && S[tgt] && S[tgt].F.root.visible && tgt !== id) {
+      if (tgt === 'down') wantP = 0.42;      // (looking down at herself, or at the floor)
+      else if (tgt && S[tgt] && S[tgt].F.root.visible && tgt !== id) {
         const me = head(id), d = head(tgt).sub(me).applyQuaternion(F.root.quaternion.clone().invert());
         wantY = clamp(Math.atan2(d.x, d.z), -1.25, 1.25); wantP = clamp(Math.atan2(-d.y, Math.hypot(d.x, d.z)), -0.35, 0.45);
       }
+      if (F.exprName === 'haughty') wantP -= 0.13;      // (the chin up)
       const kk = 1 - Math.exp(-dt * 4.5); s.yaw += (wantY - s.yaw) * kk; s.pitch += (wantP - s.pitch) * kk;
       if (s.nod) { s.nod += dt / 0.8; if (s.nod >= 2) s.nod = 0; }
       if (s.bow) s.bow = Math.min(1, s.bow + dt / 0.9);

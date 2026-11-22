@@ -1574,7 +1574,8 @@ const braidTip = F => (F.tail && F.tail.sim ? F.tail.X[F.tail.X.length - 1].clon
 // ── Expressions (redlessons'): the mouth's shapes and each expression's brows, lids, gaze, mouth, blush and tears ──
 const MOUTHS = { warm: { mw: 0.46, mc: 0.22, mo: 0, mt: 0 }, flat: { mw: 0.42, mc: 0.05, mo: 0, mt: 0 }, smile: { mw: 0.6, mc: 0.6, mo: 0.06, mt: 0.6 }, frown: { mw: 0.48, mc: -0.5, mo: 0, mt: 0 },
   open: { mw: 0.48, mc: -0.15, mo: 0.8, mt: 0.15 }, gritted: { mw: 0.68, mc: -0.8, mo: 0.3, mt: 1 }, pout: { mw: 0.26, mc: -0.2, mo: 0.1, mt: 0 },
-  wail: { mw: 0.6, mc: -0.95, mo: 0.42, mt: 0.25 }, sad: { mw: 0.34, mc: -0.7, mo: 0.06, mt: 0 }, concern: { mw: 0.36, mc: -0.28, mo: 0, mt: 0 }, soft: { mw: 0.44, mc: 0.36, mo: 0, mt: 0 } };
+  wail: { mw: 0.6, mc: -0.95, mo: 0.42, mt: 0.25 }, sad: { mw: 0.34, mc: -0.7, mo: 0.06, mt: 0 }, concern: { mw: 0.36, mc: -0.28, mo: 0, mt: 0 }, soft: { mw: 0.44, mc: 0.36, mo: 0, mt: 0 },
+  smirk: { mw: 0.4, mc: 0.26, mo: 0, mt: 0 } };
 const EXPRS = {
   // (Silas in aftercare: care, warmth and authority in balance; the eyes steady, the brow a touch level and low, the mouth kind)
   caring: { brow: -0.1, browY: -0.03, open: 0.86, mouth: 'warm', blush: 0, ms: 0.95 },
@@ -1587,6 +1588,8 @@ const EXPRS = {
   concerned: { brow: 0.38, browY: 0.06, open: 0.92, mouth: 'concern', blush: 0, ms: 0.95 }, sad: { brow: 0.75, browY: 0.0, open: 0.55, look: -0.4, mouth: 'sad', blush: 0.35, tears: 0.25, ms: 1.0 },
   wistful: { brow: 0.3, browY: 0.05, open: 0.58, mouth: 'soft', blush: 0.25, ms: 1.0 }, tender: { brow: 0.14, browY: 0.02, open: 0, mouth: 'soft', blush: 0.25, ms: 0.95 },
   teary: { brow: 0.38, browY: 0.04, open: 0.7, mouth: 'soft', blush: 0.6, tears: 0.6, ms: 1.0 }, soft: { brow: 0.12, browY: 0.03, open: 0.8, mouth: 'soft', blush: 0.1, ms: 1.0 },
+  // (Cicely playing the great lady: the brows up, the lids heavy, a small closed smile; a cutscene lifts her chin with it)
+  haughty: { brow: -0.06, browY: 0.13, open: 0.5, mouth: 'smirk', blush: 0, ms: 0.85 },
 };
 const flatExpr = name => { const e = EXPRS[name] || EXPRS.calm, m = MOUTHS[e.mouth] || MOUTHS.flat; return Object.assign({ brow: 0, browY: 0, open: 0.95, look: 0, blush: 0, tears: 0, ms: 1, sq: 0 }, e, m); };
 const SEX_REST = 0.46, _sq = new THREE.Quaternion(), _sv = new V3(), _tuckOff = new V3(0, 0.065, 0.035);      // (his, at rest, hangs this far forward of straight down)
@@ -1604,7 +1607,12 @@ function tickFace(F, dt) {
   // breathing: the chest rising and the shoulders with it, faster and deeper when worked up (turns only: the skinning keeps volume)
   F.breathT = (F.breathT || 0) + dt * (1.6 + 2.4 * F.breath);
   const b = Math.sin(F.breathT) * (0.012 + 0.022 * F.breath);
-  F.bone.chest.rotation.x -= b * 0.6; F.bone.clavL.rotation.z += b * 0.5; F.bone.clavR.rotation.z -= b * 0.5;
+  // (an offset on the pose, never piled up: where the pose hasn't been set again since the last frame (a held pose: a cutscene, the line-up),
+  // last frame's breath is taken off first. Added frame on frame it drifted, and swung the shoulders and arms up and down by some 14°)
+  const ch = F.bone.chest.rotation, cL = F.bone.clavL.rotation, cR = F.bone.clavR.rotation, BR = F.breathLeft;
+  if (BR) { if (ch.x === BR.ch) ch.x += BR.b * 0.6; if (cL.z === BR.l) cL.z -= BR.b * 0.5; if (cR.z === BR.r) cR.z += BR.b * 0.5; }
+  ch.x -= b * 0.6; cL.z += b * 0.5; cR.z -= b * 0.5;
+  F.breathLeft = { ch: ch.x, l: cL.z, r: cR.z, b };
   // the flesh's spring: in along the cheek, a little up
   for (const sd of ['L', 'R']) {
     const J = F.jig[sd], wv = 26, z = 0.22;

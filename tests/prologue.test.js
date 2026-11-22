@@ -25,7 +25,7 @@ test('every beat is something the player can see or hear: lines by the cast with
     if (b.who) { assert.ok(SC.cast[b.who], 'speaker ' + b.who); assert.ok(b.text && b.text.length > 1, 'beat ' + i); assert.ok(!b.to || SC.cast[b.to], 'to ' + b.to); }
     if (b.face) assert.ok(Figure.EXPRS[b.face], 'face ' + b.face);
     for (const id in b.listen || {}) { assert.ok(SC.cast[id], id); assert.ok(Figure.EXPRS[b.listen[id]], b.listen[id]); }
-    for (const id in b.look || {}) { assert.ok(SC.cast[id], id); assert.ok(b.look[id] === null || SC.cast[b.look[id]], b.look[id]); }
+    for (const id in b.look || {}) { assert.ok(SC.cast[id], id); assert.ok(b.look[id] === null || b.look[id] === 'down' || SC.cast[b.look[id]], b.look[id]); }
     if (b.shot) assert.ok(SC.shots[b.shot], 'shot ' + b.shot); if (b.push) assert.ok(SC.shots[b.push], 'push ' + b.push);
     if (b.act) assert.ok(ACTS.includes(b.act), 'act ' + b.act);
   }
@@ -36,8 +36,8 @@ test('every beat is something the player can see or hear: lines by the cast with
 test('the story in the GDD’s order: the pretext, the parallel case, her sentence, “your own sentence”, the truth, the apology, the decree, the bow', () => {
   const at = f => SC.beats.findIndex(f), say = (who, re) => at(b => b.who === who && re.test(b.text));
   const order = [
-    at(b => b.act === 'adelaIn'), say('silas', /neighbouring estate/), say('silas', /herd swine/), say('silas', /What should be done/),
-    say('cicely', /thrashed/), say('master', /named your own sentence/), say('master', /Your name is Cicely/), say('master', /Her name is Adela/),
+    at(b => b.act === 'adelaIn'), say('silas', /neighbouring estate/), say('silas', /muck out the stables/), say('silas', /What should be done/),
+    say('cicely', /thrashed/), say('master', /named your own sentence/), say('master', /Your name is Cicely/), say('master', /hers is Adela/),
     at(b => b.act === 'sonToAdela'), say('heir', /make amends/), say('master', /your office/), at(b => b.act === 'bow'),
   ];
   for (const i of order) assert.ok(i >= 0, 'every beat there: ' + order);
@@ -45,12 +45,29 @@ test('the story in the GDD’s order: the pretext, the parallel case, her senten
   assert.ok(at(b => b.act === 'nod') < say('silas', /neighbouring estate/), 'Silas speaks at his master’s nod');
 });
 
+test('Cicely plays the great lady before she judges: finding fault with the house, scorning the goose girl and the steward, flattered into it', () => {
+  const at = f => SC.beats.findIndex(f), judge = at(b => b.who === 'cicely' && /thrashed/.test(b.text));
+  const hers = SC.beats.slice(0, judge).filter(b => b.who === 'cicely');
+  assert.ok(hers.some(b => /turned off/.test(b.text)), 'the cook'); assert.ok(hers.some(b => /that one/.test(b.text)), 'the goose girl'); assert.ok(hers.some(b => /steward/.test(b.text)), 'the steward’s business');
+  assert.ok(hers.filter(b => b.face === 'haughty').length >= 2, 'haughty');
+  assert.ok(SC.beats.slice(0, judge).some(b => b.who === 'master' && /mistress here/.test(b.text)), 'the master flatters her into judging');
+});
+
+test('the case is a trade quarrel, not her story told back; the master translates it to her, piece by piece, before he names her', () => {
+  const at = f => SC.beats.findIndex(f), rev = at(b => b.who === 'master' && /own sentence/.test(b.text || '')), named = at(b => b.who === 'master' && /Your name is Cicely/.test(b.text || ''));
+  const from = at(b => b.who === 'silas' && /neighbouring estate/.test(b.text || '')), told = SC.beats.slice(from + 1, rev).filter(b => b.who === 'silas').map(b => b.text).join(' ');      // (the case itself, after he's introduced it)
+  for (const w of ['farrier', 'apprentice', 'coat', 'stables', 'mare']) assert.ok(told.includes(w), 'Silas’s case: ' + w);
+  for (const w of ['lady', 'gown', 'goose', 'geese', 'bride', 'Falada']) assert.ok(!told.includes(w), 'not in the case: ' + w);
+  const tr = SC.beats.slice(rev + 1, named).filter(b => b.who === 'master').map(b => b.text).join(' ');
+  for (const re of [/farrier was no farrier/, /apprentice was her waiting-maid/, /letter was her name/, /coat was a gown/, /stables were my goose-yard/, /Falada/]) assert.match(tr, re);
+});
+
 test('the names held back till the reveal: the bride and the goose girl, then Cicely and Adela', () => {
   assert.equal(SC.names.cicely, 'The bride'); assert.equal(SC.names.adela, 'The goose girl');
   const ci = SC.beats.findIndex(b => b.name && b.name.cicely), ai = SC.beats.findIndex(b => b.name && b.name.adela), rev = SC.beats.findIndex(b => b.who === 'master' && /own sentence/.test(b.text || ''));
   assert.equal(SC.beats[ci].name.cicely, 'Cicely'); assert.equal(SC.beats[ai].name.adela, 'Adela');
   assert.ok(ci > rev && ai > rev, 'named only after “You have named your own sentence”');
-  assert.ok(!SC.beats.slice(0, rev).some(b => /Cicely|Adela/.test(b.text || '')), 'nobody says their names before it');
+  assert.ok(!SC.beats.slice(0, rev).some(b => /Cicely|Adela|Falada/.test(b.text || '')), 'nobody says their names (or the mare’s) before it');
 });
 
 test('the shots, from the hall as built: each camera inside the hall (or the passage), above the floor, looking at someone a few metres off', () => {
