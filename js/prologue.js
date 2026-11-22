@@ -8,14 +8,18 @@
 //                           the speaker). Without a `to`, they speak to the table.
 //   listen: { id: face }    the others' faces as it's said
 //   look: { id: id|'down'|null }  heads turned to someone, or down (null: back to where they'd look anyway); kept till changed
-//   act: 'name'             something done (adelaIn, nod, plead, sonRises, sonToAdela, kneel, bow), shot and played before the line, if any
+//   act: 'name'             something done (adelaIn, nod, plead, sonRises, sonToAdela, kneel, bow; and for any scene, by someone (by): walk a
+//                           path of spots, sit at a seat, stand, turned toward someone or a spot; door to: 0 or 1; unlace), shot and played
+//                           before the line, if any (wait: false: while it's said)
+//   choose: { key, prompt, hint, options: [{ id, label, text, beats }] }   the player's choice of what Silas says; its beats play, and it's kept
 //   name: { id: 'Name' }    from here on, called this (the reveal). In any text or name, {first} and {last} are the player's (js/player.js)
 //   pause: ms               held a moment, no line
 //   end: true               the scene's over: fade to black
 // Shots are given from someone's place: the camera and what it looks at in that person's own frame (x to their left, y up, z ahead of them),
 // so they follow the room's layout as it's edited (rooms.html); `at` instead of `from` places them in the room itself.
 //
-//   Prologue.SCENES.hall · Prologue.shot(scene, name, spots) → { cam, look } · Prologue.speakers(scene)
+//   Prologue.SCENES.hall, .office · Prologue.ORDER (the scenes, in the order they're played) · Prologue.shot(scene, name, spots) → { cam, look }
+//   · Prologue.speakers(scene)
 (function (root) {
 'use strict';
 
@@ -111,10 +115,93 @@ const HALL = {
     { shot: 'bow', act: 'bow', pause: 1700 },
     { end: true },
   ],
-  next: { title: 'Your terms', where: 'Your office, off the yard' },
+  next: { title: 'Your terms', where: 'Your office, off the yard' },      // (what follows, if the game stops here)
 };
 
-const SCENES = { hall: HALL };
+// ── The confrontation: his office, off the yard, the same evening. The door shut on them; her plea, light and practised; his questions, till
+// she sees what she did and says it, and concedes the sentence; then he relents (not the thrashing she named, but she'll learn), and gives
+// her the word, the mare's name; she accepts; and the gown, first: it was never hers. Then black, and the correction (to be built) ──
+const OFFICE = {
+  id: 'office', room: 'office', title: 'His terms',
+  start: { door: 1 },      // (the door open as it begins: he shuts it)
+  cast: {
+    silas: { spec: ['silas'], mark: 'door', face: 'stern' },
+    cicely: { spec: ['her', 'cicely', 'gown'], mark: 'cicely', face: 'concerned', arms: 'clasp', look: 'silas' },
+  },
+  names: { silas: '{first}', cicely: 'Cicely' },
+  shots: {
+    room: { at: true, cam: [-1.9, 2.1, -2.15], look: [0.6, 1.0, 0.9] },            // (from the corner behind the desk: the room, the door)
+    desk: { from: 'cicely', cam: [-0.35, 1.55, -0.7], look: [0, 1.1, 1.65] },        // (over her shoulder: him at his desk)
+    her: { from: 'silas', cam: [0.75, 1.5, -0.35], look: [-0.05, 1.4, 1.66] },        // (past his shoulder, from behind the desk: her before it)
+    him: { from: 'silas', cam: [0.3, 1.3, 1.35], look: [0, 1.12, 0.05] },
+    close: { from: 'cicely', cam: [0.35, 1.5, 1.25], look: [0, 1.42, 0] },
+    rise: { from: 'cicely', cam: [2.0, 1.8, -1.15], look: [-0.4, 1.0, 0.95] },        // (from the fire side: him getting up, coming round)
+    two: { from: 'cicely', cam: [1.1, 1.55, 1.5], look: [-0.22, 1.38, 0.22] },         // (from the desk's end: her face, him side on to her)
+    gown: { from: 'cicely', cam: [0.55, 1.5, 0.8], look: [0, 1.2, 0] },              // (close, from the desk: her hands at her lacing)
+  },
+  beats: [
+    { shot: 'room', act: 'door', by: 'silas', to: 0, ms: 1200 },
+    { pause: 400 },
+    // (he goes round to his chair; she starts while he does, light, practised)
+    { act: 'walk', by: 'silas', path: ['door', 'deskSE', 'deskNE', 'chairSide'], toward: 'silas', wait: false, who: 'cicely', to: 'silas', face: 'smile',
+      text: 'Mr {last}. You’re a sensible man; everyone says so. We needn’t make so much of a story told at supper.' },
+    { act: 'sit', by: 'silas', at: 'silas', shot: 'her', who: 'cicely', to: 'silas', face: 'smile', text: 'Let me go tonight, quietly, and no one need see me again. You could tell your master it was done.' },
+    // (the prologue's one choice: how he answers her. It's remembered; it sets how she meets her correction)
+    { choose: { key: 'tone', prompt: 'How do you answer her?', hint: 'How you answer sets how she meets her correction.', options: [
+      { id: 'firm', label: 'Firm', text: 'No. You’ll stand there and answer me.', beats: [
+        { shot: 'him', who: 'silas', to: 'cicely', face: 'stern', text: 'No. You’ll stand there and answer me.' }, { shot: 'close', who: 'cicely', to: 'silas', face: 'defiant', text: '…As you like.' }] },
+      { id: 'dry', label: 'Dry', text: 'And tell him what? That I walked you to the gate and wished you well?', beats: [
+        { shot: 'him', who: 'silas', to: 'cicely', face: 'calm', text: 'And tell him what? That I walked you to the gate and wished you well? No.' }, { shot: 'close', who: 'cicely', to: 'silas', face: 'pout', text: 'There’s no call to be clever.' }] },
+      { id: 'gentle', label: 'Gentle', text: 'It isn’t mine to give. But I’ll hear you, if you’ll talk to me plainly.', beats: [
+        { shot: 'him', who: 'silas', to: 'cicely', face: 'caring', text: 'It isn’t mine to give. But I’ll hear you, if you’ll talk to me plainly.' }, { shot: 'close', who: 'cicely', to: 'silas', face: 'cheeky', text: 'Then you’ll see it was nothing. A game, at supper.' }] },
+    ] } },
+    // (his questions: short, one at a time, till she answers them truly)
+    { shot: 'him', who: 'silas', to: 'cicely', face: 'calm', text: 'What did you take from her?' },
+    { shot: 'close', who: 'cicely', to: 'silas', face: 'defiant', text: 'A gown. She has others.' },
+    { shot: 'him', who: 'silas', to: 'cicely', face: 'calm', text: 'What else?' },
+    { shot: 'close', who: 'cicely', to: 'silas', face: 'pout', text: '…Her place at table, I suppose.' },
+    { shot: 'him', who: 'silas', to: 'cicely', face: 'stern', text: 'And her name. And her mare.' },
+    { shot: 'close', who: 'cicely', to: 'silas', face: 'defiant', text: 'It was a horse. Horses are sold every day.' },
+    { shot: 'him', who: 'silas', to: 'cicely', face: 'calm', text: 'Why that one?' },
+    { shot: 'close', look: { cicely: 'down' }, pause: 1300 },
+    { who: 'cicely', to: 'silas', face: 'wince', text: '…Because the mare knew her.' },
+    { shot: 'him', who: 'silas', to: 'cicely', face: 'calm', text: 'How long was she out with the geese?', look: { cicely: null } },
+    { shot: 'close', who: 'cicely', to: 'silas', face: 'sad', text: 'A month. Near enough.', look: { cicely: 'down' } },
+    { shot: 'him', who: 'silas', to: 'cicely', face: 'calm', text: 'Sleeping where?', look: { cicely: null } },
+    { shot: 'close', who: 'cicely', to: 'silas', face: 'wince', text: '…The loft over the goose house.' },
+    { shot: 'him', who: 'silas', to: 'cicely', face: 'stern', text: 'And if no one had heard her at the stove? How long then?' },
+    { shot: 'close', pause: 1600, look: { cicely: 'down' } },
+    { who: 'cicely', to: 'silas', face: 'teary', text: '…As long as I could keep it.' },
+    { shot: 'her', who: 'silas', to: 'cicely', face: 'stern', text: 'Say what you did. All of it, in your own words.', look: { cicely: null } },
+    // (and she does: the weight of it, at last; and concedes the sentence, and that he must do as he's bid)
+    { shot: 'close', who: 'cicely', to: 'silas', face: 'crying', text: 'I took her gown and her name, and the man she was promised to. I had her put out with the geese, and her mare sold so no one would know her.' },
+    { who: 'cicely', to: 'silas', face: 'crying', text: 'And I’d have left her there. And tonight I said what such a one deserved, and I meant every word.' },
+    { who: 'cicely', to: 'silas', face: 'sad', text: 'I named the sentence. And you’ve been bid to carry it out. I know you must.' },
+    // (he relents: gets up, comes round the desk to her)
+    { shot: 'rise', act: 'stand', by: 'silas', at: 'chairSide', toward: 'cicely', pause: 300 },
+    { act: 'walk', by: 'silas', path: ['chairSide', 'deskNE', 'deskSE', 'near'], toward: 'cicely' },
+    { shot: 'two', who: 'silas', to: 'cicely', face: 'caring', text: 'I’ll not thrash you, as you put it.' },
+    { who: 'silas', to: 'cicely', face: 'calm', text: 'But you’ll learn your lesson, here, tonight, at my hand, if you want this house to give you a character when you leave it.' },
+    { shot: 'close', who: 'cicely', to: 'silas', face: 'concerned', text: '…At your hand.' },
+    { shot: 'two', who: 'silas', to: 'cicely', face: 'calm', text: 'Measured. Not the sentence you named.' },
+    // (the word: hers to say, the mare's name)
+    { who: 'silas', to: 'cicely', face: 'caring', text: 'And if it’s ever more than you can bear, you say one word, and it stops at once, and you may go on your way. No one will stop you.' },
+    { who: 'silas', to: 'cicely', face: 'caring', text: 'The word is Falada.', listen: { cicely: 'surprised' } },
+    { shot: 'close', who: 'cicely', to: 'silas', face: 'teary', text: '…Her name. You’d have me say her name.' },
+    { who: 'silas', to: 'cicely', face: 'soft', text: 'So you’ll remember her. Only if you need it.' },
+    { look: { cicely: 'down' }, pause: 1100 },
+    { who: 'cicely', to: 'silas', face: 'sad', text: '…I understand. I accept, Mr {last}.', look: { cicely: null } },
+    // (and the gown, first)
+    { shot: 'two', who: 'silas', to: 'cicely', face: 'stern', text: 'Then the gown first. It was never yours to wear. Take it off.' },
+    { shot: 'close', who: 'cicely', to: 'silas', face: 'wince', text: '…Here?' },
+    { shot: 'two', who: 'silas', to: 'cicely', face: 'calm', text: 'Here. Your shift can stay.' },
+    { shot: 'gown', act: 'unlace', by: 'cicely', look: { cicely: 'down' }, pause: 1900 },
+    { end: true },
+  ],
+  next: { title: 'The correction', where: 'Across your knee, in your office (being built)' },
+};
+
+const SCENES = { hall: HALL, office: OFFICE };
 
 // A shot, in the room: its camera and the point it looks at ([x, y, z] each), from the spots (the hall's spots(): { id: { at, yaw } }).
 function shot(scene, name, spots) {
@@ -125,7 +212,8 @@ function shot(scene, name, spots) {
   return { cam: W(s.cam), look: W(s.look) };
 }
 // Everyone who says anything in it, and everyone it names.
-const speakers = scene => [...new Set(scene.beats.filter(b => b.who).map(b => b.who))];
+const flat = beats => beats.flatMap(b => [b].concat(b.choose ? b.choose.options.flatMap(o => flat(o.beats)) : []));
+const speakers = scene => [...new Set(flat(scene.beats).filter(b => b.who).map(b => b.who))];
 
-root.Prologue = { SCENES, shot, speakers };
+root.Prologue = { SCENES, ORDER: ['hall', 'office'], shot, speakers };
 })(typeof window !== 'undefined' ? window : globalThis);

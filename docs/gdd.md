@@ -481,15 +481,23 @@ dress, knowing nothing of what is coming. Silas stands before them.
 
 ### The confrontation: his terms
 
-Silas's office, off the yard: his desk and ledgers, a chair, a door that
-shuts. The first thing he does is order the gown off: it was never hers
-to wear. Once she acquiesces, the rest of the scene, and the correction,
-play out in her own linen shift and drawers. Cicely pleads not to be
-done by as she would have had Adela done. Silas sets his terms. If she
-wants clemency she'll submit, to a correction at his hand, measured, not
-the sentence she named. And if it's ever too much, she can say the
-mare's name, Falada, and it will be over at once, and she'll be free to
-go on her way.
+Silas's office, off the yard, the same evening: his desk and ledgers,
+his chair behind it, the estate's map, a small fire, a door that shuts.
+He shuts it and goes to his desk, and Cicely pleads, lightly, as if it
+could be talked away: a story told at supper; let her go quietly
+tonight, and he can tell his master it was done. Silas probes her with
+questions (what she took, why that mare, how long Adela kept the geese
+and where she slept, how long she'd have let it go on) until she
+understands the weight of what she's done, says it in her own words, and
+concedes: she named the sentence, and he must do as he's bid. He relents
+then. He'll not thrash her, as she put it, but she'll learn her lesson,
+at his hand and in measure, if she wants the house to give her a
+character when she leaves it. It's here he gives her the word: the
+mare's name, Falada. If it's ever more than she can bear, she says it,
+it stops at once, and she's free to go on her way. She accepts. Then the
+gown, first: it was never hers to wear. The scene fades as she reaches
+for its lacing; the correction plays out in her own linen shift and
+drawers.
 
 - **The choice.** How he answers her plea (firm, dry or gentle) is the
   prologue's one dialogue choice. It teaches dialogue, and sets how

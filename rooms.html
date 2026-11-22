@@ -27,7 +27,7 @@ textarea { width: 100%; box-sizing: border-box; height: 130px; background: #120e
   <h1>Room editor</h1>
   <div class="sub">Its furniture to arrange: click a piece to choose it (a box is drawn round it) and drag it across the floor; the arrows nudge it as the camera sees the floor (<kbd>Shift</kbd> for five), <kbd>Q</kbd> and <kbd>E</kbd> turn it by 15° (<kbd>Shift</kbd> 5°), or type where it goes. Drag anywhere else to orbit; the wheel zooms. The walls nearest the camera are put out of the way. What stands on a piece (the feast on the table) goes with it. The walls, the hearth, the archway and the passage stay. Changes are kept in this browser as you make them, and the game builds the room from them.</div>
   <h3>Room</h3>
-  <select id="room"><option value="hall">The great hall at Thornleigh (the prologue)</option></select>
+  <select id="room"><option value="hall">The great hall at Thornleigh (the prologue)</option><option value="office">Silas’s office at Thornleigh (the prologue)</option></select>
   <div class="sub" id="about" style="margin-top:6px"></div>
   <h3>View</h3>
   <div class="btns" id="views"></div>
@@ -44,19 +44,36 @@ textarea { width: 100%; box-sizing: border-box; height: 130px; background: #120e
   </div>
   <h3>Layout</h3>
   <div class="btns"><button id="copy">Copy layout</button><button id="resetAll">All back where they were</button><span id="saved"></span></div>
-  <div class="sub" style="margin:4px 0">The layout as it is now: Copy layout and paste it over <code>LAYOUT</code> in <code>js/hall.js</code> to make it the room's own (or send it over to have it set).</div>
+  <div class="sub" style="margin:4px 0">The layout as it is now: Copy layout and paste it over <code>LAYOUT</code> in <code id="file">js/hall.js</code> to make it the room's own (or send it over to have it set).</div>
   <textarea id="out" readonly></textarea>
 </div>
 <script src="vendor/three.min.js"></script><script src="vendor/OrbitControls.js"></script><script src="vendor/postprocessing.js"></script><script src="vendor/GLTFLoader.js"></script>
-<script src="js/cast.js"></script><script src="js/figure.js"></script><script src="js/poses.js"></script><script src="js/stage.js"></script><script src="js/kit.js"></script><script src="js/hall.js"></script>
+<script src="js/cast.js"></script><script src="js/figure.js"></script><script src="js/poses.js"></script><script src="js/stage.js"></script><script src="js/kit.js"></script><script src="js/hall.js"></script><script src="js/office.js"></script>
 <script>
 'use strict';
 const $ = id => document.getElementById(id), q = new URLSearchParams(location.search), V3 = THREE.Vector3, DEG = Math.PI / 180;
 const stage = Stage.create($('view'), { keep: !!q.get('still') }), scene = stage.scene, camera = stage.camera, controls = stage.controls;
 controls.maxDistance = 30; controls.minDistance = 0.3; camera.far = 120; camera.updateProjectionMatrix();
-const ROOMS = { hall: { mod: Hall, about: 'Thornleigh’s great hall, the prologue’s opening scene: the feast finished, the master at the head of the long table, his son at his right and Cicely beside him; the archway at the master’s left onto the stone passage, where Adela comes in; the hearth behind the son and Cicely. The blue mark is where Silas stands before them, the gold where Adela stands in the archway.' } };
+// (each room: its module, its file, what it's for, and the scene's cast in their places in it)
+const ROOMS = {
+  hall: { mod: Hall, file: 'js/hall.js', about: 'Thornleigh’s great hall, the prologue’s opening scene: the feast finished, the master at the head of the long table, his son at his right and Cicely beside him; the archway at the master’s left onto the stone passage, where Adela comes in; the hearth behind the son and Cicely. The blue mark is where Silas stands before them, the gold where Adela stands in the archway.',
+    cast: { make: () => ({ master: Cast.manSpec('master'), son: Cast.manSpec('heir'), cicely: Cast.figureSpec('cicely', 'f', 'gown'), adela: Cast.figureSpec('adela', 'f', 'goose'), silas: Cast.squireSpec() }),
+      faces: { master: 'stern', son: 'calm', cicely: 'haughty', adela: 'shy', silas: 'calm' },
+      place(c, S) {
+        Poses.seat(c.master, S.master.at, S.master.yaw, { seatY: S.master.seatY, lean: 0.04, look: 0.1 }); Poses.arms(c.master, 'clasp');
+        Poses.seat(c.son, S.son.at, S.son.yaw, { seatY: S.son.seatY, look: 0.05 }); Poses.arms(c.son, 'clasp');
+        Poses.seat(c.cicely, S.cicely.at, S.cicely.yaw, { seatY: S.cicely.seatY, look: 0.0 }); Poses.arms(c.cicely, 'clasp');
+        Poses.stand(c.adela, S.adela.at, S.adela.yaw, { weight: 0.4 }); Poses.arms(c.adela, 'clasp');
+        Poses.stand(c.silas, S.silas.at, S.silas.yaw, { weight: -0.3 }); Poses.arms(c.silas, 'rest'); } } },
+  office: { mod: Office, file: 'js/office.js', about: 'Silas’s office at Thornleigh, the prologue’s confrontation (and its correction, later): his desk out from the north wall with his chair behind it, the shelves of ledgers, the estate’s map; Cicely’s mark before the desk; the door in the south wall (where he shuts it: a mark), the fire in the west, the window onto the yard in the east; where he stands before her (a mark).',
+    cast: { make: () => ({ silas: Cast.squireSpec(), cicely: Cast.figureSpec('cicely', 'f', 'gown') }), faces: { silas: 'calm', cicely: 'concerned' },
+      place(c, S) {
+        Poses.seat(c.silas, S.silas.at, S.silas.yaw, { seatY: S.silas.seatY, lean: 0.03, look: 0.06 }); Poses.arms(c.silas, 'clasp');
+        Poses.stand(c.cicely, S.cicely.at, S.cicely.yaw, { weight: 0.35, look: 0.18 }); Poses.arms(c.cicely, 'clasp'); } } },
+};
 const which = ROOMS[q.get('room')] ? q.get('room') : 'hall', R = ROOMS[which], room = R.mod.build(scene), ROOM = R.mod.ROOM;
-$('room').value = which; $('about').textContent = R.about;
+$('room').value = which; $('about').textContent = R.about; $('file').textContent = R.file;
+$('room').onchange = () => { location.search = '?room=' + $('room').value; };
 room.showMarks(true);
 
 // ── Views ──
@@ -73,26 +90,17 @@ $('snap').onclick = () => $('snap').classList.toggle('on');
 $('roof').onclick = () => { roofOn = !roofOn; $('roof').classList.toggle('on', roofOn); };
 $('marks').onclick = () => { marksOn = !marksOn; $('marks').classList.toggle('on', marksOn); room.showMarks(marksOn); };
 
-// ── The cast in their places (the opening scene): the master in his chair, his son, Cicely in Adela's gown; Adela at her mark in the
-// archway in the goose girl's dress; Silas at his mark before them ──
+// ── The scene's cast in their places (the room's own: ROOMS[…].cast) ──
 let cast = null;
-function placeCast() {
-  if (!cast) return; const S = room.spots();
-  Poses.seat(cast.master, S.master.at, S.master.yaw, { seatY: S.master.seatY, lean: 0.04, look: 0.1 }); Poses.arms(cast.master, 'clasp');
-  Poses.seat(cast.son, S.son.at, S.son.yaw, { seatY: S.son.seatY, look: 0.05 }); Poses.arms(cast.son, 'clasp');
-  Poses.seat(cast.cicely, S.cicely.at, S.cicely.yaw, { seatY: S.cicely.seatY, look: 0.0 }); Poses.arms(cast.cicely, 'clasp');
-  Poses.stand(cast.adela, S.adela.at, S.adela.yaw, { weight: 0.4 }); Poses.arms(cast.adela, 'clasp');
-  Poses.stand(cast.silas, S.silas.at, S.silas.yaw, { weight: -0.3 }); Poses.arms(cast.silas, 'rest');
-}
+function placeCast() { if (cast) R.cast.place(cast.figs, room.spots()); }
 $('cast').onclick = async () => {
   if (!cast) {
     $('cast').textContent = 'Bringing them in…'; await Figure.preload();
-    const mk = spec => { const f = Figure.make(spec); scene.add(f.root); return f; };
-    cast = { master: mk(Cast.manSpec('master')), son: mk(Cast.manSpec('heir')), cicely: mk(Cast.figureSpec('cicely', 'f', 'gown')), adela: mk(Cast.figureSpec('adela', 'f', 'goose')), silas: mk(Cast.squireSpec()) };
-    cast.master.setExpr('stern'); cast.son.setExpr('calm'); cast.cicely.setExpr(Cast.ROSTER.cicely.base); cast.adela.setExpr('shy'); cast.silas.setExpr('calm');
-    cast.visible = false; $('cast').textContent = 'The cast, in their places';
+    const specs = R.cast.make(); cast = { figs: {}, visible: false };
+    for (const k in specs) { const f = Figure.make(specs[k]); scene.add(f.root); f.setExpr(R.cast.faces[k] || 'calm'); cast.figs[k] = f; }
+    $('cast').textContent = 'The cast, in their places';
   }
-  cast.visible = !cast.visible; for (const k of ['master', 'son', 'cicely', 'adela', 'silas']) cast[k].root.visible = cast.visible;
+  cast.visible = !cast.visible; for (const k in cast.figs) cast.figs[k].root.visible = cast.visible;
   $('cast').classList.toggle('on', cast.visible); if (cast.visible) placeCast();
 };
 
@@ -126,7 +134,7 @@ $('resetOne').onclick = () => { if (sel) { const h = home[sel]; move(sel, h.x, h
 $('resetAll').onclick = () => { for (const k of room.keys) room.place(k, home[k]); room.resides(); ROOM.resetLayout(); if (cast && cast.visible) placeCast(); show(); };
 function out() {
   const L = room.layout(), f = v => +(+v).toFixed(3), lines = room.keys.map(k => `  ${k}: { x: ${f(L[k].x)}, z: ${f(L[k].z)}, ry: ${f(L[k].ry || 0)} },`);
-  $('out').value = `// ${room.name}: the layout (rooms.html, Copy layout): paste over LAYOUT in js/hall.js\nconst LAYOUT = {\n${lines.join('\n')}\n};\n`;
+  $('out').value = `// ${room.name}: the layout (rooms.html, Copy layout): paste over LAYOUT in ${R.file}\nconst LAYOUT = {\n${lines.join('\n')}\n};\n`;
 }
 $('copy').onclick = () => { out(); $('out').select(); try { navigator.clipboard.writeText($('out').value).catch(() => {}); } catch (e) {} try { document.execCommand('copy'); } catch (e) {} $('saved').textContent = 'copied'; };
 
@@ -158,7 +166,7 @@ addEventListener('keydown', e => {
 stage.start(dt => {
   const s = room.sidesAt(camera.position); if (!roofOn) s.add('C');
   for (const [o, side] of room.sideOf) o.visible = !s.has(side);
-  room.tick(dt); if (cast && cast.visible) for (const k of ['master', 'son', 'cicely', 'adela', 'silas']) cast[k].tick(dt);
+  room.tick(dt); if (cast && cast.visible) for (const k in cast.figs) cast.figs[k].tick(dt);
   if (sel && boxH.visible) { boxH.box.setFromObject(room.pieces[sel].g); }
 });
 show();

@@ -6,9 +6,9 @@ globalThis.window = globalThis;
 const ctx = new Proxy({}, { get: (t, k) => (k === 'createRadialGradient' || k === 'createLinearGradient' ? () => ({ addColorStop() {} }) : () => {}), set: () => true });
 globalThis.document = { createElement: () => ({ width: 0, height: 0, getContext: () => ctx }) };
 globalThis.THREE = require('../vendor/three.min.js');
-require('../js/cast.js'); require('../js/figure.js'); require('../js/kit.js'); require('../js/hall.js'); require('../js/prologue.js');
-const { Prologue, Cast, Figure, Hall } = window, SC = Prologue.SCENES.hall;
-const ACTS = ['adelaIn', 'nod', 'plead', 'sonRises', 'sonToAdela', 'kneel', 'bow'];
+require('../js/cast.js'); require('../js/figure.js'); require('../js/kit.js'); require('../js/hall.js'); require('../js/office.js'); require('../js/prologue.js');
+const { Prologue, Cast, Figure, Hall, Office } = window, SC = Prologue.SCENES.hall, OF = Prologue.SCENES.office;
+const ACTS = ['adelaIn', 'nod', 'plead', 'sonRises', 'sonToAdela', 'kneel', 'bow', 'walk', 'sit', 'stand', 'door', 'unlace'];
 
 test('the cast: the master, his son, Cicely in Adela’s gown, Adela in the goose girl’s dress, and Silas; each made from a real spec', () => {
   assert.deepEqual(Object.keys(SC.cast).sort(), ['adela', 'cicely', 'heir', 'master', 'silas']);
@@ -106,4 +106,38 @@ test('Young Thornleigh’s eyes: never on Cicely till her plea; his plate, his f
   assert.equal(seen[plea], 'cicely', 'he looks at her when she turns to him');
   for (const k of ['hisPlate', 'master', 'silas', 'adela']) assert.ok(seen.slice(0, plea).includes(k), k);
   const named = SC.beats.findIndex(b => b.name && b.name.adela); assert.ok(!seen.slice(0, named).includes('adela'), 'not at the goose girl, till she’s named');
+});
+
+// ── The office: the confrontation ──
+const flat = beats => beats.flatMap(b => [b].concat(b.choose ? b.choose.options.flatMap(o => flat(o.beats)) : []));
+
+test('the office’s beats: lines by its cast with real faces, known shots and acts, walks along the office’s spots', () => {
+  const o = Office.build(new THREE.Scene()), S = o.spots();
+  assert.deepEqual(Object.keys(OF.cast).sort(), ['cicely', 'silas']); assert.equal(OF.cast.cicely.spec[2], 'gown', 'still in the gown, till the end');
+  for (const [i, b] of flat(OF.beats).entries()) {
+    if (b.who) { assert.ok(OF.cast[b.who], b.who); assert.ok(b.text, 'beat ' + i); assert.ok(!b.face || Figure.EXPRS[b.face], b.face); }
+    if (b.shot) assert.ok(OF.shots[b.shot], b.shot); if (b.act) assert.ok(ACTS.includes(b.act), b.act);
+    if (b.act === 'walk') for (const k of b.path) assert.ok(S[k], 'spot ' + k);
+    if (b.act === 'sit' || b.act === 'stand') { assert.ok(OF.cast[b.by]); assert.ok(!b.at || S[b.at], b.at); }
+    if (b.toward) assert.ok(OF.cast[b.toward] || S[b.toward], b.toward);
+  }
+  assert.ok(OF.beats[OF.beats.length - 1].end); assert.ok(OF.next && /correction/i.test(OF.next.title));
+  for (const name in OF.shots) { const sh = Prologue.shot(OF, name, S), [x, y, z] = sh.cam, B = o.bounds; assert.ok(x > B.minX - 0.1 && x < B.maxX + 0.1 && z > B.minZ - 0.1 && z < B.maxZ + 0.1 && y > 0.8 && y < B.ht, name); }
+});
+
+test('the confrontation in order: the door shut; her plea, light; his answer (the one choice); his questions; she says what she did and concedes; he relents; the word; she accepts; the gown', () => {
+  const B = OF.beats, at = f => B.findIndex(f), say = (who, re) => at(b => b.who === who && re.test(b.text || ''));
+  const order = [at(b => b.act === 'door' && b.to === 0), say('cicely', /sensible man/), at(b => b.choose), say('silas', /What did you take/), say('silas', /mare/),
+    say('silas', /geese/), say('silas', /stove/), say('cicely', /I took her gown/), say('cicely', /I named the sentence/), say('silas', /not thrash you, as you put it/),
+    say('silas', /character/), say('silas', /The word is Falada/), say('cicely', /I accept/), say('silas', /gown first\. It was never yours to wear/), at(b => b.act === 'unlace'), at(b => b.end)];
+  for (const i of order) assert.ok(i >= 0, order.join()); for (let k = 1; k < order.length; k++) assert.ok(order[k] > order[k - 1], 'in order at ' + k + ': ' + order);
+  assert.match(B[say('cicely', /I named the sentence/)].text, /bid|must/, 'and that he must do as he’s bid');
+  assert.ok(!B.slice(0, say('silas', /not thrash you/)).some(b => /Falada/.test(b.text || '')), 'the word only once he’s relented');
+});
+
+test('the one choice: how he answers her plea, firm, dry or gentle; each a line of his and her answer; kept as the tone', () => {
+  const C = OF.beats.find(b => b.choose).choose; assert.equal(C.key, 'tone');
+  assert.deepEqual(C.options.map(o => o.id), ['firm', 'dry', 'gentle']);
+  for (const o of C.options) { assert.equal(o.beats[0].who, 'silas'); assert.equal(o.beats[1].who, 'cicely'); assert.ok(o.label && o.text); }
+  assert.equal(OF.beats.filter(b => b.choose).length, 1);
 });

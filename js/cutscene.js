@@ -5,7 +5,8 @@
 //
 //   const cs = Cutscene.create({ stage, room, scene, cast: { id: figure }, ui });  cs.place() (everyone where the scene starts them)
 //   await cs.play(from);  cs.tick(dt) each frame;  cs.stop()
-//   ui: { line({ id, name, text, ms }) → Promise (on to the next when it resolves), fade(on) → Promise, names(map), pause(ms) → Promise (optional) }
+//   ui: { line({ id, name, text, ms }) → Promise (on to the next when it resolves), fade(on) → Promise, names(map), pause(ms) → Promise (optional),
+//     choose({ id, name, prompt, hint, options: [{ id, label, text }] }) → Promise(option id) }
 //   fill(text) → text: the player's name put into the script's lines and names (js/player.js: Player.fill)
 (function (root) {
 'use strict';
@@ -17,7 +18,7 @@ const TYPE_MS = 24;       // (a character of a line, typing out: as the page's b
 function create(o) {
   const { stage, room, scene, cast, ui } = o, fill = o.fill || (t => t), spots = room.spots(), S = {}, names = {};
   for (const k in scene.names) names[k] = fill(scene.names[k]);
-  let stopped = false, now = 0, speaking = null, talkUntil = 0;
+  let stopped = false, now = 0, speaking = null, talkUntil = 0; const chosen = Object.assign({}, o.chosen || {});
   const v3 = a => new V3(a[0], a[1], a[2]);
   const spotOf = id => spots[(scene.cast[id] || {}).seat || (scene.cast[id] || {}).mark || id];
 
@@ -54,7 +55,7 @@ function create(o) {
     F.root.updateMatrixWorld(true); keep(s);
   }
   function place(id) {
-    const s = S[id], c = s.c; s.F.root.visible = !c.off; s.blend = null; s.walk = null; s.bow = 0; s.nod = 0; s.look = c.look; s.auto = null; s.seen = null; s.seenAt = 0;
+    const s = S[id], c = s.c; s.F.root.visible = !c.off; s.blend = null; s.walk = null; s.walkP = null; s.bow = 0; s.nod = 0; s.look = c.look; s.auto = null; s.seen = null; s.seenAt = 0;
     if (c.seat) seatAt(s, spots[c.seat]); else standAt(s, spotOf(id).at, spotOf(id).yaw);
     s.F.setExpr(c.face || 'calm'); s.mo0 = s.F.exprTo.mo || 0;
   }
@@ -63,6 +64,21 @@ function create(o) {
   const point = k => { const q = scene.points && scene.points[k]; if (!q) return null; const sp = spots[q.from], c = Math.cos(sp.yaw), n = Math.sin(sp.yaw), [x, y, z] = q.at; return new V3(sp.at.x + x * c + z * n, y, sp.at.z - x * n + z * c); };
   const yawTo = (from, to) => Math.atan2(to.x - from.x, to.z - from.z);
   const fwdOf = sp => new V3(Math.sin(sp.yaw), 0, Math.cos(sp.yaw));
+  const yawOf = F => 2 * Math.atan2(F.root.quaternion.y, F.root.quaternion.w);
+  // (the way to face, from `at`: toward someone, or a spot; else along the last of the way walked; else as they are)
+  // (someone else by that name, or else the spot: his own name, from him, is his chair)
+  const faceYaw = (at, face, pts, by) => { const t = face && S[face] && face !== by ? S[face].F.root.position : face && spots[face] ? spots[face].at : null;
+    return t ? yawTo(at, t) : pts && pts.length > 1 ? yawTo(pts[pts.length - 2], pts[pts.length - 1]) : 0; };
+  // (what's done after anything they're still doing: a walk to finish, then sit)
+  const after = (s, fn) => (s.walkP ? s.walkP.then(fn) : fn());
+  // A walk along a way of points: small steps, the body turning into each leg of it; at the end, turned to `yaw`.
+  function walkTo(s, pts, yaw, fast, speed) {
+    const last = pts[pts.length - 1];
+    if (fast || pts.length < 2) { s.walk = null; s.walkP = null; standAt(s, last, yaw); return null; }
+    let len = 0; const segs = []; for (let i = 1; i < pts.length; i++) { const d = pts[i].distanceTo(pts[i - 1]); segs.push({ a: pts[i - 1], b: pts[i], d, at: len }); len += d; }
+    s.walkP = new Promise(res => { s.walk = { segs, len, d: 0, speed: speed || 0.7, yaw: yawTo(pts[0], pts[1]), done: () => { s.walk = null; s.walkP = null; const b = blendTo(s, () => standAt(s, last, yaw), 450); (b || Promise.resolve()).then(res); } }; });
+    return s.walkP;
+  }
 
   // ── One pose eased into the next: every bone (and where they stand) carried from the one to the other, smoothly; at once when `fast` ──
   const snap = F => ({ q: F.bones.map(b => b.quaternion.clone()), p: F.bones.map(b => b.position.clone()), rp: F.root.position.clone(), rq: F.root.quaternion.clone() });
@@ -85,8 +101,22 @@ function create(o) {
     adelaIn(fast) {
       const s = S.adela, sp = spotOf('adela'), from = sp.at.clone().addScaledVector(fwdOf(sp), -1.6);
       s.F.root.visible = true;
-      if (fast) { standAt(s, sp.at, sp.yaw); return null; }
-      return new Promise(res => { s.walk = { from, to: sp.at.clone(), yaw: sp.yaw, t: 0, ms: 2600, done: () => { standAt(s, sp.at, sp.yaw); res(); } }; });
+      return walkTo(s, [from, sp.at.clone()], sp.yaw, fast, 0.62);
+    },
+    // ── And for any scene: walk a way (b.path: spots), sit (b.at: a seat), stand (where they are, or b.at), turned to b.face (someone, or a
+    // spot: b.toward); the room's door to b.to (0 shut, 1 open); her hands to the lacing at the front of her bodice ──
+    walk(fast, b) { const s = S[b.by], pts = b.path.map(k => spots[k].at.clone()); s.F.root.visible = true; return walkTo(s, pts, faceYaw(pts[pts.length - 1], b.toward, pts, b.by), fast, b.speed); },
+    sit(fast, b) { const s = S[b.by]; return after(s, () => blendTo(s, () => seatAt(s, spots[b.at]), b.ms || 1000, fast)); },
+    stand(fast, b) { const s = S[b.by]; return after(s, () => { const at = b.at ? spots[b.at].at.clone() : s.F.root.position.clone().setY(0); return blendTo(s, () => standAt(s, at, faceYaw(at, b.toward, null, b.by)), b.ms || 1000, fast); }); },
+    door(fast, b) { return room.door ? room.door.to(b.to, fast ? 0 : (b.ms || 1000)) : null; },
+    unlace(fast, b) {
+      const s = S[b.by], F = s.F;
+      return blendTo(s, () => {
+        standAt(s, F.root.position.clone().setY(0), yawOf(F)); const ch = P.W_(F, 'chest'), fw = P.toWorldDir(F, 0, 0, 1), sd = P.toWorldDir(F, 1, 0, 0), up = new V3(0, 1, 0), sc = P.sc(F);
+        for (const [side, sx] of [['L', 1], ['R', -1]]) P.reach(F, side, ch.clone().addScaledVector(fw, 0.13 * sc).addScaledVector(up, (sx > 0 ? -0.06 : -0.1) * sc).addScaledVector(sd, sx * 0.05 * sc),
+          sd.clone().multiplyScalar(sx).addScaledVector(up, -0.7).normalize(), fw.clone().negate(), up.clone().addScaledVector(sd, -sx * 0.6).normalize());
+        F.grip('L', 0.55, 0.05, 0.5); F.grip('R', 0.55, 0.05, 0.5);
+      }, b.ms || 1100, fast);
     },
     // The master nods to Silas: go on.
     nod() { S.master.nod = 1; return null; },
@@ -138,8 +168,11 @@ function create(o) {
     now += dt * 1000;
     for (const id in S) {
       const s = S[id], F = s.F; if (!F.root.visible) continue;      // (off: not there at all, cloth included, till they come on)
-      if (s.walk) { const w = s.walk; w.t += dt * 1000; const k = clamp(w.t / w.ms, 0, 1), at = w.from.clone().lerp(w.to, k);
-        if (k >= 1) { s.walk = null; w.done(); } else stride(s, at, w.yaw, (w.t / 1000) * 7.2); }      // (the feet keeping pace with her: 2 × 0.13 m a step)
+      if (s.walk) { const w = s.walk; w.d = Math.min(w.len, w.d + w.speed * dt);
+        if (w.d >= w.len) w.done();
+        else { const g = w.segs.find(q => w.d <= q.at + q.d) || w.segs[w.segs.length - 1], at = g.a.clone().lerp(g.b, (w.d - g.at) / Math.max(1e-6, g.d)), want = yawTo(g.a, g.b);
+          let dy = want - w.yaw; dy = Math.atan2(Math.sin(dy), Math.cos(dy)); w.yaw += dy * (1 - Math.exp(-dt * 7));      // (turning into each leg of the way)
+          stride(s, at, w.yaw, w.d * 11.7); } }      // (the feet keeping pace: 2 × 0.13 m a step)
       if (s.blend) { const B = s.blend; B.t += dt * 1000; const k = Math.min(1, B.t / B.ms); put(F, B.A, B.B, sm(k)); keep(s); if (k >= 1) { s.blend = null; B.done(); } }
       if (!s.base) { F.tick(dt); continue; }
       // where they're looking: whoever they've been turned to, else the speaker (or whoever the speaker's speaking to); eased there
@@ -179,7 +212,8 @@ function create(o) {
     if (b.look) for (const id in b.look) if (S[id]) S[id].look = b.look[id] === null ? undefined : b.look[id];
     if (b.listen) for (const id in b.listen) face(id, b.listen[id]);
     let wait = null;
-    if (b.act && ACTS[b.act]) wait = ACTS[b.act](fast);
+    if (b.act && ACTS[b.act]) wait = ACTS[b.act](fast, b);
+    if (b.wait === false) wait = null;      // (done while the line's said)
     if (b.shot) { shotTo(b.shot, b.glide); if (b.push && !fast) { const to = b.push, ms = b.ms || 9000; setTimeout(() => { if (!stopped) shotTo(to, ms); }, 30); } }
     if (fast) { if (b.act === 'bow') S.silas.bow = 1; if (b.act === 'nod') S.master.nod = 0; return; }      // (the bow all the way down; the nod over)
     if (wait) await wait;
@@ -190,6 +224,15 @@ function create(o) {
       const text = fill(b.text); speaking = b.who; talkUntil = now + text.length * TYPE_MS + 150;
       await ui.line({ id: b.who, name: names[b.who] || b.who, text, ms: text.length * TYPE_MS });
       speaking = null;
+    }
+    // (a choice: the player picks what Silas says (shown on the page: ui.choose), and its beats play; skipped past, it's the one chosen before,
+    // or the first)
+    if (b.choose) {
+      const C = b.choose; let id = chosen[C.key];
+      if (!fast || !id) id = fast ? C.options[0].id : await ui.choose({ id: C.who || 'silas', name: names[C.who || 'silas'], prompt: fill(C.prompt || ''), hint: C.hint, options: C.options.map(q => ({ id: q.id, label: q.label, text: fill(q.text) })) });
+      chosen[C.key] = id; if (ui.chose) ui.chose(C.key, id);
+      const opt = C.options.find(q => q.id === id) || C.options[0];
+      for (const x of opt.beats) { if (stopped) return; await beat(x, fast); }
     }
     if (b.pause && !stopped) await (ui.pause ? ui.pause(b.pause) : sleep(b.pause));
     if (b.end) await ui.fade(true);
@@ -203,7 +246,7 @@ function create(o) {
     for (let i = from; i < scene.beats.length; i++) { if (stopped) return false; await beat(scene.beats[i], false); }
     return !stopped;
   }
-  return { play, tick, place: () => { for (const id in S) place(id); }, stop: () => { stopped = true; }, get names() { return names; }, S, spots, shotTo };
+  return { play, tick, place: () => { for (const id in S) place(id); if (scene.start && scene.start.door != null && room.door) room.door.set(scene.start.door); }, stop: () => { stopped = true; }, get names() { return names; }, chosen, S, spots, shotTo };
 }
 
 root.Cutscene = { create, TYPE_MS };

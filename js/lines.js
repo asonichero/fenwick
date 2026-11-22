@@ -296,22 +296,20 @@ const TERMS = {
     { who: 'subject', text: 'You make it sound very grim.' },
     { who: 'captain', text: 'It is grim. You may still say no. I’ll protect you either way; the terms are how you help me do it.' },
   ],
-  // (the prologue: in his office, after the master's decree. First he has her take off the gown that was never hers (Cast: from her gown to
-  // her shift); she pleads; he sets his terms, and gives her the word himself: the mare she had sold away. Its own whole conversation: AGREE
-  // has nothing for her)
+  // (the prologue: in his office, after the master's decree, the end of it (the whole of it is the game's scene, js/prologue.js): she's
+  // conceded the sentence; he relents (not the thrashing she named), sets his terms and gives her the word himself, the mare she had sold
+  // away; she accepts; and then the gown that was never hers comes off (Cast: from her gown to her shift). AGREE has nothing for her)
   cicely: [
-    { who: 'captain', text: 'Before anything else: the gown. It was never yours to wear. Take it off.' },
+    { who: 'subject', text: 'I named the sentence. And you’ve been bid to carry it out. I know you must.' },
+    { who: 'captain', text: 'I’ll not thrash you, as you put it. But you’ll learn your lesson, here, tonight, at my hand, if you want this house to give you a character when you leave it.' },
+    { who: 'captain', text: 'Measured. Not the sentence you named.' },
+    { who: 'captain', text: 'And if it’s ever more than you can bear, you say one word, and it stops at once, and you may go on your way. The word is {word}.' },
+    { who: 'subject', text: '…Her name. You’d have me say her name.' },
+    { who: 'captain', text: 'So you’ll remember her. Only if you need it.' },
+    { who: 'subject', text: '…I understand. I accept.' },
+    { who: 'captain', text: 'Then the gown first. It was never yours to wear. Take it off.' },
     { who: 'subject', text: '…Here?' },
     { who: 'captain', text: 'Here. Your shift can stay.' },
-    { who: 'subject', text: '…Yes, Mr Fenwick.' },
-    { who: 'subject', text: 'Please. Not that. Not what I said— I didn’t know it was me I was sentencing.' },
-    { who: 'captain', text: 'You knew what you’d done to her. And you’d have had that done to her.' },
-    { who: 'subject', text: '…What will you do with me?' },
-    { who: 'captain', text: 'If you want clemency, you’ll submit to me. A correction at my hand, measured. Not the sentence you named.' },
-    { who: 'captain', text: 'And if it’s ever too much, say the mare’s name. {word}. It stops at once, and you go on your way, and no one will stop you.' },
-    { who: 'subject', text: '…Her name. You’d have me say her name.' },
-    { who: 'captain', text: 'Only if you need it.' },
-    { who: 'subject', text: '…I submit.' },
   ],
 };
 // (her agreement, and her word: the same shape for all, in her voice)
