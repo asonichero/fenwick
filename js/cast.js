@@ -308,11 +308,11 @@ const VILLAGE = {
 // old king, and his son and heir, Adela's intended. Gentlemen at their own table in the evening: a fine waistcoat over a white shirt, long-
 // sleeved, a cravat, dark trousers, boots. (Kit, the goose-herd, is only spoken of.) ──
 const MEN = {
-  master: { id: 'master', name: 'The master of Thornleigh', short: 'Sir', role: 'Silas’s employer at Thornleigh; the tale’s old king', age: 61, h: 1.78, build: { mass: 0.55, fat: 0.7 },
+  master: { id: 'master', name: 'Thornleigh', short: 'Sir', role: 'The master of Thornleigh, Silas’s employer; the tale’s old king', age: 61, h: 1.78, build: { mass: 0.55, fat: 0.7 },
     note: 'Just, and willing to be advised. He decrees, and sends the sentence to Silas.',
     look: { skin: '#e4bca2', hair: '#9c968e', hairStyle: 'tousled', eyes: '#5a6a7a', beard: true },
     wear: { top: 'waistcoat', sleeves: 'long', tunic: '#5a1e26', shirt: '#f2ede4', print: '#c8a85a', accent: '#f2ede4', scarf: true, trousers: '#26242a', legs: 'pressed', legAccent: '#1a181c' } },
-  heir: { id: 'heir', name: 'The young lord', short: 'My lord', role: 'The master’s son and heir; Adela’s intended (the tale’s prince)', age: 25, h: 1.83, build: { mass: 0.5, fat: 0.3 },
+  heir: { id: 'heir', name: 'Young Thornleigh', short: 'My lord', role: 'Thornleigh’s son and heir; Adela’s intended (the tale’s prince)', age: 25, h: 1.83, build: { mass: 0.5, fat: 0.3 },
     note: 'He goes to Adela when the truth is said, apologises, and promises amends.',
     look: { skin: '#f0d0b4', hair: '#6a4a2a', hairStyle: 'tousled', eyes: '#4a6a8a', beard: false },
     wear: { top: 'waistcoat', sleeves: 'long', tunic: '#24463a', shirt: '#f4f0e8', print: '#c8b48a', accent: '#f4f0e8', scarf: true, trousers: '#3a3430', legs: 'pressed', legAccent: '#262220' } },

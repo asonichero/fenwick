@@ -8,7 +8,7 @@ globalThis.document = { createElement: () => ({ width: 0, height: 0, getContext:
 globalThis.THREE = require('../vendor/three.min.js');
 require('../js/cast.js'); require('../js/figure.js'); require('../js/kit.js'); require('../js/hall.js'); require('../js/prologue.js');
 const { Prologue, Cast, Figure, Hall } = window, SC = Prologue.SCENES.hall;
-const ACTS = ['adelaIn', 'nod', 'sonRises', 'sonToAdela', 'bow'];
+const ACTS = ['adelaIn', 'nod', 'plead', 'sonRises', 'sonToAdela', 'kneel', 'bow'];
 
 test('the cast: the master, his son, Cicely in Adela’s gown, Adela in the goose girl’s dress, and Silas; each made from a real spec', () => {
   assert.deepEqual(Object.keys(SC.cast).sort(), ['adela', 'cicely', 'heir', 'master', 'silas']);
@@ -25,7 +25,7 @@ test('every beat is something the player can see or hear: lines by the cast with
     if (b.who) { assert.ok(SC.cast[b.who], 'speaker ' + b.who); assert.ok(b.text && b.text.length > 1, 'beat ' + i); assert.ok(!b.to || SC.cast[b.to], 'to ' + b.to); }
     if (b.face) assert.ok(Figure.EXPRS[b.face], 'face ' + b.face);
     for (const id in b.listen || {}) { assert.ok(SC.cast[id], id); assert.ok(Figure.EXPRS[b.listen[id]], b.listen[id]); }
-    for (const id in b.look || {}) { assert.ok(SC.cast[id], id); assert.ok(b.look[id] === null || b.look[id] === 'down' || SC.cast[b.look[id]], b.look[id]); }
+    for (const id in b.look || {}) { assert.ok(SC.cast[id], id); assert.ok(b.look[id] === null || b.look[id] === 'down' || SC.cast[b.look[id]] || SC.points[b.look[id]], b.look[id]); }
     if (b.shot) assert.ok(SC.shots[b.shot], 'shot ' + b.shot); if (b.push) assert.ok(SC.shots[b.push], 'push ' + b.push);
     if (b.act) assert.ok(ACTS.includes(b.act), 'act ' + b.act);
   }
@@ -43,6 +43,12 @@ test('the story in the GDD’s order: the pretext, the parallel case, her senten
   for (const i of order) assert.ok(i >= 0, 'every beat there: ' + order);
   for (let k = 1; k < order.length; k++) assert.ok(order[k] > order[k - 1], 'in order at ' + k + ': ' + order);
   assert.ok(at(b => b.act === 'nod') < say('silas', /neighbouring estate/), 'Silas speaks at his master’s nod');
+  // (her plea to Young Thornleigh, her hand on his arm; he rises and answers her, then goes to Adela, and kneels on his second line to her)
+  const plea = at(b => b.act === 'plead'), rise = at(b => b.act === 'sonRises'), answer = say('heir', /never my bride/), cross = at(b => b.act === 'sonToAdela'), kneel = at(b => b.act === 'kneel');
+  assert.equal(SC.beats[plea].who, 'cicely'); assert.equal(SC.beats[plea].to, 'heir');
+  assert.ok(plea < rise && rise < answer && answer < cross && cross < kneel, [plea, rise, answer, cross, kneel].join());
+  assert.equal(SC.beats[answer].to, 'cicely');
+  assert.equal(SC.beats.slice(cross, kneel + 1).filter(b => b.who === 'heir').length, 2, 'the kneel on his second line to her');
 });
 
 test('Cicely plays the great lady before she judges: finding fault with the house, scorning the goose girl and the steward, flattered into it', () => {
@@ -63,7 +69,7 @@ test('the case is a trade quarrel, not her story told back; the master translate
 });
 
 test('the names held back till the reveal: the bride and the goose girl, then Cicely and Adela', () => {
-  assert.equal(SC.names.cicely, 'The bride'); assert.equal(SC.names.adela, 'The goose girl');
+  assert.equal(SC.names.cicely, 'The Bride'); assert.equal(SC.names.master, 'Thornleigh'); assert.equal(SC.names.heir, 'Young Thornleigh'); assert.equal(SC.names.adela, 'The goose girl');
   const ci = SC.beats.findIndex(b => b.name && b.name.cicely), ai = SC.beats.findIndex(b => b.name && b.name.adela), rev = SC.beats.findIndex(b => b.who === 'master' && /own sentence/.test(b.text || ''));
   assert.equal(SC.beats[ci].name.cicely, 'Cicely'); assert.equal(SC.beats[ai].name.adela, 'Adela');
   assert.ok(ci > rev && ai > rev, 'named only after “You have named your own sentence”');
@@ -82,4 +88,22 @@ test('the shots, from the hall as built: each camera inside the hall (or the pas
   for (const [name, who] of [['master', 'master'], ['bride', 'cicely'], ['silas', 'silas'], ['adela', 'adela']]) {
     const s = Prologue.shot(SC, name, S); assert.ok(Math.hypot(s.look[0] - S[who].at.x, s.look[2] - S[who].at.z) < 0.3, name);
   }
+});
+
+test('told in the second person, and the player names themselves on it; the scene calls them by their first name', () => {
+  assert.equal(SC.cards.length, 2); assert.match(SC.cards[1].text, /^You manage Thornleigh’s lands and people/); assert.equal(SC.cards[1].ask, 'name');
+  assert.ok(!SC.cards.some(c => /Fenwick|Silas/.test((c.big || '') + (c.small || '') + (c.text || ''))), 'no name given before they give it');
+  assert.equal(SC.names.silas, '{first}');
+  assert.ok(!SC.beats.some(b => /\bSilas\b/.test(b.text || '')), 'never “Silas” outright: {first}');
+  assert.ok(SC.beats.filter(b => /\{first\}/.test(b.text || '')).length >= 3);
+});
+
+test('Young Thornleigh’s eyes: never on Cicely till her plea; his plate, his father, Silas; Adela once she’s named', () => {
+  let L = SC.cast.heir.look; const seen = [];
+  const plea = SC.beats.findIndex(b => b.act === 'plead');
+  SC.beats.forEach((b, i) => { if (b.look && 'heir' in b.look) L = b.look.heir; seen.push(L); if (i < plea) assert.notEqual(L, 'cicely', 'at ' + i); });
+  assert.ok(seen.slice(0, plea).every(l => l !== null && l !== undefined), 'kept, not following whoever speaks, before the plea');
+  assert.equal(seen[plea], 'cicely', 'he looks at her when she turns to him');
+  for (const k of ['hisPlate', 'master', 'silas', 'adela']) assert.ok(seen.slice(0, plea).includes(k), k);
+  const named = SC.beats.findIndex(b => b.name && b.name.adela); assert.ok(!seen.slice(0, named).includes('adela'), 'not at the goose girl, till she’s named');
 });

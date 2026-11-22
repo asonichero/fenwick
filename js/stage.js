@@ -2,6 +2,7 @@
 // a moody split tone (cool steel shadows, warm amber highlights), a vignette and a little film grain). An orbiting camera that glides between shots.
 //
 //   const st = Stage.create(view, { fov, low });  st.scene.add(…);  st.start(dt => …);  st.go(pos, look, ms);  st.setLow(on)
+//   st.hold(on): the picture held still as it last was (nothing moved or drawn: a still behind a title), till let go
 (function (root) {
 'use strict';
 const THREE = root.THREE;
@@ -54,6 +55,7 @@ function create(view, opts) {
   // On a tall screen (a phone held upright) the view widens so it takes in as much across as a square one would; and the picture is shifted by
   // half of what the controls cover (setInsets: at the bottom, or down one side), so what the camera looks at sits in the middle of what's left.
   const fov0 = camera.fov, insets = { top: 0, bottom: 0, left: 0, right: 0 }, DEG = Math.PI / 180;
+  let held = false;
   function resize() {
     const w = view.clientWidth || 800, h = view.clientHeight || 600, a = w / h;
     renderer.setSize(w, h); composer.setSize(w, h); camera.aspect = a;
@@ -62,6 +64,7 @@ function create(view, opts) {
     if (dx || dy) camera.setViewOffset(w, h, dx, dy, w, h); else camera.clearViewOffset();
     camera.updateProjectionMatrix();
     const pr = renderer.getPixelRatio(); grade.uniforms.uRes.value.set(w * pr, h * pr);
+    if (held) draw();      // (resized while held: drawn again, as it was)
   }
   function setInsets(o) {
     const n = { top: Math.round(o.top || 0), bottom: Math.round(o.bottom || 0), left: Math.round(o.left || 0), right: Math.round(o.right || 0) };
@@ -76,6 +79,7 @@ function create(view, opts) {
   }
   let running = false, last = 0;
   function frame(now, each) {
+    if (held) { last = now; return; }
     const dt = Math.min(0.05, (now - last) / 1000); last = now;
     if (tween) { const k = Math.min(1, (now - tween.t0) / tween.ms), e = k * k * (3 - 2 * k); camera.position.lerpVectors(tween.p0, tween.p1, e); controls.target.lerpVectors(tween.l0, tween.l1, e); if (k >= 1) tween = null; }
     if (each) each(dt);
@@ -98,7 +102,7 @@ function create(view, opts) {
     resize();
   }
   if (opts.low) setLow(true);
-  const api = { renderer, scene, camera, controls, composer, bloom, grade, resize, setInsets, setLow, get low() { return low; }, start, go, draw, step: (ms, each) => { last = performance.now() - ms; frame(performance.now(), each); }, get moving() { return !!tween; } };
+  const api = { renderer, scene, camera, controls, composer, bloom, grade, resize, setInsets, setLow, get low() { return low; }, hold: on => { held = !!on; }, get held() { return held; }, start, go, draw, step: (ms, each) => { last = performance.now() - ms; frame(performance.now(), each); }, get moving() { return !!tween; } };
   return api;
 }
 

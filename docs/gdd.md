@@ -1,6 +1,6 @@
 <!-- Converted from docs/The_Manor_in_the_Woods_GDD.docx (the designer’s source; edit that, then reconvert: pandoc -t gfm). -->
 
-# The Manor in the Woods: Game Design Document
+# The Squire of Redmere: Game Design Document
 
 Nov 18, 2026 · @Sir
 
@@ -61,7 +61,10 @@ material it says so.
 ## The protagonist: Silas Fenwick
 
 **Archetype.** The practical woodsman and reluctant lord, in his 30s to
-40s. He is now Silas Fenwick, Squire of Fenwick Hall.
+40s. He is now Silas Fenwick, Squire of Fenwick Hall. The player names
+him on the prologue's second card (Silas Fenwick unless they choose
+otherwise); the game calls him by that first name, and the Hall takes
+the surname.
 
 **Background.** A self-reliant man who works with his hands, reads
 tracks, mends timber and lives simply. He never expected land, title or
@@ -111,9 +114,10 @@ own track, and nothing the player does in one thread lowers another.
 
 ## Setting and lore: Redmere, the Hall and the Fenwood
 
-Three names share a root: Fenwick, Fenwick Hall and the Fenwood. The
-village deliberately does not, so it reads as older than the family
-holding it.
+Three names share a root: Fenwick, Fenwick Hall and the Fenwood. (If the
+player gives another surname, the Hall takes it; the Fenwood keeps its
+own.) The village deliberately does not, so it reads as older than the
+family holding it.
 
 | Place                       | What it is                                                                                                           | Used for                                                                    |
 |-----------------------------|----------------------------------------------------------------------------------------------------------------------|-----------------------------------------------------------------------------|
@@ -395,6 +399,13 @@ life keeps the setup and starts on the core: a discipline scene with a
 subject whose parting from him costs neither of them anything.
 
 ### The situation (told, not played)
+
+Told on two cards over the opening shot, held still and dimmed:
+Thornleigh, some years before Redmere; then, in the second person, that
+the player manages Thornleigh's lands and people for its master, is
+trusted for their judgement, and that the final say is their master's.
+The second card asks the player's name, first and surname. What follows
+is the background, for the scenes to draw on.
 
 **Thornleigh.** Silas is estate manager at Thornleigh, a larger estate
 some way from the Fenwood, answerable to its master. He runs its land

@@ -2349,6 +2349,9 @@ function tickCloth(F, dt) {
   let T = pins();
   const t0 = T.get(C.pin[0].k);
   let jump = !C.live || C.key !== key || !C.last || C.last.distanceTo(t0) > 0.2;
+  // (moved bodily, somewhere new, is a jump too: the cloth is kept in her own frame, so a move of the whole of her doesn't show in it, and a skirt
+  // settled wherever she was made (in the furniture, say) went with her, as it was. Walking is a few centimetres a frame; this is a quarter metre)
+  const rootAt = F.root.getWorldPosition(new V3()); if (C.rootAt && C.rootAt.distanceTo(rootAt) > 0.25) jump = true; C.rootAt = rootAt;
   // (settled, it's frozen: not simulated any more, each point carried as she moves by her bones as it was anchored to them: next to nothing
   // a frame. Put somewhere new, it's settled again)
   // (where her knees are, from her hips: how far her legs have moved since it was frozen, or since the frame before)

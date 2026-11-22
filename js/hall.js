@@ -175,13 +175,12 @@ function build(scene) {
     box(0.08, 0.08, TL - 1.0, oakDark, 0, 0.3, 0, g);
     box(TW + 0.02, 0.006, TL - 0.2, linenM, 0, TH + 0.003, 0, g, { noCast: true }); for (const sx of [-1, 1]) box(0.006, 0.22, TL - 0.2, linenM, sx * (TW / 2 + 0.01), TH - 0.1, 0, g, { noCast: true });
     const top = TH + 0.006;
-    // (a place, used: a pewter plate with scraps and a bone, a goblet, a knife, a crumpled napkin; the head of the table its own)
-    const place_ = (x, z, ry, o) => { const p = new THREE.Group(); p.position.set(x, top, z); p.rotation.y = ry; g.add(p);
+    // (a place, used: a pewter plate with scraps and a bone, a goblet standing, a knife, a crumpled napkin; the head of the table its own)
+    const place_ = (x, z, ry) => { const p = new THREE.Group(); p.position.set(x, top, z); p.rotation.y = ry; g.add(p);
       cyl(0.13, 0.11, 0.014, pewter, 0, 0.007, 0, p, { seg: 20 }); ball(0.02, oakDark, 0.03, 0.02, 0.02, p, [1.4, 0.6, 1]); cyl(0.005, 0.006, 0.09, wax, -0.04, 0.02, -0.02, p, { rot: [Math.PI / 2, 0.6, 0] });
       const gl = new THREE.Group(); gl.position.set(0.14, 0, -0.12); p.add(gl); cyl(0.035, 0.02, 0.006, pewter, 0, 0.003, 0, gl); cyl(0.006, 0.006, 0.08, pewter, 0, 0.045, 0, gl); cyl(0.035, 0.02, 0.07, pewter, 0, 0.12, 0, gl);
-      if (o && o.tipped) gl.rotation.z = Math.PI / 2 - 0.1, gl.position.y = 0.035;
       box(0.012, 0.004, 0.17, iron, -0.15, 0.003, 0, p); ball(0.045, linenM, 0.02, 0.025, 0.14, p, [1.3, 0.5, 1]); };
-    place_(0, -TL / 2 + 0.28, Math.PI, {}); place_(-0.33, -2.25, -Math.PI / 2, {}); place_(-0.33, -1.45, -Math.PI / 2, { tipped: true });
+    place_(0, -TL / 2 + 0.28, Math.PI); place_(-0.33, -2.25, -Math.PI / 2); place_(-0.33, -1.45, -Math.PI / 2);
     // (the roast: a carved fowl on a great pewter charger, its carcass and its legs; a half loaf on its board; a bowl of fruit; flagons; salt)
     cyl(0.26, 0.22, 0.02, pewter, 0, top + 0.01, -1.05, g, { seg: 24 }); ball(0.12, std({ color: srgb('#8a4a22'), roughness: 0.55 }), 0, top + 0.07, -1.05, g, [1, 0.6, 1.4]);
     for (let i = 0; i < 4; i++) cyl(0.008, 0.008, 0.12, wax, -0.04 + i * 0.027, top + 0.12, -1.05, g, { rot: [0.3, 0, 0] });

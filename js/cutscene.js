@@ -1,9 +1,12 @@
 // Fenwick Hall — the cutscene player: a scene's script (js/prologue.js) played out in its room, with its people. Cuts and slow pushes between
 // shots, lines said (the page shows them: ui.line), heads turned to whoever's speaking, faces set, the speaker's mouth working while the line
-// types out, and the scene's acts (someone coming in, rising, crossing to someone, a nod, a bow).
+// types out, and the scene's acts (someone coming in, turning to someone, rising, crossing to someone, kneeling, a nod, a bow): one pose eased
+// into the next where the camera can see it, cut to where it can't.
 //
-//   const cs = Cutscene.create({ stage, room, scene, cast: { id: figure }, ui });  await cs.play(from);  cs.tick(dt) each frame;  cs.stop()
+//   const cs = Cutscene.create({ stage, room, scene, cast: { id: figure }, ui });  cs.place() (everyone where the scene starts them)
+//   await cs.play(from);  cs.tick(dt) each frame;  cs.stop()
 //   ui: { line({ id, name, text, ms }) → Promise (on to the next when it resolves), fade(on) → Promise, names(map), pause(ms) → Promise (optional) }
+//   fill(text) → text: the player's name put into the script's lines and names (js/player.js: Player.fill)
 (function (root) {
 'use strict';
 const THREE = root.THREE, V3 = THREE.Vector3, P = root.Poses;
@@ -12,13 +15,15 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
 const TYPE_MS = 24;       // (a character of a line, typing out: as the page's box types it)
 
 function create(o) {
-  const { stage, room, scene, cast, ui } = o, spots = room.spots(), S = {}, names = Object.assign({}, scene.names);
+  const { stage, room, scene, cast, ui } = o, fill = o.fill || (t => t), spots = room.spots(), S = {}, names = {};
+  for (const k in scene.names) names[k] = fill(scene.names[k]);
   let stopped = false, now = 0, speaking = null, talkUntil = 0;
   const v3 = a => new V3(a[0], a[1], a[2]);
   const spotOf = id => spots[(scene.cast[id] || {}).seat || (scene.cast[id] || {}).mark || id];
 
   // ── Each person: posed (seated, standing, walking), and then each frame, from that pose, the head turned and any nod or bow ──
-  for (const id in cast) S[id] = { F: cast[id], c: scene.cast[id] || {}, base: null, look: undefined, auto: null, yaw: 0, pitch: 0, nod: 0, bow: 0, mo0: 0, walk: null };
+  for (const id in cast) S[id] = { F: cast[id], c: scene.cast[id] || {}, base: null, look: undefined, auto: null, yaw: 0, pitch: 0, nod: 0, bow: 0, mo0: 0, walk: null, blend: null,
+    react: 0.2 + 0.45 * ((id.charCodeAt(0) * 7 + id.length * 13) % 10) / 10, seen: null, seenAt: 0, ph: id.charCodeAt(1) || 1 };      // (each turns to a new speaker after their own moment)
   const keep = s => { const b = s.F.bone; s.base = { spine: b.spine.rotation.clone(), chest: b.chest.rotation.clone(), neck: b.neck.rotation.clone() }; };
   function seatAt(s, spot) { P.seat(s.F, spot.at, spot.yaw, { seatY: spot.seatY, lean: 0.03, look: 0.06 }); P.arms(s.F, 'clasp'); keep(s); }
   function standAt(s, at, yaw) {
@@ -30,62 +35,128 @@ function create(o) {
     const F = s.F; P.stand(F, at, yaw, { weight: 0.12 * Math.sin(ph), look: 0.16, arms: null });
     F.bone.hips.position.y += 0.012 * Math.cos(2 * ph); F.root.updateMatrixWorld(true);
     for (const [side, sx, off] of [['L', 1, 0], ['R', -1, Math.PI]]) {
-      const q = ph + off, z = 0.2 * Math.sin(q), lift = 0.055 * Math.max(0, Math.cos(q));
+      const q = ph + off, z = 0.13 * Math.sin(q), lift = 0.04 * Math.max(0, Math.cos(q));      // (small steps, in a long skirt)
       P.legTo(F, side, P.local(F, sx * 0.1, P.ankleY(F) + lift, z), P.toWorldDir(F, sx * 0.12, 0, 1).normalize());
       P.footFlat(F, side, P.toWorldDir(F, sx * 0.1, 0, 1).normalize(), 0);
     }
     if (s.c.arms) P.arms(F, s.c.arms); keep(s);
   }
+  // Down on one knee (the left), the right foot forward with its knee up, upright, looking up: the hips as high as the thigh is long.
+  function kneelAt(s, at, yaw) {
+    const F = s.F, sc = P.sc(F); F.resetPose(); P.setRoot(F, at, yaw);
+    const th = P.W_(F, 'thighL').distanceTo(P.W_(F, 'shinL')), sh = P.W_(F, 'shinL').distanceTo(P.W_(F, 'footL')), dy = P.W_(F, 'hips').y - P.W_(F, 'thighL').y;
+    F.bone.hips.position.y = (th + 0.06 + dy) / sc; F.bone.hips.position.z = -0.03 / sc; F.bone.hips.rotation.set(0.04, 0, 0);
+    F.bone.spine.rotation.set(0.05, 0, 0); F.bone.chest.rotation.set(0.03, 0, 0); F.bone.neck.rotation.set(-0.08, 0, 0); F.root.updateMatrixWorld(true);
+    P.legTo(F, 'R', P.local(F, -0.12, P.ankleY(F), th * 0.95), P.toWorldDir(F, -0.1, 0.45, 1).normalize());
+    P.footFlat(F, 'R', P.toWorldDir(F, -0.06, 0, 1).normalize(), 0);
+    P.legTo(F, 'L', P.local(F, 0.12, 0.1, -0.03 - sh * 0.95), P.toWorldDir(F, 0.05, -0.35, 1).normalize());
+    P.footFlat(F, 'L', P.toWorldDir(F, 0.03, 0, 1).normalize(), 1);
+    F.root.updateMatrixWorld(true); keep(s);
+  }
   function place(id) {
-    const s = S[id], c = s.c; s.F.root.visible = !c.off;
+    const s = S[id], c = s.c; s.F.root.visible = !c.off; s.blend = null; s.walk = null; s.bow = 0; s.nod = 0; s.look = c.look; s.auto = null; s.seen = null; s.seenAt = 0;
     if (c.seat) seatAt(s, spots[c.seat]); else standAt(s, spotOf(id).at, spotOf(id).yaw);
     s.F.setExpr(c.face || 'calm'); s.mo0 = s.F.exprTo.mo || 0;
   }
   const head = id => P.W_(S[id].F, 'head');
+  // (a thing in the room to look at: scene.points, each from someone's place as the shots are: his plate, say)
+  const point = k => { const q = scene.points && scene.points[k]; if (!q) return null; const sp = spots[q.from], c = Math.cos(sp.yaw), n = Math.sin(sp.yaw), [x, y, z] = q.at; return new V3(sp.at.x + x * c + z * n, y, sp.at.z - x * n + z * c); };
   const yawTo = (from, to) => Math.atan2(to.x - from.x, to.z - from.z);
+  const fwdOf = sp => new V3(Math.sin(sp.yaw), 0, Math.cos(sp.yaw));
+
+  // ── One pose eased into the next: every bone (and where they stand) carried from the one to the other, smoothly; at once when `fast` ──
+  const snap = F => ({ q: F.bones.map(b => b.quaternion.clone()), p: F.bones.map(b => b.position.clone()), rp: F.root.position.clone(), rq: F.root.quaternion.clone() });
+  const put = (F, A, B, k) => {
+    F.bones.forEach((b, i) => { b.quaternion.copy(A.q[i]).slerp(B.q[i], k); b.position.lerpVectors(A.p[i], B.p[i], k); });
+    F.root.position.lerpVectors(A.rp, B.rp, k); F.root.quaternion.copy(A.rq).slerp(B.rq, k); F.root.updateMatrixWorld(true);
+  };
+  function blendTo(s, pose, ms, fast) {
+    const F = s.F, b = F.bone;
+    if (s.base) { b.spine.rotation.copy(s.base.spine); b.chest.rotation.copy(s.base.chest); b.neck.rotation.copy(s.base.neck); }      // (from the pose itself, not the head's turn)
+    const A = snap(F); pose(); const B = snap(F);
+    if (fast || !ms) { keep(s); return null; }
+    put(F, A, A, 0); keep(s);
+    return new Promise(res => { s.blend = { A, B, t: 0, ms, done: res }; });
+  }
 
   // ── The acts ──
   const ACTS = {
     // Adela, through the archway from the passage to her mark: a few steps, then still, her hands clasped, her eyes down.
     adelaIn(fast) {
-      const s = S.adela, sp = spotOf('adela'), fwd = new V3(Math.sin(sp.yaw), 0, Math.cos(sp.yaw)), from = sp.at.clone().addScaledVector(fwd, -1.6);
+      const s = S.adela, sp = spotOf('adela'), from = sp.at.clone().addScaledVector(fwdOf(sp), -1.6);
       s.F.root.visible = true;
       if (fast) { standAt(s, sp.at, sp.yaw); return null; }
       return new Promise(res => { s.walk = { from, to: sp.at.clone(), yaw: sp.yaw, t: 0, ms: 2600, done: () => { standAt(s, sp.at, sp.yaw); res(); } }; });
     },
     // The master nods to Silas: go on.
     nod() { S.master.nod = 1; return null; },
-    // The young lord gets up from his chair, beside it, turned toward her.
-    sonRises() {
-      const s = S.heir, sp = spots.son, c = Math.cos(sp.yaw), n = Math.sin(sp.yaw), at = new V3(sp.at.x + 0.7 * c + 0.15 * n, 0, sp.at.z - 0.7 * n + 0.15 * c);
-      standAt(s, at, yawTo(at, spotOf('adela').at)); s.c = Object.assign({}, s.c, { arms: null }); return null;
+    // Cicely turns in her chair to Young Thornleigh, and lays her hand on his arm.
+    plead(fast) {
+      const s = S.cicely, sp = spotOf('cicely'), F = s.F, son = S.heir.F;
+      return blendTo(s, () => {
+        P.seat(F, sp.at, sp.yaw, { seatY: sp.seatY, lean: 0.1, twist: 0.38, look: 0.0 }); P.arms(F, 'clasp');
+        const T = P.W_(son, 'foreArmR').lerp(P.W_(son, 'handR'), 0.35), side = P.toWorldDir(F, 1, 0, 0), up = new V3(0, 1, 0);
+        P.reach(F, 'L', T.addScaledVector(up, 0.035), side.clone().addScaledVector(up, -0.8).normalize(), up.clone().negate().addScaledVector(side, 0.3).normalize(), side.clone().addScaledVector(P.toWorldDir(F, 0, 0, 1), 0.6).normalize());
+        F.grip('L', 0.35, 0.05, 0.3);
+      }, 700, fast);
     },
-    // …and has crossed the hall to her: before her, facing her.
+    // Young Thornleigh gets up from his chair and stands beside it, turned to her, to answer her; her hand falls from his arm.
+    sonRises(fast) {
+      const s = S.heir, sp = spots.son, c = Math.cos(sp.yaw), n = Math.sin(sp.yaw), at = new V3(sp.at.x + 0.7 * c + 0.12 * n, 0, sp.at.z - 0.7 * n + 0.12 * c);
+      s.c = Object.assign({}, s.c, { arms: null, weight: 0.3 });
+      blendTo(S.cicely, () => seatAt(S.cicely, spotOf('cicely')), 600, fast);
+      return blendTo(s, () => standAt(s, at, yawTo(at, spotOf('cicely').at)), 1300, fast);
+    },
+    // …and has crossed the hall to Adela: before her, facing her.
     sonToAdela() {
-      const s = S.heir, sp = spotOf('adela'), at = sp.at.clone().addScaledVector(new V3(Math.sin(sp.yaw), 0, Math.cos(sp.yaw)), 0.85);
+      const s = S.heir, sp = spotOf('adela'), at = sp.at.clone().addScaledVector(fwdOf(sp), 0.85);
       s.c = Object.assign({}, s.c, { weight: -0.3 }); standAt(s, at, sp.yaw + Math.PI); return null;
     },
+    // He goes down on one knee before her and takes her hand: she gives it, and he holds it in both of his.
+    kneel(fast) {
+      const s = S.heir, a = S.adela, sp = spotOf('adela'), fw = fwdOf(sp), at = sp.at.clone().addScaledVector(fw, 0.82), side = new V3(fw.z, 0, -fw.x), up = new V3(0, 1, 0);
+      const M = sp.at.clone().addScaledVector(fw, 0.42).addScaledVector(side, -0.03).setY(0.84);      // (where their hands meet, between them)
+      blendTo(a, () => {
+        standAt(a, sp.at, sp.yaw);
+        P.reach(a.F, 'R', M.clone(), side.clone().negate().addScaledVector(up, -0.9).normalize(), up.clone().negate(), fw.clone());
+        a.F.grip('R', 0.2, 0.05, 0.2);
+      }, 1100, fast);
+      return blendTo(s, () => {
+        kneelAt(s, at, sp.yaw + Math.PI);
+        const back = fw.clone().negate();      // (toward her, from him)
+        P.reach(s.F, 'R', M.clone().addScaledVector(up, -0.03).addScaledVector(back, -0.01), side.clone().negate().addScaledVector(up, -0.9).normalize(), up.clone(), fw.clone());
+        P.reach(s.F, 'L', M.clone().addScaledVector(up, 0.035).addScaledVector(fw, 0.03).addScaledVector(side, 0.02), side.clone().addScaledVector(up, -0.6).normalize(), up.clone().negate(), back.clone().addScaledVector(side, -0.5).normalize());
+        s.F.grip('R', 0.45, 0.05, 0.4); s.F.grip('L', 0.3, 0.05, 0.3);
+      }, 1400, fast);
+    },
     // Silas turns to his master, and bows.
-    bow() { const s = S.silas, sp = spotOf('silas'); standAt(s, sp.at, yawTo(sp.at, spots.master.at)); s.look = 'master'; s.bow = 1e-6; return null; },
+    bow(fast) { const s = S.silas, sp = spotOf('silas'); blendTo(s, () => standAt(s, sp.at, yawTo(sp.at, spots.master.at)), 500, fast); s.look = 'master'; s.bow = 1e-6; return null; },
   };
 
   // ── Each frame ──
   function tick(dt) {
     now += dt * 1000;
     for (const id in S) {
-      const s = S[id], F = s.F; if (!F.root.visible) { F.tick(dt); continue; }
+      const s = S[id], F = s.F; if (!F.root.visible) continue;      // (off: not there at all, cloth included, till they come on)
       if (s.walk) { const w = s.walk; w.t += dt * 1000; const k = clamp(w.t / w.ms, 0, 1), at = w.from.clone().lerp(w.to, k);
-        if (k >= 1) { s.walk = null; w.done(); } else stride(s, at, w.yaw, (w.t / 1000) * 4.6); }
+        if (k >= 1) { s.walk = null; w.done(); } else stride(s, at, w.yaw, (w.t / 1000) * 7.2); }      // (the feet keeping pace with her: 2 × 0.13 m a step)
+      if (s.blend) { const B = s.blend; B.t += dt * 1000; const k = Math.min(1, B.t / B.ms); put(F, B.A, B.B, sm(k)); keep(s); if (k >= 1) { s.blend = null; B.done(); } }
       if (!s.base) { F.tick(dt); continue; }
       // where they're looking: whoever they've been turned to, else the speaker (or whoever the speaker's speaking to); eased there
-      let tgt = s.look !== undefined ? s.look : s.auto, wantY = 0, wantP = 0;
+      // (a new speaker is turned to after a moment, each their own: heads don't all swing at once)
+      if (s.auto !== s.seen) { if (!s.seenAt) s.seenAt = now + s.react * 1000; if (now >= s.seenAt) { s.seen = s.auto; s.seenAt = 0; } }
+      let tgt = s.look !== undefined ? s.look : s.seen, wantY = 0, wantP = 0, at = null;
       if (tgt === 'down') wantP = 0.42;      // (looking down at herself, or at the floor)
-      else if (tgt && S[tgt] && S[tgt].F.root.visible && tgt !== id) {
-        const me = head(id), d = head(tgt).sub(me).applyQuaternion(F.root.quaternion.clone().invert());
-        wantY = clamp(Math.atan2(d.x, d.z), -1.25, 1.25); wantP = clamp(Math.atan2(-d.y, Math.hypot(d.x, d.z)), -0.35, 0.45);
+      else if (tgt && S[tgt] && S[tgt].F.root.visible && tgt !== id) at = head(tgt);
+      else if (tgt) at = point(tgt);
+      if (at) {
+        const d = at.sub(head(id)).applyQuaternion(F.root.quaternion.clone().invert());
+        wantY = clamp(Math.atan2(d.x, d.z), -1.25, 1.25); wantP = clamp(Math.atan2(-d.y, Math.hypot(d.x, d.z)), -0.35, 0.5);
       }
+      // (never quite still: a slow small drift of the head about where it's looking)
+      wantY += 0.045 * Math.sin(now * 0.00041 + s.ph) + 0.025 * Math.sin(now * 0.00097 + 2 * s.ph); wantP += 0.025 * Math.sin(now * 0.00053 + 3 * s.ph);
       if (F.exprName === 'haughty') wantP -= 0.13;      // (the chin up)
-      const kk = 1 - Math.exp(-dt * 4.5); s.yaw += (wantY - s.yaw) * kk; s.pitch += (wantP - s.pitch) * kk;
+      const kk = 1 - Math.exp(-dt * 3.6); s.yaw += (wantY - s.yaw) * kk; s.pitch += (wantP - s.pitch) * kk;
       if (s.nod) { s.nod += dt / 0.8; if (s.nod >= 2) s.nod = 0; }
       if (s.bow) s.bow = Math.min(1, s.bow + dt / 0.9);
       const nodA = s.nod ? 0.22 * Math.sin(Math.PI * Math.min(1, s.nod)) : 0, bw = sm(s.bow || 0);
@@ -104,7 +175,7 @@ function create(o) {
 
   // ── A beat ──
   async function beat(b, fast) {
-    if (b.name) { Object.assign(names, b.name); if (ui.names) ui.names(names); }
+    if (b.name) { for (const k in b.name) names[k] = fill(b.name[k]); if (ui.names) ui.names(names); }
     if (b.look) for (const id in b.look) if (S[id]) S[id].look = b.look[id] === null ? undefined : b.look[id];
     if (b.listen) for (const id in b.listen) face(id, b.listen[id]);
     let wait = null;
@@ -116,8 +187,8 @@ function create(o) {
     if (b.who) {
       face(b.who, b.face);
       for (const id in S) S[id].auto = id === b.who ? (b.to || null) : (S[id].c.demure && b.to !== id ? null : b.who);
-      speaking = b.who; talkUntil = now + b.text.length * TYPE_MS + 150;
-      await ui.line({ id: b.who, name: names[b.who] || b.who, text: b.text, ms: b.text.length * TYPE_MS });
+      const text = fill(b.text); speaking = b.who; talkUntil = now + text.length * TYPE_MS + 150;
+      await ui.line({ id: b.who, name: names[b.who] || b.who, text, ms: text.length * TYPE_MS });
       speaking = null;
     }
     if (b.pause && !stopped) await (ui.pause ? ui.pause(b.pause) : sleep(b.pause));
@@ -132,7 +203,7 @@ function create(o) {
     for (let i = from; i < scene.beats.length; i++) { if (stopped) return false; await beat(scene.beats[i], false); }
     return !stopped;
   }
-  return { play, tick, stop: () => { stopped = true; }, get names() { return names; }, S, spots, shotTo };
+  return { play, tick, place: () => { for (const id in S) place(id); }, stop: () => { stopped = true; }, get names() { return names; }, S, spots, shotTo };
 }
 
 root.Cutscene = { create, TYPE_MS };
