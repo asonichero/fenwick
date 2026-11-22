@@ -15,21 +15,21 @@
 (function (root) {
 'use strict';
 const THREE = root.THREE, Fg = root.Figure, V3 = THREE.Vector3, Q = THREE.Quaternion;
-// (Fenwick: the numbers the posing is placed by, where they're worth fine-tuning by eye (poses.html, the pose editor): read every frame, so a
-// change shows at once. Distances in metres, on whoever they're placed on (scaled with them); angles in radians. Edits made in the editor
-// are kept in this browser (localStorage 'fenwick.tune') and laid over these here and in the correction test; to keep them for good, they're
-// copied from the editor into these.)
+// (Fenwick: the numbers the posing is placed by, where they're worth fine-tuning by eye (figures.html?edit=1, the pose editor, whose report
+// gives the joints as they were set): read every frame, so a change shows at once. Distances in metres, on whoever they're placed on (scaled
+// with them); angles in radians, but joint rotations in degrees, as the pose editor's report gives them.)
 const TUNE = {
   otk: {
     // (her, across his lap: how far out along his thighs her hips are, how far to his right of his middle, raised or lowered on it, tipped
     // head-down, turned out toward his knees)
-    her: { along: 0.3, side: -0.1, height: 0, pitch: 0, yaw: 0 },
-    // (his left hand on the small of her back, her skirt down: along her back toward her head (−: toward her hips), round to her far side,
-    // off her; the fingers toward her head, and round her far side; the elbow along her back toward her shoulders, out toward him, up; how
-    // closed the hand)
-    rest: { along: -0.05, across: 0.04, off: 0.016, toHead: 1, round: 0.6, elbowAlong: 0.22, elbowOut: 0.03, elbowUp: 0.05, grip: 0.22 },
-    // (the same, on the roll of her raised skirt)
-    roll: { along: 0, across: 0.03, off: 0.016, toHead: 0.35, round: 1, elbowAlong: 0.22, elbowOut: 0.03, elbowUp: 0.05, grip: 0.38 },
+    her: { along: 0.19, side: -0.11, height: 0.008, pitch: -0.04, yaw: -0.04 },
+    // (his left hand on the small of her back, the same whatever she has on (her skirt down, or raised and rolled below it): placed from
+    // the small of her back over her bodice, along her back toward her head, round toward her far side (−: toward him) and out of it: the
+    // wrist (along and round scaled with her, out as it is); the ways the palm faces and the fingers run; the elbow; his left collarbone, the
+    // fingers' bend at the knuckles (the joints past them straight) and the thumb, in degrees. (From the pose editor: the wrist just past her
+    // spine, the hand across her back, the fingers bent over her far side; the elbow out toward him, level with her back, his shoulder up)
+    rest: { wrist: [0.062, 0.029, 0.013], palm: [-0.42, -0.42, -0.8], fingers: [-0.28, 0.9, -0.33], elbow: [0.226, -0.206, -0.026],
+      clav: [1.8, -7.4, 16.7], knuckles: 50, thumb: [-9.5, 41.5, -6.3] },
     // (her hands on the floor: ahead of her shoulders, out to their sides, how high off it)
     hands: { ahead: 0.1, out: 0.05, height: 0.032 },
   },
@@ -47,7 +47,6 @@ const TUNE = {
   strike: { elbowDown: 0.21, elbowOut: 0.08, elbowBack: 0.03, raise: 0.27, raiseLean: 0.4, rest: 0.012, off: 0.016, palmBack: 0.085 },
 };
 const TUNE_DEFAULTS = JSON.parse(JSON.stringify(TUNE));
-try { const o = root.localStorage && JSON.parse(root.localStorage.getItem('fenwick.tune') || 'null'); if (o) for (const g in o) for (const k in o[g]) if (TUNE[g] && TUNE[g][k]) Object.assign(TUNE[g][k], o[g][k]); } catch (e) {}
 const clamp = (x, a, b) => Math.max(a, Math.min(b, x)), lerp = (a, b, t) => a + (b - a) * t, ease = x => x * x * (3 - 2 * x);
 const spring = (w, z) => ({ x: 0, v: 0, w, z, to(t, dt) { this.v += (this.w * this.w * (t - this.x) - 2 * this.z * this.w * this.v) * dt; this.x += this.v * dt; return this.x; } });
 const TIMES = { lift: 0.42, hold: 0.14, strike: 0.1, contact: 0.24, back: 0.4 };
@@ -690,26 +689,33 @@ function create(stage, bay, opts) {
   const handPose = { n: new V3(0, 1, 0), f: new V3(0, 0, 1), cock: 0 };
   function poseCaptainHands(dt) {
     const F = captain, sw = st.swing, cs = sc(F);
-    // the left hand: across the knee, resting on the small of their back, the fingers on toward their hips and round the far side, the forearm
-    // lying along their back (the elbow down on it, toward their shoulders); at the wall, the arm along their shoulders, the hand on the far one
-    const back = W_(cur.f, 'spine'), bn = toWorldDir(cur.f, 0, 0, -1).normalize(), cloth = lift() * 0.6;
-    // (Fenwick, in period dress (Figure: backOf): across the knee, the hand resting on the roll her raised skirt is gathered in, just above her
-    // hips (there over her skirt, while it's down): the palm over it, the fingers over its far side and a little toward her hips)
+    // the left hand: across the knee, resting on the small of their back (Fenwick: across it, the fingers bent over their far side, the elbow
+    // out toward him); bent over the table, the same, or in period dress on their middle back; otherwise on their waist
+    const cloth = lift() * 0.6;
+    // (Fenwick, in period dress (Figure: backOf): how thick what she has on is, there)
     const rollOut = cur.f.backOf ? cur.f.backOf('roll') : null;
     if (st.position === 'otk') {
-      const onRoll = rollOut != null, bk = cur.f.surface(onRoll ? 'roll' : 'back', { p: new V3(), n: new V3() }, onRoll ? rollOut : cloth), far = otkX.clone().negate(), s_ = sc(cur.f), T_ = onRoll ? TUNE.otk.roll : TUNE.otk.rest;
-      const fing = otkU.clone().negate().multiplyScalar(T_.toHead).addScaledVector(far, T_.round); fing.addScaledVector(bk.n, -fing.dot(bk.n)).normalize();
-      const palmAt = bk.p.clone().addScaledVector(otkU, T_.along * s_).addScaledVector(far, T_.across * s_).addScaledVector(bk.n, T_.off);
-      const LW = palmAt.clone().addScaledVector(fing, -0.06 * cs), pn = bk.n.clone().negate();
-      const elbowAt = bk.p.clone().addScaledVector(otkU, T_.elbowAlong * s_).addScaledVector(otkX, T_.elbowOut * s_).addScaledVector(bk.n, T_.elbowUp), sh = W_(F, 'upperArmL');
+      // (Fenwick: across the knee, whatever she has on, the hand as TUNE.otk.rest has it, placed from the small of her back as she lies now)
+      const T_ = TUNE.otk.rest, s_ = sc(cur.f), dg = Math.PI / 180, cl = T_.clav;
+      F.bone.clavL.rotation.set(cl[0] * dg, cl[1] * dg, cl[2] * dg); F.root.updateMatrixWorld(true);
+      const bk = cur.f.surface('back', { p: new V3(), n: new V3() }, cur.f.backOf ? cur.f.backOf('back') : cloth), n = bk.n;
+      const U = otkU.clone().addScaledVector(n, -otkU.dot(n)).normalize(), far = new V3().crossVectors(U, n);      // (toward her head, her far side)
+      const way = v => U.clone().multiplyScalar(v[0]).addScaledVector(far, v[1]).addScaledVector(n, v[2]).normalize();
+      const LW = bk.p.clone().addScaledVector(U, T_.wrist[0] * s_).addScaledVector(far, T_.wrist[1] * s_).addScaledVector(n, T_.wrist[2]);
+      const elbowAt = bk.p.clone().addScaledVector(U, T_.elbow[0] * s_).addScaledVector(far, T_.elbow[1] * s_).addScaledVector(n, T_.elbow[2] * s_);
+      const palm = way(T_.palm), fing = way(T_.fingers), sh = W_(F, 'upperArmL');
       // (holding their far wrist at the small of their back: the hand over it from above, the fingers round it toward their feet)
       const pK = cur.rx.pinK;
       if (pK > 0.001) {
-        const wr = W_(cur.f, 'handR').addScaledVector(bk.n, 0.028), wf = otkU.clone().negate().addScaledVector(otkX, -0.3); wf.addScaledVector(bk.n, -wf.dot(bk.n)).normalize();
-        LW.lerp(wr.addScaledVector(wf, -0.05 * cs), pK); fing.lerp(wf, pK).normalize();
+        const wr = W_(cur.f, 'handR').addScaledVector(n, 0.028), wf = otkU.clone().negate().addScaledVector(otkX, -0.3); wf.addScaledVector(n, -wf.dot(n)).normalize();
+        LW.lerp(wr.addScaledVector(wf, -0.05 * cs), pK); fing.lerp(wf, pK).normalize(); palm.lerp(n.clone().negate(), pK).normalize();
       }
-      reach(F, 'L', LW, elbowAt.sub(sh.clone().lerp(LW, 0.5)).normalize(), pn, fing);
-      F.grip('L', lerp(T_.grip, 0.62, pK), 0.15, lerp(0.2, 0.5, pK));
+      reach(F, 'L', LW, elbowAt.sub(sh.clone().lerp(LW, 0.5)).normalize(), palm, fing);
+      // (bent at the knuckles, the joints past them straight; closing round their wrist as he holds it)
+      F.grip('L', 0.62 * pK, 0.15, lerp(0.2, 0.5, pK));
+      for (const f of ['index', 'middle', 'ring', 'pinky']) F.bone[f + '1L'].rotation.z -= T_.knuckles * dg * (1 - pK);
+      const th = F.bone.thumb1L.rotation, tw = T_.thumb; th.set(lerp(tw[0] * dg, th.x, pK), lerp(tw[1] * dg, th.y, pK), lerp(tw[2] * dg, th.z, pK));
+      F.root.updateMatrixWorld(true);
     } else if (st.position === 'table' && rollOut != null) {
       // (Fenwick: over the table, his hand on her middle back, the fingers curled round her ribs on the far side, away from him; the elbow up
       // on his side)

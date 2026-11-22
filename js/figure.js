@@ -2521,7 +2521,30 @@ function liftPeriod(F) {
   if (st.under === 'up') return P.under === 'smalls' ? 0.006 : 0.014;
   return 0.004;
 }
-function backPeriod(F, where) { if ((F.spec.period || {}).none) return 0.004; const raised = F.state.top === 'up'; return where === 'roll' ? (raised ? 0.06 : 0.026) : 0.012; }
+function backPeriod(F, where) {
+  if ((F.spec.period || {}).none) return 0.004; const raised = F.state.top === 'up';
+  return where === 'roll' ? (raised ? 0.06 : 0.026) : Math.max(0.012, coverOver(F, where));
+}
+// (how far what she has on stands off her where his hand rests on her back: from the garments as built, the most of it under the hand,
+// on the rest pose, along her front-to-back, once for each set of garments worn. A loose nightdress stands well off her; a bodice hardly at
+// all, above the band at its waist. Where: across the knee, a little above the small of her back ('back'), from just on her near side of her
+// spine toward her far (right) side; over the table, her middle back ('mid'), the same way across)
+const COVER_MAT = new THREE.MeshBasicMaterial({ side: THREE.DoubleSide }), COVER_AT = { back: [], mid: [] };
+for (const dx of [0.02, -0.02, -0.06]) { for (const dy of [0.05, 0.065, 0.08]) COVER_AT.back.push([dx, dy]); for (const dy of [-0.02, 0, 0.02]) COVER_AT.mid.push([dx, dy]); }
+function coverOver(F, k) {
+  const a = F.anchor && F.anchor[k], AT = COVER_AT[k]; if (!a || !AT) return 0;
+  const worn = Object.keys(F.gm).filter(n => F.gm[n].visible && F.gm[n].geometry).sort(), key = k + ':' + worn.join(',');
+  const C = F._cover || (F._cover = { body: {}, at: {} }); if (C.at[key] != null) return C.at[key];
+  const rc = new THREE.Raycaster(), o = new V3(), dir = new V3(0, 0, 1), ray = (i, m) => { const [dx, dy] = AT[i]; o.set(a.bind.x + dx, a.bind.y + dy, a.bind.z - 0.3); rc.set(o, dir); const h = rc.intersectObject(m)[0]; return h ? h.distance : null; };
+  if (!C.body[k]) { const m = new THREE.Mesh(F.body.geometry, COVER_MAT); C.body[k] = AT.map((_, i) => ray(i, m)); }
+  const gms = worn.map(n => new THREE.Mesh(F.gm[n].geometry, COVER_MAT)); let most = 0;
+  AT.forEach((_, i) => {
+    const tb = C.body[k][i]; if (tb == null) return;
+    let tg = Infinity; for (const m of gms) { const t = ray(i, m); if (t != null && t < tg) tg = t; }
+    if (tg < tb) most = Math.max(most, tb - tg);
+  });
+  return (C.at[key] = most);
+}
 function cushionPeriod(F, area) {
   const st = F.state, P = F.spec.period || {}; let left = 1;
   if (P.none) return 0;

@@ -31,7 +31,7 @@ body.correcting #hud { display: flex; }
 .g-clothes .row { gap: 5px; } .g-pace .row, .g-str .row { justify-content: space-between; flex-wrap: nowrap; } .val { min-width: 38px; text-align: center; color: var(--amber); }
 #info { margin-top: 8px; font-size: 12px; color: var(--dim); min-height: 1.3em; } #info b { color: var(--ink); }
 kbd { font: 10px ui-monospace, monospace; color: var(--dim); }
-/* The pose editor (?edit=1, or poses.html): a second panel beside the first, its sliders laid over js/session.js's TUNE as they move */
+/* The pose editor (?edit=1, or poses.html): joint dots to drag, each joint's rotation exact, and a report of what was changed */
 /* (in the right-hand column, under the correction's controls, scrolling in what room's left there) */
 #editor { padding: 12px 14px; display: none; overflow: auto; flex: 1 1 auto; min-height: 0; }
 body.editing #editor { display: block; } body.editing #hud { display: flex; max-height: calc(100% - 24px); }
@@ -475,6 +475,19 @@ $('peResetAll').onclick = () => { if (!PE.on) return; applySnap(PE.base); peRefr
 $('peClear').onclick = () => { PE.saved = {}; if (PE.on) { applySnap(PE.base); } $('eText').value = ''; peRefresh(false); };
 // ── the report: every moment edited, each joint changed (its own rotation, degrees, as the posing code sets it; where it is, in the room and
 // from the other figure's hips), and each figure moved
+// (the first editor's sliders, if this browser kept any (localStorage 'fenwick.tune'): no longer applied, but listed where they differ from
+// js/session.js's TUNE, so whatever was tuned there can still be folded in)
+function oldTune() {
+  let o = null; try { o = JSON.parse(localStorage.getItem('fenwick.tune') || 'null'); } catch (e) {}
+  if (!o) return [];
+  const out = [], walk = (v, c, at) => {
+    if (v && typeof v === 'object') { for (const k in v) walk(v[k], c && typeof c === 'object' ? c[k] : undefined, at ? at + '.' + k : k); return; }
+    if (typeof v !== 'number' || (typeof c === 'number' && Math.abs(c - v) < 1e-6)) return;
+    out.push(`${at} ${+v.toFixed(4)}` + (typeof c === 'number' ? ` (code ${c})` : ' (no longer used)'));
+  };
+  walk(o, Session.TUNE, '');
+  return out.length ? ['Slider settings from the first pose editor, kept in this browser but no longer applied (where they differ from the code):', '  ' + out.join(' · '), ''] : [];
+}
 function peReport() {
   keepEdit(); const recs = Object.values(PE.saved);
   const L = ['Fenwick Hall pose editor report, ' + new Date().toISOString().slice(0, 16).replace('T', ' '),
@@ -498,6 +511,7 @@ function peReport() {
     }
     L.push('');
   }
+  L.push(...oldTune());
   $('eText').value = L.join('\n'); try { navigator.clipboard.writeText($('eText').value).catch(() => {}); } catch (e) {} $('eText').select();
 }
 $('peReport').onclick = peReport;

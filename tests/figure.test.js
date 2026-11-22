@@ -144,6 +144,15 @@ test('her period layers: the dress (or kirtle), leggings where she wears them, d
   const red = gfig('red'); assert.ok(red.gm.DressElbow); red.setPeriod(Cast.WARDROBE.red.walking); assert.ok(red.gm.Kirtle && red.gm.Leggings && !red.gm.DressElbow);
 });
 
+test('a hand on her back rests on what she has on there: a bodice close, a chemise a little off her, a loose nightdress well off', async () => {
+  await loaded;
+  const at = (id, outfit) => { const f = F.make(Cast.figureSpec(id, 'f', outfit)); return [f.backOf('back'), f.backOf('mid')]; };
+  const [dress, dressMid] = at('belle', 'dress'), [chemise] = at('goldie', 'night'), [gown, gownMid] = at('belle', 'night');
+  assert.ok(Math.abs(dress - 0.012) < 1e-6 && Math.abs(dressMid - 0.012) < 1e-6, 'a bodice: as close as it can be');
+  assert.ok(chemise > dress + 0.003 && chemise < 0.03, 'a chemise: ' + chemise);
+  assert.ok(gown > 0.04 && gownMid > 0.04, 'a nightdress: ' + gown + ', ' + gownMid);
+});
+
 test('the Blender-built seat’s spots are on its outer surface, in order down it', async () => {
   await loaded;
   for (const sex of ['f', 'm']) {
