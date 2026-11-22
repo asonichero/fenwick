@@ -24,8 +24,6 @@ const LAYOUT = {
   lordChair: { x: 0, z: -4.55, ry: 0 },
   sonChair: { x: -0.85, z: -3.25, ry: Math.PI / 2 },
   cicelyChair: { x: -0.85, z: -2.45, ry: Math.PI / 2 },
-  chairE1: { x: 0.85, z: -1.4, ry: -Math.PI / 2 },
-  chairE2: { x: 0.85, z: -0.6, ry: -Math.PI / 2 },
   cupboard: { x: 2.4, z: -6.45, ry: 0 },
   standW: { x: -1.7, z: -6.2, ry: 0 },
   standE: { x: 1.7, z: -6.2, ry: 0 },
@@ -34,7 +32,7 @@ const LAYOUT = {
   adelaMark: { x: 4.35, z: -4.5, ry: -Math.PI / 2 },
 };
 const LABELS = { table: 'The long table (and the feast on it)', rug: 'The rug under it', lordChair: 'The master’s chair, at the head', sonChair: 'His son’s chair, at his right',
-  cicelyChair: 'Cicely’s chair, beside him', chairE1: 'A chair across from them', chairE2: 'Another across from them', cupboard: 'The court cupboard', standW: 'A candle stand (west)',
+  cicelyChair: 'Cicely’s chair, beside him', cupboard: 'The court cupboard', standW: 'A candle stand (west)',
   standE: 'A candle stand (east)', bench: 'The bench by the doors', silasMark: 'Where Silas stands before them (a mark)', adelaMark: 'Where Adela stands in the archway (a mark)' };
 const KEY = 'fenwick:room:hall';
 const ROOM = {
@@ -183,7 +181,7 @@ function build(scene) {
       const gl = new THREE.Group(); gl.position.set(0.14, 0, -0.12); p.add(gl); cyl(0.035, 0.02, 0.006, pewter, 0, 0.003, 0, gl); cyl(0.006, 0.006, 0.08, pewter, 0, 0.045, 0, gl); cyl(0.035, 0.02, 0.07, pewter, 0, 0.12, 0, gl);
       if (o && o.tipped) gl.rotation.z = Math.PI / 2 - 0.1, gl.position.y = 0.035;
       box(0.012, 0.004, 0.17, iron, -0.15, 0.003, 0, p); ball(0.045, linenM, 0.02, 0.025, 0.14, p, [1.3, 0.5, 1]); };
-    place_(0, -TL / 2 + 0.28, Math.PI, {}); place_(-0.33, -2.25, -Math.PI / 2, {}); place_(-0.33, -1.45, -Math.PI / 2, { tipped: true }); place_(0.33, -0.4, Math.PI / 2, {}); place_(0.33, 0.4, Math.PI / 2, {});
+    place_(0, -TL / 2 + 0.28, Math.PI, {}); place_(-0.33, -2.25, -Math.PI / 2, {}); place_(-0.33, -1.45, -Math.PI / 2, { tipped: true });
     // (the roast: a carved fowl on a great pewter charger, its carcass and its legs; a half loaf on its board; a bowl of fruit; flagons; salt)
     cyl(0.26, 0.22, 0.02, pewter, 0, top + 0.01, -1.05, g, { seg: 24 }); ball(0.12, std({ color: srgb('#8a4a22'), roughness: 0.55 }), 0, top + 0.07, -1.05, g, [1, 0.6, 1.4]);
     for (let i = 0; i < 4; i++) cyl(0.008, 0.008, 0.12, wax, -0.04 + i * 0.027, top + 0.12, -1.05, g, { rot: [0.3, 0, 0] });
@@ -213,7 +211,7 @@ function build(scene) {
     if (high) { const crest = new THREE.Mesh(new THREE.CylinderGeometry(w / 2, w / 2, 0.05, 24, 1, false, -Math.PI / 2, Math.PI), oakDark); crest.rotation.x = -Math.PI / 2; crest.position.set(0, bh + 0.03, -d / 2 + 0.03); crest.castShadow = true; g.add(crest);
       for (const sx of [-1, 1]) { box(0.06, 0.05, d, oakDark, sx * (w / 2 + 0.01), sh + 0.27, 0.0, g); cyl(0.025, 0.025, 0.27, oakDark, sx * (w / 2 + 0.01), sh + 0.13, d / 2 - 0.04, g); } }
     return g; };
-  chair('lordChair', true); chair('sonChair'); chair('cicelyChair'); chair('chairE1'); chair('chairE2');
+  chair('lordChair', true); chair('sonChair'); chair('cicelyChair');      // (only theirs: the three who dined)
   // the court cupboard against the head wall: two tiers of oak, pewter dishes stood along its top, a ewer
   { const g = piece('cupboard'); box(1.4, 0.05, 0.5, oak, 0, 1.18, 0, g); box(1.4, 0.05, 0.5, oak, 0, 0.62, 0, g); box(1.36, 0.5, 0.46, oakDark, 0, 0.88, 0, g); box(1.36, 0.05, 0.46, oak, 0, 0.08, 0, g);
     for (const sx of [-1, 1]) for (const sz of [-1, 1]) cyl(0.035, 0.04, 1.16, oakDark, sx * 0.66, 0.6, sz * 0.21, g);
