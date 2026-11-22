@@ -453,11 +453,14 @@ coming. Silas stands before them.
 ### The confrontation: his terms
 
 Silas's office, off the yard: his desk and ledgers, a chair, a door that
-shuts. Cicely pleads not to be done by as she would have had Adela done.
-Silas sets his terms. If she wants clemency she'll submit, to a
-correction at his hand, measured, not the sentence she named. And if
-it's ever too much, she can say the mare's name, Falada, and it will be
-over at once, and she'll be free to go on her way.
+shuts. The first thing he does is order the gown off: it was never hers
+to wear. Once she acquiesces, the rest of the scene, and the correction,
+play out in her own linen shift and drawers. Cicely pleads not to be
+done by as she would have had Adela done. Silas sets his terms. If she
+wants clemency she'll submit, to a correction at his hand, measured, not
+the sentence she named. And if it's ever too much, she can say the
+mare's name, Falada, and it will be over at once, and she'll be free to
+go on her way.
 
 - **The choice.** How he answers her plea (firm, dry or gentle) is the
   prologue's one dialogue choice. It teaches dialogue, and sets how
@@ -474,8 +477,8 @@ the correction starts.
 
 **The setting.** Across his knee, on the chair at his desk: the game's
 default correction, with the controls the rest of the game uses. She is
-in Adela's gown, raised and rolled at the back as every dress is; then
-her drawers are lowered.
+in her own shift and drawers: the shift raised and rolled at the back as
+every skirt is; then her drawers are lowered.
 
 **A scripted arc over the live systems.** A small phase controller
 drives her defiance, pride and submission through the phases below.
@@ -603,10 +606,15 @@ is his.
   aftercare; and a small exterior for the coda: the goose yard and the
   gate.
 
-- **Cicely.** A new figure on the heroine body, in Adela's gown (a
-  period dress) and then the goose girl's plain dress; her lines in her
-  own voice; her defiance and pride tuned for the arc; Falada as her
-  word.
+- **Cicely.** A new figure on the heroine body: in Adela's gown, then
+  her own linen shift and drawers (made as the night-dresses are), then
+  the goose girl's plain dress; her lines in her own voice; her defiance
+  and pride tuned for the arc; Falada as her word.
+
+- **Adela's gown.** Finer than anything the main game's women wear,
+  merchant's daughter included: a great house's, to the floor and
+  fuller, in sapphire silk damask, with an ivory stomacher, gold
+  embroidery at the hem and cuffs, lace and pearls.
 
 - **Adela, the master and his son.** Adela on the heroine body; the two
   men on Silas's body at their own heights and builds, with their own

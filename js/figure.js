@@ -266,7 +266,9 @@ PATTERNS.shoeG = `{
 // uL1 (–, –, the sleeve's end (its height at rest), patches?); uPat0 the trim and lacing, uPat1 the chemise, uPat2 the apron, uPat3 the bodice,
 // uPat4 the print. vPart: the sleeves 1. Above the neckline the chemise shows, gathered; the bodice laced down the front; a seam at the waist;
 // an apron over the skirt's front with its band round the waist; a small sprig print, where there is one; a band at the hem; on the kirtle,
-// patches; at the sleeve's end a cuff band, and below an elbow sleeve the chemise's frill.
+// patches; at the sleeve's end a cuff band, and below an elbow sleeve the chemise's frill. (Fenwick: uL0.z 2, a silk damask in uPat4, all
+// over; uL1.w 2, finely made, a great house's gown: a stomacher down the front in the bodice's colour with ribbons across it, in place of the
+// lacing; a deep embroidered border at the hem; wide embroidered cuffs with lace below; lace at the neckline with a row of pearls.)
 PATTERNS.dressG = `{
   vec3 b = vBind; float ax = abs(b.x), hem = uParam.x, waist = uL0.x, nl = uL0.y, gk = 1.0 + uGrain * (g - 0.5) * 2.0;
   float fr = smoothstep(-0.01, 0.03, b.z), skirtP = 1.0 - smoothstep(waist - 0.02, waist - 0.008, b.y);
@@ -274,16 +276,30 @@ PATTERNS.dressG = `{
   // armpit (uL1.x the armpit's height, uL1.y the shoulder joint's x), a fine seam along it; below the armpit, where the sleeve and the
   // bodice are apart, as the mesh says)
   float pit = uL1.x, seamX = uL1.y - 0.04 + 0.19 * (b.y - pit), sleeve = (pit > 0.0 && b.y > pit) ? step(seamX, ax) : step(0.5, vPart);
-  vec3 c = diffuseColor.rgb;
+  vec3 c = diffuseColor.rgb; float fine = step(1.5, uL1.w);
   if (pit > 0.0 && b.y > pit) c *= 1.0 - 0.25 * seamAt(ax - seamX, 0.0025);
+  if (uL0.z > 1.5) {      // (a damask: an ogee lattice, tone on tone, a flower in each of its cells; round the body, or down the sleeve)
+    vec2 uv = sleeve > 0.5 ? vec2((b.z + 0.35 * b.x) * 9.0, b.y * 9.0) : vec2(atan(b.x, b.z + 0.03) * 1.55, b.y * 9.0);
+    float sn = 0.2 * sin(6.2832 * uv.x), la = abs(fract(uv.y + sn) - 0.5), lb = abs(fract(uv.y - sn) - 0.5), lat = 1.0 - smoothstep(0.015, 0.035, min(la, lb));
+    vec2 q = vec2((fract(uv.x * 2.0) - 0.5) * 0.5, fract(uv.y + 0.5) - 0.5); float th = atan(q.y, q.x), rr = length(q * vec2(1.6, 1.0)), pet = 0.13 + 0.045 * cos(6.0 * th);
+    float fl = (1.0 - smoothstep(pet - 0.015, pet, rr)) * (1.0 - 0.5 * (1.0 - smoothstep(0.03, 0.045, rr)));
+    c = mix(c, uPat4 * gk, max(lat * 0.8, fl) * 0.45);
+  }
   if (sleeve < 0.5) {
-    if (uL0.w > 0.5 && uParam.y < 0.5) c = mix(uPat3 * gk, c, skirtP);
-    if (uL0.z > 0.5) { float ctr; vec2 uv = vec2(atan(b.x, b.z + 0.03) * 0.17, b.y); float fl = flowerAt(uv, 30.0, ctr); c = mix(c, uPat4 * gk, fl * 0.8 * (uL0.w > 0.5 ? skirtP : 1.0)); c = mix(c, uPat0, ctr * fl * 0.6 * (uL0.w > 0.5 ? skirtP : 1.0)); }
+    if (uL0.w > 0.5 && uParam.y < 0.5 && fine < 0.5) c = mix(uPat3 * gk, c, skirtP);
+    if (uL0.z > 0.5 && uL0.z < 1.5) { float ctr; vec2 uv = vec2(atan(b.x, b.z + 0.03) * 0.17, b.y); float fl = flowerAt(uv, 30.0, ctr); c = mix(c, uPat4 * gk, fl * 0.8 * (uL0.w > 0.5 ? skirtP : 1.0)); c = mix(c, uPat0, ctr * fl * 0.6 * (uL0.w > 0.5 ? skirtP : 1.0)); }
     // the lacing: criss-cross down the front of the bodice, between two rows of eyelets
-    float bod = (1.0 - skirtP) * fr * step(waist + 0.004, b.y) * (1.0 - smoothstep(nl - 0.05, nl - 0.042, b.y)) * (1.0 - smoothstep(0.018, 0.02, ax)) * (1.0 - uParam.y);
+    float bod = (1.0 - skirtP) * fr * step(waist + 0.004, b.y) * (1.0 - smoothstep(nl - 0.05, nl - 0.042, b.y)) * (1.0 - smoothstep(0.018, 0.02, ax)) * (1.0 - uParam.y) * (1.0 - fine);
     float zz = fract((b.y - waist) / 0.024) - 0.5, lace = min(abs(b.x - zz * 0.03), abs(b.x + zz * 0.03));
     c = mix(c, uPat0, bod * (1.0 - smoothstep(0.0011, 0.0022, lace)) * step(ax, 0.0155));
     c = mix(c, c * 0.72, bod * seamAt(ax - 0.0165, 0.0035));
+    if (fine > 0.5) {      // (the stomacher: its point a little below the waist, widening to the neckline; ribbons across it; edged in the trim)
+      float yb = waist - 0.03, yt = nl - 0.045, tt = clamp((b.y - yb) / max(yt - yb, 0.01), 0.0, 1.0), sw = mix(0.01, 0.07, sqrt(tt)), inS = fr * step(yb, b.y) * step(b.y, yt);
+      float stm = inS * (1.0 - smoothstep(sw - 0.002, sw, ax));
+      c = mix(c, uPat3 * gk, stm);
+      c = mix(c, uPat0 * gk, stm * step(fract((b.y - yb) / 0.024), 0.2) * step(ax, sw - 0.01) * step(yb + 0.02, b.y) * 0.85);
+      c = mix(c, uPat0 * 0.9, inS * (1.0 - smoothstep(0.0018, 0.0032, abs(ax - sw))));
+    }
     // the waist seam, and the apron (its band all round the front, and the bib-less apron itself over the skirt)
     c *= 1.0 - 0.3 * seamAt(b.y - (waist - 0.012), 0.004) * (1.0 - uParam.y);
     if (uParam.w > 0.5) {
@@ -293,22 +309,33 @@ PATTERNS.dressG = `{
       c *= 1.0 - 0.35 * fr * skirtP * max(seamAt(ax - aw, 0.003) * step(hem + 0.075, b.y), seamAt(b.y - hem - 0.075, 0.003) * step(ax, aw));
     }
     // a band of the trim at the hem; the kirtle's patches, sewn on with a running stitch
-    c = mix(c, uPat0 * gk, skirtP * (1.0 - smoothstep(hem + 0.028, hem + 0.031, b.y)) * 0.7);
-    if (uL1.w > 0.5) {
+    if (fine > 0.5) {      // (a deep border at the hem: the trim, a vine winding through it with a bead in each of its turns, edged above and below)
+      float h0 = hem + 0.012, h1 = hem + 0.085, inb = skirtP * step(h0, b.y) * step(b.y, h1), u = atan(b.x, b.z + 0.03), vy = 0.5 * (h0 + h1) + 0.018 * sin(u * 18.0);
+      float vine = 1.0 - smoothstep(0.0015, 0.003, abs(b.y - vy)), bead = 1.0 - smoothstep(0.003, 0.0045, length(vec2((fract(u * 18.0 / 6.2832 + 0.5) - 0.5) * 0.07, b.y - 0.5 * (h0 + h1) + 0.012 * cos(u * 18.0))));
+      c = mix(c, uPat0 * gk, inb * 0.85); c = mix(c, uPat0 * 0.55, inb * max(vine, bead));
+      c = mix(c, uPat0 * 0.7, skirtP * max(seamAt(b.y - h0, 0.002), seamAt(b.y - h1, 0.002)));
+    } else c = mix(c, uPat0 * gk, skirtP * (1.0 - smoothstep(hem + 0.028, hem + 0.031, b.y)) * 0.7);
+    if (uL1.w > 0.5 && uL1.w < 1.5) {
       vec2 q1 = vec2(b.x - 0.09, b.y - hem - 0.11), q2 = vec2(b.x + 0.06, b.y - waist + 0.17);
       float p1 = fr * step(abs(q1.x), 0.035) * step(abs(q1.y), 0.03), p2 = (1.0 - fr) * step(abs(q2.x), 0.03) * step(abs(q2.y), 0.035);
       float pp = max(p1, p2); c = mix(c, c * vec3(1.12, 1.05, 0.92), pp);
       c *= 1.0 - 0.45 * max(p1 * step(0.5, fract((b.x + b.y) * 220.0)) * max(seamAt(abs(q1.x) - 0.033, 0.003), seamAt(abs(q1.y) - 0.028, 0.003)), p2 * step(0.5, fract((b.x + b.y) * 220.0)) * max(seamAt(abs(q2.x) - 0.028, 0.003), seamAt(abs(q2.y) - 0.033, 0.003)));
     }
   } else {
-    float e = uL1.z, cuff = smoothstep(e + 0.004, e + 0.007, b.y) * (1.0 - smoothstep(e + 0.022, e + 0.025, b.y));
+    float e = uL1.z, cuff = smoothstep(e + 0.004, e + 0.007, b.y) * (1.0 - smoothstep(e + 0.022 + 0.028 * fine, e + 0.025 + 0.028 * fine, b.y));
     c = mix(c, uPat0 * gk, cuff * 0.8);
+    if (fine > 0.5) {      // (a vine through the wide cuff, and lace below it)
+      c = mix(c, uPat0 * 0.55, cuff * (1.0 - smoothstep(0.0012, 0.0025, abs(b.y - e - 0.03 - 0.008 * sin(atan(b.x, b.z) * 9.0)))));
+      c = mix(c, uPat1 * (0.82 + 0.18 * step(0.45, fract(atan(b.x, b.z) * 14.0)) * step(0.4, fract(b.y * 400.0))), 1.0 - smoothstep(e + 0.001, e + 0.005, b.y));
+    }
     if (uParam.z > 0.5) c = mix(c, uPat1 * (0.92 + 0.08 * sin(atan(b.x, b.z) * 90.0)), 1.0 - smoothstep(e + 0.003, e + 0.006, b.y));
   }
   // (the chemise above the neckline, gathered: what the dress's edge leaves of it)
-  float dn = 0.9131 * (b.y - nl) + 0.4078 * b.z;
-  c = mix(c, uPat1 * (0.9 + 0.1 * sin(atan(b.x, b.z) * 160.0)), smoothstep(-0.018, -0.013, dn) * (1.0 - sleeve));
+  float dn = 0.9131 * (b.y - nl) + 0.4078 * b.z, ang = atan(b.x, b.z);
+  vec3 chem = fine > 0.5 ? uPat1 * (0.8 + 0.2 * step(0.4, fract(ang * 70.0)) * step(0.35, fract(dn * 260.0))) : uPat1 * (0.9 + 0.1 * sin(ang * 160.0));      // (lace, finely made)
+  c = mix(c, chem, smoothstep(-0.018, -0.013, dn) * (1.0 - sleeve));
   c *= 1.0 - 0.3 * seamAt(dn + 0.0155, 0.003) * (1.0 - sleeve);
+  if (fine > 0.5) c = mix(c, vec3(0.95, 0.93, 0.88), (1.0 - sleeve) * (1.0 - smoothstep(0.0022, 0.0034, length(vec2((fract(ang * 9.0) - 0.5) * 0.022, dn + 0.0205)))));      // (pearls along the neckline)
   diffuseColor.rgb = c;
 }`;
 // legG: leggings, a fine knit (ribs down the leg), a seam up the inside; darned at a knee where they're worn (uL0.x).
@@ -1849,7 +1876,7 @@ function prepare(sx, gltf, M) {
         ink_.setX(i, ink_.getX(i) * f);
       }
     }
-    else if (/^(Tunic|Shirt|Dress|Kirtle|NightDress|NightShirt|Chemise)/.test(name)) for (let i = 0; i < n; i++) reg[i] = ARM_BONES.test(dom[i]) ? 1 : 0;      // (its sleeves: kept when a skirt's taken off for its cloth)
+    else if (/^(Tunic|Shirt|Dress|Kirtle|NightDress|NightShirt|Chemise|Gown)/.test(name)) for (let i = 0; i < n; i++) reg[i] = ARM_BONES.test(dom[i]) ? 1 : 0;      // (its sleeves: kept when a skirt's taken off for its cloth)
     g.setAttribute('region', new THREE.Float32BufferAttribute(reg, 1));
     g.userData.shared = true;
     mesh[name] = { geo: g, keys: Object.assign({}, o.morphTargetDictionary || {}) };
@@ -2002,6 +2029,7 @@ function garmentGLB(F, name) {
 // her drawers or smalls (up or lowered). Stockings under a dress, drawn on the legs. ──
 const PHIDE = {
   DressLong: ['CHEST', 'UPARM', 'WAIST_HI', 'WAIST', 'HIPS', 'HIPS_LO', 'SEAT', 'THIGH', 'FOREARM'], DressLongUp: ['CHEST', 'UPARM', 'WAIST_HI', 'WAIST', 'FOREARM'],
+  Gown: ['CHEST', 'UPARM', 'WAIST_HI', 'WAIST', 'HIPS', 'HIPS_LO', 'SEAT', 'THIGH', 'FOREARM'], GownUp: ['CHEST', 'UPARM', 'WAIST_HI', 'WAIST', 'FOREARM'],
   DressElbow: ['CHEST', 'UPARM', 'WAIST_HI', 'WAIST', 'HIPS', 'HIPS_LO', 'SEAT', 'THIGH'], DressElbowUp: ['CHEST', 'UPARM', 'WAIST_HI', 'WAIST'],
   Kirtle: ['CHEST', 'UPARM', 'WAIST_HI', 'WAIST', 'HIPS', 'HIPS_LO', 'SEAT', 'THIGH'], KirtleUp: ['CHEST', 'UPARM', 'WAIST_HI', 'WAIST'],
   Leggings: ['HIPS', 'HIPS_LO', 'SEAT', 'THIGH', 'KNEE', 'SHIN'], LeggingsDown: ['SHIN'], Drawers: ['HIPS', 'HIPS_LO', 'SEAT', 'THIGH'], DrawersDown: [],
@@ -2013,7 +2041,7 @@ const PHIDE = {
 const PCUSH = { skirt: 0.45, leggings: 0.25, drawers: 0.16, smalls: 0.1 };
 // (spec.period.none: nothing at all, for looking at how the body moves (figures.html): no layers to change, no skin hidden, bare feet)
 // (Fenwick: her nightclothes, by kind: a chemise or a night-dress; each a shift, hanging loose, with neither lacing nor a waist seam)
-const TOPS_P = { chemise: 'Chemise', nightdress: 'NightDress' }, SHIFT = /^(Chemise|NightDress)/;
+const TOPS_P = { chemise: 'Chemise', nightdress: 'NightDress', gown: 'Gown' }, SHIFT = /^(Chemise|NightDress)/;      // (a gown: a great house's, to the floor)
 function periodNames(F) {
   const P = F.spec.period || {}, st = F.state, kirtle = P.kind === 'kirtle';
   if (P.none) return { top: null, bottoms: null, under: null, boots: null };
@@ -2027,13 +2055,13 @@ function garmentPeriod(F, name) {
   const P = F.spec.period || {}, L = F.L; let geo = F.model.mesh[name] && F.model.mesh[name].geo; if (!geo) return null;
   const opt = (pat, col, o) => tmat(col, Object.assign({ skin: true, morph: true, side: THREE.DoubleSide, rim: '#3a3028', rimK: 0.55, pattern: pat, bindAttr: true, unique: true }, o || {}));
   let m;
-  if (/^(Dress|Kirtle|Chemise|NightDress)/.test(name)) {
+  if (/^(Dress|Kirtle|Chemise|NightDress|Gown)/.test(name)) {
     m = opt('dressG', P.main || '#6a5a4a'); const U = m.userData.u, kirtle = /^Kirtle/.test(name);
     U.uPat0.value.copy(srgb(P.trim || shade(P.main || '#6a5a4a', -0.3))); U.uPat1.value.copy(srgb(P.chemise || '#f2ede2')); U.uPat2.value.copy(srgb(P.apron || '#f2ede2'));
-    U.uPat3.value.copy(srgb(P.bodice || P.main || '#6a5a4a')); U.uPat4.value.copy(srgb(P.print || '#ffffff'));
+    U.uPat3.value.copy(srgb(P.bodice || P.main || '#6a5a4a')); U.uPat4.value.copy(srgb(P.damask || P.print || '#ffffff'));
     const sleeveA = kirtle || P.sleeves !== 'long' ? L.sleeveE : L.cuffA;
-    U.uParam.value.set(/^Chemise/.test(name) ? L.chemiseHem : /^NightDress/.test(name) ? L.nightHem : kirtle ? L.kirtleHem : L.skirtHem, SHIFT.test(name) ? 1 : 0, kirtle || P.sleeves !== 'long' ? 1 : 0, P.apron ? 1 : 0);      // (y: a shift)
-    U.uL0.value.set(L.waist, L.neckline, P.print ? 1 : 0, P.bodice ? 1 : 0); U.uL1.value.set(L.armpit, L.shX, L.shoulder - sleeveA * Math.cos(L.abd), P.patches ? 1 : 0);
+    U.uParam.value.set(/^Chemise/.test(name) ? L.chemiseHem : /^NightDress/.test(name) ? L.nightHem : /^Gown/.test(name) ? L.gownHem : kirtle ? L.kirtleHem : L.skirtHem, SHIFT.test(name) ? 1 : 0, kirtle || P.sleeves !== 'long' ? 1 : 0, P.apron ? 1 : 0);      // (y: a shift)
+    U.uL0.value.set(L.waist, L.neckline, P.damask ? 2 : P.print ? 1 : 0, P.bodice ? 1 : 0); U.uL1.value.set(L.armpit, L.shX, L.shoulder - sleeveA * Math.cos(L.abd), P.fine ? 2 : P.patches ? 1 : 0);      // (print 2: a damask; 2: finely made)
   } else if (/^Leggings/.test(name)) {
     m = opt('legG', P.legCol || '#3e3a32'); const U = m.userData.u; U.uPat0.value.copy(srgb(shade(P.legCol || '#3e3a32', 0.25))); U.uParam.value.set(L.crotch - 0.02, L.knee, 0, 0); U.uL0.value.set(P.darned ? 1 : 0, 0, 0, 0);
   } else if (/^(Drawers|Smalls)/.test(name)) {
@@ -2051,7 +2079,7 @@ function garmentPeriod(F, name) {
   const sm = skinned(F, geo, m); sm.castShadow = true; sm.receiveShadow = false; ink(sm, INK_W, F, null, HEM_R);
   F.gm[name] = sm; return sm;
 }
-const CLOTHED = /^(Dress|Kirtle|NightDress)(Long|Elbow)?$/;      // (Fenwick: the skirts are cloth; a chemise is built as a shirt, with its own raised mesh)
+const CLOTHED = /^(Dress|Kirtle|NightDress|Gown)(Long|Elbow)?$/;      // (Fenwick: the skirts are cloth; a chemise is built as a shirt, with its own raised mesh)
 // (a garment as built, without its skirt: the triangles wholly below the waist and not of a sleeve taken out, for its cloth to hang there)
 function skirtless(geo, y) {
   const p = geo.attributes.position, reg = geo.attributes.region, ix = geo.index.array, keep = [];
@@ -2144,7 +2172,7 @@ function clothBoxes(F) {
 // The cloth for a garment: its grid, its rest shape from the garment as built, the points it's held by at the waist.
 function makeCloth(F, name) {
   const L = F.L, gm = F.gm[name], geo = F.model.mesh[name].geo, NC = CL.NC, NR = CL.NR;
-  const hem = /^Chemise/.test(name) ? L.chemiseHem : /^NightDress/.test(name) ? L.nightHem : /^Kirtle/.test(name) ? L.kirtleHem : L.skirtHem;
+  const hem = /^Chemise/.test(name) ? L.chemiseHem : /^NightDress/.test(name) ? L.nightHem : /^Gown/.test(name) ? L.gownHem : /^Kirtle/.test(name) ? L.kirtleHem : L.skirtHem;
   const y0 = L.waist - 0.006, cx = L.skirtC[0], cz = L.skirtC[1], P = shapedPos(geo, F.keys || {}), n = P.length / 3;
   const SI = gm.geometry.attributes.skinIndex.array, SW = gm.geometry.attributes.skinWeight.array, names = F.bones.map(b => b.name);
   const arm = new Uint8Array(n); for (let i = 0; i < n; i++) { let b = 0; for (let k = 1; k < 4; k++) if (SW[i * 4 + k] > SW[i * 4 + b]) b = k; arm[i] = ARM_BONES.test(names[SI[i * 4 + b]]) ? 1 : 0; }

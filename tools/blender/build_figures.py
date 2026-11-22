@@ -1409,7 +1409,7 @@ def garments(sex, torso, leg, arm, body, label, rig):
 # to the knee, with a frill at the hem; under leggings, fitted smalls. Each layer kept clear of the one under it.
 # A skirt's weights aren't the nearest skin's (that tears it between the legs and pins its hem to the shins): from the waist to the hips it goes
 # with the pelvis; below, more and more with the thighs, either side blended across the middle; toward the hem a share of the shins.
-SKIRT_HEM = 0.235; KIRTLE_HEM = KNEE_Y + 0.075; DRAWERS_LEG = KNEE_Y + 0.05; SMALLS_LEG = CROTCH_Y - 0.07
+SKIRT_HEM = 0.235; GOWN_HEM = ANKLE_Y - 0.035; KIRTLE_HEM = KNEE_Y + 0.075; DRAWERS_LEG = KNEE_Y + 0.05; SMALLS_LEG = CROTCH_Y - 0.07
 def back_z(Sf, y, x=0.0):
     lo, hi = 0.05, -0.3
     for _ in range(30):
@@ -1423,7 +1423,7 @@ def period_garments(sex, torso, leg, arm, body, label, rig, only=None):
     L['seatPeak'], L['seatFold'], L['seatTop'] = seat_marks(body_field(torso, leg, arm, sex), L['hipX'] * 0.8)
     # (her landmarks for the period wardrobe: the neckline lower and rounder than a shirt's; the skirt's and kirtle's hems; the drawers' and
     # smalls' leg openings; where lowered drawers come to rest above the knees; no high-cut briefs any more, so no briefCut)
-    L['neckline'] = L['neck'] + (0.004 if sex == 'm' else -0.026); L['skirtHem'] = SKIRT_HEM; L['kirtleHem'] = KIRTLE_HEM; L['chemiseHem'] = CROTCH_Y - 0.03; L['nightHem'] = ANKLE_Y + 0.07; L['nightShirtHem'] = KNEE_Y + 0.05      # (his neckline his day shirt's: cut lower, it opened below where the skin under his shirt is hidden from)
+    L['neckline'] = L['neck'] + (0.004 if sex == 'm' else -0.026); L['skirtHem'] = SKIRT_HEM; L['gownHem'] = GOWN_HEM; L['kirtleHem'] = KIRTLE_HEM; L['chemiseHem'] = CROTCH_Y - 0.03; L['nightHem'] = ANKLE_Y + 0.07; L['nightShirtHem'] = KNEE_Y + 0.05      # (his neckline his day shirt's: cut lower, it opened below where the skin under his shirt is hidden from)
     L['drawersLeg'] = DRAWERS_LEG; L['briefLeg'] = SMALLS_LEG      # (a chemise and his nightshirt a shirt's length or a little more: what's under them still shows below)
     L['drawersDown'] = KNEE_Y + 0.165; L['sleeveE'] = L['rollA'] + 0.012;      # (an elbow sleeve ends just past where the forearm's skin is hidden from: no gap)
     L['period'] = 1.0; L.pop('briefCut', None)
@@ -1677,6 +1677,9 @@ def period_garments(sex, torso, leg, arm, body, label, rig, only=None):
             make(name + ('Up' if up else ''), top, (-0.42, min(hem_, WRIST_Y) - 0.04, -0.25), (0.42, L['collar'] + 0.03, 0.26), faces if not up else int(faces * 0.75), planes, TORSO_L,
                  h=0.0034, split=(is_sl, ARMS_L + ['torso']), custom=shirt_w)
     dress('DressLong', 'long', SKIRT_HEM, 0.035, 0.012, 1.0, 1.25, drawers_f, L['trouserTop'], 16000)
+    # (Fenwick: a gown, as a lady of a great house wears: the bodice fitted closer, the skirt to the floor and fuller, falling deeper behind;
+    # the prologue's, Adela's)
+    dress('Gown', 'long', GOWN_HEM, 0.075, 0.013, 1.25, 1.45, drawers_f, L['trouserTop'], 18000, bease=0.006, raised=False)
     dress('DressElbow', 'elbow', SKIRT_HEM, 0.035, 0.012, 1.0, 1.25, drawers_f, L['trouserTop'], 16000)
     dress('Kirtle', 'elbow', KIRTLE_HEM, 0.022, 0.01, 0.8, 1.15, leggings_f, L['trouserTop'], 12000)
     # (Fenwick: what she sleeps in: a chemise, the linen shift worn under the dresses, gathered at the neck, elbow-sleeved, a little longer

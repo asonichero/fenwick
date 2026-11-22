@@ -207,10 +207,11 @@ const MAID = { kind: 'dress', sleeves: 'elbow', main: '#8a4a32', trim: '#5a3222'
 const LINEN = '#ddd4c2';
 const CHEMISE = { kind: 'chemise', sleeves: 'elbow', main: LINEN, trim: LINEN, chemise: LINEN, under: 'drawers', underCol: LINEN };
 const NIGHTDRESS = { kind: 'nightdress', sleeves: 'long', main: LINEN, trim: '#cfc4ae', chemise: LINEN, under: 'drawers', underCol: LINEN };
-// (the prologue: Adela's gown from her mother's house, deep blue wool with silver-grey braid, long-sleeved, a white chemise, pale stockings and
-// heeled shoes: Cicely's in the opening scene; and the goose girl's plain dress, undyed brown with elbow sleeves, a canvas apron, patched, grey
+// (the prologue: Adela's gown from her mother's house, as a great house dresses its daughters (kind: gown, to the floor and fuller; fine:
+// finely made): sapphire silk damask, an ivory stomacher with gold ribbons, a deep gold-embroidered border at the hem and wide cuffs, lace at
+// the neck and wrists, pearls, ivory silk shoes: Cicely's in the opening scene; and the goose girl's plain dress, undyed brown with elbow sleeves, a canvas apron, patched, grey
 // stockings and work shoes: Adela's at first, Cicely's after)
-const BRIDE = { kind: 'dress', sleeves: 'long', main: '#2e4a6e', trim: '#c8c8c0', chemise: '#f6f1e6', under: 'drawers', underCol: '#f4f0e6', stockings: '#ece6da', shoes: 'loafers', shoe: '#2a2a3a', sole: '#141418' };
+const BRIDE = { kind: 'gown', sleeves: 'long', main: '#1c3260', damask: '#2a467e', bodice: '#ece2c8', trim: '#d4ae58', chemise: '#fbf8f2', fine: true, under: 'drawers', underCol: '#f8f4ec', stockings: '#f4f0e8', shoes: 'loafers', shoe: '#d8c8a0', sole: '#5a4a30' };
 const GOOSE = { kind: 'dress', sleeves: 'elbow', main: '#8a7454', trim: '#5a4a34', apron: '#cfc2a4', chemise: LINEN, patches: true, under: 'drawers', underCol: LINEN, stockings: '#7a6e5e', shoes: 'work', shoe: '#4a3a2a', sole: '#221a14' };
 const WARDROBE = {
   goldie: {
@@ -246,11 +247,11 @@ const WARDROBE = {
     dress: { kind: 'dress', sleeves: 'long', main: '#efe6d2', bodice: '#8a1a24', trim: '#d8b46a', chemise: '#fbf8f0', under: 'drawers', underCol: '#f6f2ea', stockings: '#f2eee6', shoes: 'flats', shoe: '#3a1418', sole: '#1a0a0c' },
     night: NIGHTDRESS,
   },
-  cicely: { gown: BRIDE, goose: GOOSE },
+  cicely: { gown: BRIDE, shift: Object.assign({}, NIGHTDRESS, { kind: 'nightdress' }), goose: GOOSE },      // (her own linen shift and drawers under the gown, made as the night-dresses are)
   adela: { goose: GOOSE, gown: BRIDE },
 };
 // (what each is, for the set-up: a line about each outfit)
-const OUTFIT_NOTES = { night: 'for bed', maid: 'as maid, the Hall’s uniform', dayoff: 'her own, for her days off', own: 'her own, as found', dress: 'her dress', walking: 'walking the estate: kirtle and leggings', rags: 'as found, in rags', kirtle: 'kirtle and leggings', garden: 'for the garden', tower: 'from the tower' , gown: 'Adela’s gown, from her mother’s house', goose: 'the goose girl’s plain dress' };
+const OUTFIT_NOTES = { night: 'for bed', maid: 'as maid, the Hall’s uniform', dayoff: 'her own, for her days off', own: 'her own, as found', dress: 'her dress', walking: 'walking the estate: kirtle and leggings', rags: 'as found, in rags', kirtle: 'kirtle and leggings', garden: 'for the garden', tower: 'from the tower' , gown: 'Adela’s gown, from her mother’s house', goose: 'the goose girl’s plain dress' , shift: 'her own linen shift and drawers' };
 const PERIOD = {
   goldie: 'Her own at first: a mustard skirt and a laced rust bodice over a cream chemise, worn shoes. As maid: the Hall’s uniform, a russet work dress and clean apron, as Eleanor wears.',
   red: 'A brown working dress with red trim and a flour-dusted apron, red wool stockings, ankle boots; on the estate’s paths, more and more, a kirtle over madder leggings. Her madder-red hooded cloak is still to build.',
@@ -259,8 +260,8 @@ const PERIOD = {
   gretel: 'A patched brown kirtle cut short for running, over darned leggings; boots taken from somewhere.',
   rapunzel: 'From the tower, an outgrown linen gown, let out and patched. In the garden: a sage dress, a canvas apron, borrowed boots.',
   snow: 'A fine cream gown from her father’s house with a crimson laced bodice, gold braid, white stockings, thin shoes.',
-  cicely: 'Adela’s gown at first, deep blue wool with silver-grey braid, taken on the road; after, the goose girl’s plain dress, undyed brown, patched, with a canvas apron.',
-  adela: 'The goose girl’s plain dress, undyed brown, patched, a canvas apron and work shoes; her own gown, deep blue wool with silver-grey braid, when it’s given back.',
+  cicely: 'Adela’s gown at first, taken on the road: sapphire silk damask to the floor, an ivory stomacher, gold embroidery, lace and pearls. Silas has her take it off, and she’s corrected in her own linen shift and drawers; after, the goose girl’s plain dress, undyed brown, patched, with a canvas apron.',
+  adela: 'The goose girl’s plain dress, undyed brown, patched, a canvas apron and work shoes; her own gown, sapphire silk damask with gold embroidery, lace and pearls, when it’s given back.',
 };
 for (const id in WARDROBE) { ROSTER[id].wardrobe = WARDROBE[id]; ROSTER[id].period = PERIOD[id]; }
 const outfits = id => Object.keys(WARDROBE[id] || {});

@@ -113,10 +113,10 @@ test('Hansel is never part of a correction (he has no roster entry, word or line
 test('the prologue’s cast at Thornleigh: two adult women apart from the seven, Cicely’s word the mare’s name, given her by Silas; the master and his son', () => {
   assert.deepEqual(Cast.PROLOGUE, ['cicely', 'adela']); for (const id of Cast.PROLOGUE) { const r = Cast.ROSTER[id]; assert.equal(r.chapter, 0); assert.ok(r.age >= 18, id); assert.ok(!Cast.IDS.includes(id)); }
   assert.equal(Cast.ROSTER.cicely.word, 'Falada'); assert.equal(Cast.ROSTER.adela.corrected, false);
-  assert.deepEqual(Cast.outfits('cicely'), ['gown', 'goose']); assert.equal(Cast.figureSpec('cicely').period.kind, 'dress'); assert.equal(Cast.figureSpec('adela').periodKey, 'goose');
+  assert.deepEqual(Cast.outfits('cicely'), ['gown', 'shift', 'goose']); assert.equal(Cast.figureSpec('cicely').period.kind, 'gown'); assert.ok(Cast.figureSpec('cicely').period.fine); assert.equal(Cast.figureSpec('cicely', 'f', 'shift').period.kind, 'nightdress'); assert.equal(Cast.figureSpec('adela').periodKey, 'goose');
   // (Cicely has every line, a full aftercare, and her terms whole: Silas gives her the word; she never chooses one)
   for (const k of REACT_KEYS) assert.ok(Lines.react('cicely', k), k);
-  const t = Lines.terms('cicely'); assert.ok(t.some(s => s.who === 'captain' && s.text.includes('Falada'))); assert.ok(!t.some(s => s.who === 'subject' && s.text.includes('Falada')));
+  const t = Lines.terms('cicely'); assert.ok(t[0].who === 'captain' && /gown/.test(t[0].text), 'first, the gown off'); assert.ok(t.some(s => s.who === 'captain' && s.text.includes('Falada'))); assert.ok(!t.some(s => s.who === 'subject' && s.text.includes('Falada')));
   assert.ok(Lines.after('cicely', 'done').length >= 4); assert.ok(Lines.after('adela', 'done').length >= 4, 'anyone without lines of her own still has an aftercare');
   // (the men, on Silas's body at their own heights and builds, in their evening clothes; no Kit)
   for (const id of ['master', 'heir']) { const s = Cast.manSpec(id); assert.equal(s.sex, 'm'); assert.equal(s.outfit, 'offduty'); assert.equal(s.off.sleeves, 'long'); assert.notEqual(s.height, Cast.squireSpec().height); }

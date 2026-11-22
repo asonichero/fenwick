@@ -296,9 +296,14 @@ const TERMS = {
     { who: 'subject', text: 'You make it sound very grim.' },
     { who: 'captain', text: 'It is grim. You may still say no. I’ll protect you either way; the terms are how you help me do it.' },
   ],
-  // (the prologue: in his office, after the master's decree. She pleads; he sets his terms, and gives her the word himself: the mare she had
-  // sold away. Its own whole conversation: AGREE has nothing for her)
+  // (the prologue: in his office, after the master's decree. First he has her take off the gown that was never hers (Cast: from her gown to
+  // her shift); she pleads; he sets his terms, and gives her the word himself: the mare she had sold away. Its own whole conversation: AGREE
+  // has nothing for her)
   cicely: [
+    { who: 'captain', text: 'Before anything else: the gown. It was never yours to wear. Take it off.' },
+    { who: 'subject', text: '…Here?' },
+    { who: 'captain', text: 'Here. Your shift can stay.' },
+    { who: 'subject', text: '…Yes, Mr Fenwick.' },
     { who: 'subject', text: 'Please. Not that. Not what I said— I didn’t know it was me I was sentencing.' },
     { who: 'captain', text: 'You knew what you’d done to her. And you’d have had that done to her.' },
     { who: 'subject', text: '…What will you do with me?' },
