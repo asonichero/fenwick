@@ -48,10 +48,13 @@ const TUNE = {
       elbowL: [0.95, 0.32, -0.05], elbowR: [0.86, -0.47, 0.17], knucklesL: [62.5, 60.5, 53.5, 55] },
   },
   table: {
-    // (her, over the table, as the pose editor set her: her spine and chest turned that much from her own posing (degrees; the small of her
-    // back lifted, her chest kept down on the top); the way her elbows bend: out to that side, toward the table's far end, up (out and back,
-    // level with the top))
-    her: { spine: [-10.8, 0.2, -4.6], chest: [25.5, 1.6, 5.8], elbow: [0.71, -0.71, 0] },
+    // (her, over the table, as the pose editor set her (neither defiant nor given in): her hips, spine, chest and neck turned that much from
+    // her own posing, her head turned (degrees): bent less at the hips, the back curving down to the top, the head up and round; her feet that
+    // much nearer the table (scaled with her); the way her elbows bend: out to that side, toward the table's far end, up (out and back, level
+    // with the top). Defiant, her chest and head come up off it (radians, at the most); given in, her head goes down and round, her cheek
+    // to the top)
+    her: { hips: [-15.5, 1, 0], spine: [10.9, -1.4, -3.8], chest: [6.3, 0, 2.8], neck: [-20.3, -3.2, -12], head: [0, 46.5, 0], feet: 0.06, elbow: [0.71, -0.71, 0],
+      defiant: { spine: -0.22, chest: -0.12, neck: -0.3 }, submissive: { neck: 0.35, head: 0.9 } },
     // (Silas over the table, standing at her left, as placed in the pose editor with his right hand raised: from her hips, out from her side
     // and along toward her head (−: toward her legs), scaled with her; facing her side, turned that much toward her head (degrees); his hips'
     // place in him (across, up, forward); each foot where it stands in his own frame (across, forward), the way its knee bends and its toes
@@ -528,6 +531,7 @@ function create(stage, bay, opts) {
   // ── The subject's pose and reactions ──
   function poseSubject(dt) {
     const P = cur, F = P.f, d = clamp(P.pain.distress(), 0, 1.8), dd = Math.min(1, d), t = st.t, s = sc(F), R = P.rx, otk = st.position === 'otk';
+    F.bone.head.rotation.set(0, 0, 0);      // (Fenwick: turned only over the table, below)
     // squirming (over the knee only): smooth and irregular (each their own rhythm), as much as they're agitated and their temperament lets out
     const sq = otk ? R.A * (0.3 + 0.7 * P.wrig) * (st.running ? 1 : 0.6) * (1 - 0.4 * R.pride) : 0, ph = R.ph;      // (pride holds some of it in)
     const wrig = sp.wrig.to(sq * (Math.sin(t * 2.3 + ph[0]) * 0.6 + Math.sin(t * 3.9 + ph[1]) * 0.4), dt);
@@ -653,14 +657,15 @@ function create(stage, bay, opts) {
       const Lt = (F.bone.spine.position.length() + F.bone.chest.position.length() + F.bone.neck.position.length() * 0.4) * s;
       const tTop = topFor(F), lie = Math.PI / 2 + Math.asin(clamp((hipY - (tTop + 0.12 * s)) / Lt, -0.6, 0.95));
       const up = 0.15 * ar + 0.6 * uK + 0.45 * rise + 0.1 * dfy;
-      F.bone.hips.rotation.set(lie - up, 0.03 * Math.sin(t * 1.1 + ph[2]) * dd * R.ff, 0);
-      const TB = TUNE.table.her, dg = Math.PI / 180;
-      F.bone.spine.rotation.set(0.03 - 0.04 * ar + TB.spine[0] * dg, 0.06 * gK + TB.spine[1] * dg, TB.spine[2] * dg); F.bone.chest.rotation.set(0.02 - 0.05 * ar + TB.chest[0] * dg, 0.1 * gK + TB.chest[1] * dg, TB.chest[2] * dg);
-      F.bone.neck.rotation.set(-0.5 + 0.35 * sub - 0.5 * hd - 0.15 * ar - 0.2 * dfy - 0.2 * gK - 0.25 * rise, -0.7 * (1 - 0.6 * sub) + 1.0 * gK + 0.05 * Math.sin(t * 1.3 + ph[0]) * dd * R.ff, 0.12 - 0.2 * gK);
+      const TB = TUNE.table.her, dg = Math.PI / 180, TD = TB.defiant, TS = TB.submissive;
+      F.bone.hips.rotation.set(lie - up + TB.hips[0] * dg, 0.03 * Math.sin(t * 1.1 + ph[2]) * dd * R.ff + TB.hips[1] * dg, TB.hips[2] * dg);
+      F.bone.spine.rotation.set(0.03 - 0.04 * ar + TB.spine[0] * dg + TD.spine * dfy, 0.06 * gK + TB.spine[1] * dg, TB.spine[2] * dg); F.bone.chest.rotation.set(0.02 - 0.05 * ar + TB.chest[0] * dg + TD.chest * dfy, 0.1 * gK + TB.chest[1] * dg, TB.chest[2] * dg);
+      F.bone.neck.rotation.set(-0.5 + TB.neck[0] * dg + TS.neck * sub - 0.5 * hd - 0.15 * ar + TD.neck * dfy - 0.2 * gK - 0.25 * rise, -0.7 + TB.neck[1] * dg + 1.0 * gK + 0.05 * Math.sin(t * 1.3 + ph[0]) * dd * R.ff, 0.12 + TB.neck[2] * dg - 0.2 * gK);
+      F.bone.head.rotation.set(TB.head[0] * dg, TB.head[1] * dg + TS.head * sub * (1 - gK), TB.head[2] * dg);
       F.root.updateMatrixWorld(true);
       // (Fenwick: the feet planted a fixed distance back from the table's edge, whatever the rest of her does; her legs straight to them,
       // the hips lowered for it if they'd have to reach)
-      const footZ = table.d - 0.22 * s;
+      const footZ = table.d - (0.22 - TUNE.table.her.feet) * s;
       straightLegs(F, [['L', local(F, 0.21 * s, ankleY(F) + 0.03 * Math.max(0, toe), footZ)], ['R', local(F, -0.21 * s, ankleY(F) + 0.03 * Math.max(0, toe), footZ)]], true);
       for (const [side, sx] of [['L', 1], ['R', -1]]) {
         const st_ = side === J.side ? Math.max(0, stamp) : 0, pd = side === 'L' ? Math.max(0, pedal) : Math.max(0, -pedal);
