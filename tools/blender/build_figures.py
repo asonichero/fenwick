@@ -1680,7 +1680,7 @@ def period_garments(sex, torso, leg, arm, body, label, rig, only=None):
     # than a shirt, her drawers or smalls showing below it; or a night-dress, long-sleeved and to the ankle. Both loose: hanging from her bust and shoulder blades, not fitted to the waist.
     # Raised, as the dresses are on their drapes: their backs lifted, so no raised mesh of their own)
     shirt('Chemise', 'elbow', L['chemiseHem'], drawers_f, 12000)
-    dress('NightDress', 'long', L['nightHem'], 0.035, 0.012, 1.0, 1.2, drawers_f, L['trouserTop'], 16000, top=L['armpit'] + 0.02, bease=0.014, raised=False)      # (no wider than a dress at her hips: her hands hang outside it)
+    dress('NightDress', 'long', L['nightHem'], 0.05, 0.016, 1.0, 1.2, drawers_f, L['trouserTop'], 16000, top=L['armpit'] + 0.02, bease=0.014, raised=False)
     # (his: a nightshirt, long-sleeved, loose, a little longer than a shirt, over his drawers)
     if sex == 'm': shirt('NightShirt', 'rolled', L['nightShirtHem'], drawers_f, 12000, ease0=0.014)      # (his day shirt, to above the knee)
     # ── boots, as the men's: round the foot and up the shin ──
