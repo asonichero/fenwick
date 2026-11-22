@@ -210,8 +210,10 @@ function build(scene) {
         after: { at: new V3(-1.3, 0, BZ + 0.11), yaw: Math.PI, seatY: MT - 0.02, beside: new V3(-1.92, 0, BZ + 0.11),
           cams: [['Two-shot', [-1.3, 1.05, 1.6], [0.3, 0.85, 0.0]], ['Close', [-0.75, 1.05, 1.05], [0.3, 0.95, 0.0]]] } },
     },
-    // (standing at the writing table's front edge, palms flat on it, bent well forward; Silas at her left)
+    // (standing at the writing table's front edge, palms flat on it, bent well forward; Silas at her left. Not offered now: over it instead)
     wall: { at: new V3(DX1 + 0.85, 0, dz), yaw: -Math.PI / 2, support: { kind: 'edge', y: DY + 0.01, d: 0.85, bend: 0.95, lines: 'writing' } },
+    // (over the writing table: bent across its front edge, her hands holding its far edge, her feet on the floor; Silas at her left)
+    table: { at: new V3(DX1 + 0.55, 0, dz), yaw: -Math.PI / 2, top: DY, d: 0.55, w: DZ1 - DZ0, len: DX1 - DX0, grip: 'far' },
     // (the aftercare, otherwise: the settle, side by side)
     after: { at: new V3(X1 - 0.52, 0, sz - 0.3), yaw: -Math.PI / 2, seatY: 0.44, beside: new V3(X1 - 0.52, 0, sz + 0.32) },
     watch: [],

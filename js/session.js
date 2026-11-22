@@ -1165,7 +1165,7 @@ function create(stage, bay, opts) {
       st.position = q.position; st.seat = q.seat; st.swing = null; st.running = false;
       if (bench !== benchOf(st.seat)) { bench = benchOf(st.seat); seatOTK(); after = afterOf(); makeCams(); }
       if (cur) { say('captain', V.place(cur.id, placeKey())); } drapes(); camera(0); emit('state'); },
-    positions: ['otk', 'wall'].concat(table ? ['table'] : [], Object.keys(bay.spots.seats || {}).map(k => 'otk:' + k)), support: sup.kind,
+    positions: ['otk'].concat(table ? ['table'] : [], Object.keys(bay.spots.seats || {}).map(k => 'otk:' + k)), support: sup.kind,      // (Fenwick: not hands on the table: over it)
     dress(o) { if (cur && st.phase === 'turn' && !st.ending) dressTo(o); },
     endTurn: () => endTurn('done'), callWord, camera, aftercare, update, back() { if (!away) return; away = null; awayFit = null; after = afterOf(); makeCams(); },
     distress: () => (cur ? cur.pain.distress() : 0), band: () => (cur ? BANDS[bandIndex()] : ''), harshAt: S.PAIN.TOO_HARSH,

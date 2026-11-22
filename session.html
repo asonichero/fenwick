@@ -114,7 +114,7 @@ small.note { display: block; color: var(--dim); font-size: 11px; line-height: 1.
   <h2>Time of day</h2>
   <div class="row seg" id="tod"><button data-v="day">Day</button><button data-v="night">Night</button></div>
   <h2>Position</h2>
-  <div class="row seg" id="pos"><button data-v="otk">Across the knee (chair)</button><button data-v="otk:bed">Across the knee (bed)</button><button data-v="wall">Hands on the writing table</button></div>
+  <div class="row seg" id="pos"><button data-v="otk">Across the knee (chair)</button><button data-v="otk:bed">Across the knee (bed)</button><button data-v="table">Over the writing table</button></div>
   <h2>The household <span style="text-transform:none;letter-spacing:0">(tap: corrected → absent)</span></h2>
   <div class="crew" id="crew"></div>
   <small class="note">The third button is her outfit, where she has more than one (Red walks the estate in a kirtle and leggings, more often as time goes on). A bedroom is private: nobody watches, and anyone waiting her turn waits outside. Witnesses need a room that allows them (the servants’ hall, the kitchens: not built yet).</small>
@@ -250,7 +250,7 @@ seg('tod', cfg.time, v => { cfg.time = v; save(); bay.setTime(v); hearth(); });
 seg('state', cfg.state, v => { cfg.state = v; save(); bay.setRestored(RESTORED[v]); hearth(); });
 seg('clues', cfg.clues ? 'on' : 'off', v => { cfg.clues = v === 'on'; save(); bay.setClues(cfg.clues); });
 seg('gfx', cfg.graphics || 'full', v => { cfg.graphics = v; save(); stage.setLow(v === 'low'); bay.setLow(v === 'low'); });
-const POS = ['otk', 'otk:bed', 'wall'];
+const POS = ['otk', 'otk:bed', 'table'];
 if (!POS.includes(cfg.position)) cfg.position = 'otk';
 seg('pos', cfg.position, v => { cfg.position = v; save(); if (ses) { fade(); ses.position(v); drawCams(); } });
 function hearth() { if (window.GameAudio && GameAudio.ctx) GameAudio.hearth({ fire: bay.restored >= 0.5 ? (cfg.time === 'night' ? 0.9 : 0.6) : 0, wind: cfg.time === 'night' ? 0.7 : 0.45 }); }
