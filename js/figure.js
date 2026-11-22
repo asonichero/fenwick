@@ -2097,12 +2097,12 @@ function bodySpheres(F, extra) {
   SPHERES.set(key, out); return out;
 }
 // (where each of a figure's spheres is now, in another's space: centre and radius)
-function spheresIn(G, inv, out, pad, extra, below) {
+function spheresIn(G, inv, out, pad, extra, below, who) {
   const ek = (extra || []).join(',');
   if (!G._sph || G._sphKey !== ek) { G._sphKey = ek; G._sph = bodySpheres(G, extra).map(s => ({ s, local: s.c.clone().applyMatrix4(G.bindM).applyMatrix4(G.skeleton.boneInverses[s.bone]) })); }
   const S = G._sph;
   const k = G.root.matrixWorld.getMaxScaleOnAxis() / Math.max(1e-6, 1 / inv.getMaxScaleOnAxis());
-  for (const q of S) { if (below != null && q.s.c.y > below) continue; _cv.copy(q.local).applyMatrix4(G.bones[q.s.bone].matrixWorld).applyMatrix4(inv); out.push(_cv.x, _cv.y, _cv.z, q.s.r * k + pad); }
+  for (const q of S) { if (below != null && q.s.c.y > below) continue; _cv.copy(q.local).applyMatrix4(G.bones[q.s.bone].matrixWorld).applyMatrix4(inv); out.push(_cv.x, _cv.y, _cv.z, q.s.r * k + pad); if (who) who.push(G, q.s.bone); }
 }
 // The furniture near her, as boxes: what the room's made of (each a box), found when the cloth's put somewhere.
 function clothBoxes(F) {
@@ -2235,6 +2235,23 @@ function clothStart(F, C, inv, k, out) {
   return skinPoint(F, _cv.set(C.B[k * 3], y, C.B[k * 3 + 2]).clone(), [bi('hips'), bi('thighL'), bi('thighR'), bi('shinL'), bi('shinR')], [1 - hs, hs * (1 - kb) / 2, hs * (1 - kb) / 2, hs * kb / 2, hs * kb / 2], inv, out);
 }
 const FIGS = new Set();
+// Where each free point of the cloth is held, once it's settled: on whatever it lies on, the bone of the nearest of her (or his) spheres,
+// fading toward her hips the further it hangs clear of anything; how firmly (firmer where it lies on something). Each kept in its bones' own
+// frames, so it's carried as they move.
+function anchorsOf(F, C, inv, S, who, W) {
+  const X = C.X, N = X.length / 3, list = new Array(N).fill(null), hb = F.bones.indexOf(F.bone.hips), toW = F.root.matrixWorld;
+  const local = (G, b, p) => p.clone().applyMatrix4(toW).applyMatrix4(_cm.copy(G.bones[b].matrixWorld).invert());
+  for (let k = 0; k < N; k++) {
+    if (!W[k]) continue;
+    const p = new V3(X[k * 3], X[k * 3 + 1], X[k * 3 + 2]); let best = -1, bd = 1e9;
+    for (let q = 0; q < S.length; q += 4) { const d = Math.hypot(p.x - S[q], p.y - S[q + 1], p.z - S[q + 2]) - S[q + 3]; if (d < bd) { bd = d; best = q / 4; } }
+    const near = best < 0 ? 0 : 1 - ss(0.015, 0.12, bd), on = [];
+    if (best >= 0 && near > 0) on.push([who[best * 2], who[best * 2 + 1], local(who[best * 2], who[best * 2 + 1], p), near]);
+    if (near < 1) on.push([F, hb, local(F, hb, p), 1 - near]);
+    list[k] = { on, t: new V3(), k: lerp(0.02, 0.12, near) };
+  }
+  return { list };
+}
 // (what's showing under her raised skirt, that it lies on: her drawers or smalls, her leggings, up or lowered)
 const clothUnder = F => { const w = F.spec.outfit === 'period' ? periodNames(F) : {}; return [w.under, w.bottoms].filter(Boolean); };
 // A step of the cloth: held at the waist (and, raised, in its roll), falling, kept its shape, out of her, Silas, the furniture and the floor.
@@ -2256,7 +2273,8 @@ function tickCloth(F, dt) {
   // (what it lies on besides her: anyone near her, the furniture, the floor; her own spheres each step, as she moves)
   const hp = F.bone.hips.getWorldPosition(new V3()), others = [];
   // (anyone else: his lap and legs, below his waist; not the rest of him, which her skirt only ever brushes, and would catch on)
-  for (const G of FIGS) { if (G === F || !G.root.parent || !G.root.visible || !G.model) continue; if (G.bone.hips.getWorldPosition(new V3()).distanceTo(hp) > 2.2) continue; spheresIn(G, inv, others, CL.MS, null, G.L.waist - 0.03); }
+  const othersWho = [];
+  for (const G of FIGS) { if (G === F || !G.root.parent || !G.root.visible || !G.model) continue; if (G.bone.hips.getWorldPosition(new V3()).distanceTo(hp) > 2.2) continue; spheresIn(G, inv, others, CL.MS, null, G.L.waist - 0.03, othersWho); }
   if (jump) C.boxes = clothBoxes(F);
   const BX = C.boxes.map(b => { const m = new THREE.Matrix4().multiplyMatrices(inv, b.m), mi = m.clone().invert(), sx = new V3().setFromMatrixColumn(m, 0).length(), sy = new V3().setFromMatrixColumn(m, 1).length(), sz = new V3().setFromMatrixColumn(m, 2).length();
     const h = [b.half.x + CL.M / sx, b.half.y + CL.M / sy, b.half.z + CL.M / sz], bb = new THREE.Box3();
@@ -2265,7 +2283,8 @@ function tickCloth(F, dt) {
   const fn = new V3(0, 1, 0).transformDirection(inv), f0 = new V3(0, 0.004, 0).applyMatrix4(inv), fd = fn.dot(f0);
   const cell = 0.1, skey = (a, b, c) => ((a * 73856093) ^ (b * 19349663) ^ (c * 83492791)) | 0;
   let S = [], SH = new Map(), own = 0;
-  const current = () => { const A = []; spheresIn(F, inv, A, CL.M, up ? clothUnder(F) : []); own = A.length; for (let q = 0; q < others.length; q++) A.push(others[q]); return A; };
+  let who = [];
+  const current = () => { const A = []; who = []; spheresIn(F, inv, A, CL.M, clothUnder(F), null, who); own = A.length; for (let q = 0; q < others.length; q++) A.push(others[q]); for (const w of othersWho) who.push(w); return A; };
   const colliders = A => {
     S = A || current(); SH = new Map();
     for (let q = 0; q < S.length; q += 4) { const r = S[q + 3]; for (let a = Math.floor((S[q] - r) / cell); a <= Math.floor((S[q] + r) / cell); a++) for (let b = Math.floor((S[q + 1] - r) / cell); b <= Math.floor((S[q + 1] + r) / cell); b++) for (let c = Math.floor((S[q + 2] - r) / cell); c <= Math.floor((S[q + 2] + r) / cell); c++) { const k = skey(a, b, c); let L_ = SH.get(k); if (!L_) SH.set(k, (L_ = [])); L_.push(q); } }
@@ -2308,12 +2327,19 @@ function tickCloth(F, dt) {
   // settled, not dragged through)
   if (!jump && C.prevS) { const A = current(); if (A.length === C.prevS.length) { let far = 0; for (let q = 0; q < own; q += 4) far = Math.max(far, Math.hypot(A[q] - C.prevS[q], A[q + 1] - C.prevS[q + 1], A[q + 2] - C.prevS[q + 2])); if (far > 0.1) { jump = true; C.boxes = clothBoxes(F); } } }
   const g = new V3(0, -9.8, 0).transformDirection(inv).multiplyScalar(9.8 / F.root.matrixWorld.getMaxScaleOnAxis()), CC = C.C, R1 = C.NR + 1, TE = C.tether, QQ = C.Q;
+  let AN = null; const VMAX = 0.015;
   const run = (steps, h, damp, its) => {
     W.fill(1); for (const k of T.keys()) W[k] = 0;
     for (let s = 0; s < steps; s++) {
       for (let k = 0; k < N; k++) {
         if (!W[k]) { const p = T.get(k); X[k * 3] = Xp[k * 3] = p.x; X[k * 3 + 1] = Xp[k * 3 + 1] = p.y; X[k * 3 + 2] = Xp[k * 3 + 2] = p.z; continue; }
-        for (let a = 0; a < 3; a++) { const v = (X[k * 3 + a] - Xp[k * 3 + a]) * damp; Xp[k * 3 + a] = X[k * 3 + a]; X[k * 3 + a] += v + g.getComponent(a) * h * h; }
+        let vx = (X[k * 3] - Xp[k * 3]) * damp, vy = (X[k * 3 + 1] - Xp[k * 3 + 1]) * damp, vz = (X[k * 3 + 2] - Xp[k * 3 + 2]) * damp;
+        const vl = Math.hypot(vx, vy, vz); if (vl > VMAX) { const f = VMAX / vl; vx *= f; vy *= f; vz *= f; }      // (never flung: so far a step, no further)
+        Xp[k * 3] = X[k * 3]; Xp[k * 3 + 1] = X[k * 3 + 1]; Xp[k * 3 + 2] = X[k * 3 + 2];
+        X[k * 3] += vx + g.x * h * h; X[k * 3 + 1] += vy + g.y * h * h; X[k * 3 + 2] += vz + g.z * h * h;
+        // (held, softly, where it settled on whatever it lies on, carried as that moves: it follows her and can't drift off her or slide
+        // through his knee over time; moved with what it's on, not pulled, so it doesn't swing)
+        if (AN) { const a = AN[k]; if (a) { const t = a.t, dx = (t.x - X[k * 3]) * a.k, dy = (t.y - X[k * 3 + 1]) * a.k, dz = (t.z - X[k * 3 + 2]) * a.k; X[k * 3] += dx; X[k * 3 + 1] += dy; X[k * 3 + 2] += dz; Xp[k * 3] += dx; Xp[k * 3 + 1] += dy; Xp[k * 3 + 2] += dz; } }
       }
       for (let it = 0; it < its; it++) {
         for (let q = 0; q < CC.length; q += 4) {
@@ -2347,14 +2373,19 @@ function tickCloth(F, dt) {
     }
   };
   if (jump) {
+    AN = null; C.anchor = null;
     // (from standing into the pose: every bone but her hips eased from rest to where the pose has it)
     const fin = F.bones.map(b => [b.quaternion.clone(), b.position.clone()]), I = new THREE.Quaternion();
     const at = t => { F.bones.forEach((b, i) => { if (i === hb) return; b.quaternion.copy(I).slerp(fin[i][0], t); b.position.copy(F.rest0[b.name]).lerp(fin[i][1], t); }); F.root.updateMatrixWorld(true); };
     lifting = null; at(0); T = pins();
     const q = new V3(); for (let k = 0; k < N; k++) { skinPoint(F, _cv.set(C.B[k * 3], C.B[k * 3 + 1], C.B[k * 3 + 2]).clone(), [hb], [1], inv, q); X[k * 3] = q.x; X[k * 3 + 1] = q.y; X[k * 3 + 2] = q.z; }
     Xp.set(X);
-    const TN = CL.debugSteps != null ? Math.min(CL.debugSteps, 40) : 40;
-    for (let i = 1; i <= TN; i++) { at(i / TN); T = pins(); colliders(); run(2, 1 / 60, 0.85, 6); }
+    // (as many steps of it as it takes for nothing of her to move more than a centimetre at a time, legs sweeping down through where the
+    // skirt hangs included: it's pushed ahead of them, never passed through)
+    colliders(); const A0 = S.slice(0, own); at(1); const A1 = current().slice(0, own); at(0);
+    let D = 0; for (let q = 0; q < Math.min(A0.length, A1.length); q += 4) D = Math.max(D, Math.hypot(A1[q] - A0[q], A1[q + 1] - A0[q + 1], A1[q + 2] - A0[q + 2]));
+    const TN = CL.debugSteps != null ? Math.min(CL.debugSteps, 40) : clamp(Math.ceil(D / 0.01), 40, 180);
+    for (let i = 1; i <= TN; i++) { at(i / TN); T = pins(); colliders(); run(1, 1 / 60, 0.85, 6); }
     F.bones.forEach((b, i) => { b.quaternion.copy(fin[i][0]); b.position.copy(fin[i][1]); }); F.root.updateMatrixWorld(true); T = pins();
     colliders(); run(CL.debugSteps != null ? Math.max(0, CL.debugSteps - 40) : 100, 1 / 60, 0.88, 8);
     // (raised: the skirt, hung as it falls in the pose, then its back lifted: each point of what's rolled carried from where it hangs, out over
@@ -2369,12 +2400,14 @@ function tickCloth(F, dt) {
       }
       lifting = R; T = pins(); run(60, 1 / 60, 0.88, 8);
     }
+    C.anchor = anchorsOf(F, C, inv, S, who, W);
     C.key = key; C.live = true;
   } else {
     // (after: a step a frame (two when frames come slowly), damped hard: it follows her, it doesn't swing about. When she moves quickly (a
     // kick, a buck), more: what it lies on and where it's held eased from where they were the frame before, a centimetre or so at a time,
     // so a leg pushes the cloth ahead of it rather than passing through it between one frame and the next)
     const A = current(), P0 = C.prevS && C.prevS.length === A.length ? C.prevS : null, T0 = C.prevT;
+    if (C.anchor) { AN = C.anchor.list; for (const a of AN) if (a) { a.t.set(0, 0, 0); for (const [G, b, loc, w] of a.on) a.t.addScaledVector(_cv.copy(loc).applyMatrix4(G.bones[b].matrixWorld).applyMatrix4(inv), w); } }
     let far = 0; if (P0) for (let q = 0; q < A.length; q += 4) far = Math.max(far, Math.abs(A[q] - P0[q]) + Math.abs(A[q + 1] - P0[q + 1]) + Math.abs(A[q + 2] - P0[q + 2]));
     const steps = Math.max(dt > 1 / 40 ? 2 : 1, P0 ? Math.min(16, Math.ceil(far / 0.008)) : 1), h = Math.min(dt, 0.1) / steps, Tn = T; pinch = true;
     for (let j = 1; j <= steps; j++) {
@@ -2410,7 +2443,8 @@ function dressPeriod(F) {
   const want = periodNames(F), on = new Set(Object.values(want).filter(Boolean));
   // (under a long skirt that's down, her drawers aren't drawn, nor the skin it covers: nothing of them shows, and its cloth lies close
   // enough over them that they'd come through it. Not under a kirtle or a chemise, which they show below)
-  const covered = F.state.top !== 'up' && !['kirtle', 'chemise'].includes((F.spec.period || {}).kind) && !(F.spec.period || {}).none;
+  // (nothing under her skirt hidden, her drawers nor her skin: it's cloth, and may lift off her anywhere; what it covers is there under it)
+  const covered = false;
   for (const k of on) garmentPeriod(F, k);
   for (const k in F.gm) { const m = F.gm[k], v = on.has(k) && !(covered && k === want.under); m.visible = v; if (m.userData.hull) m.userData.hull.visible = v; }
   F.clothes = { top: F.gm[want.top], bottoms: want.bottoms ? F.gm[want.bottoms] : null, under: F.gm[want.under] }; F.bootL = F.bootR = F.gm.Boots;

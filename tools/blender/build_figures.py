@@ -616,20 +616,19 @@ def hand_parts(sx, hk, arm):
     J, d, e1 = arm_axis(sx); z = np.array([0, 0, 1.0]); W = arm_at(sx, ARM_LEN) + np.array([0, 0, 0.004])
     palm_side = -e1          # (the palm faces the body)
     parts = []
-    # (Fenwick: the palm lofted from the wrist: where it leaves the arm, the wrist's own section (as wide across, as deep front to back, as
-    # round), widening over the heel of the hand to the palm's, flatter and squarer, and rounded off at the knuckles. A box the palm's full
-    # size from the wrist on stood out from it all round, a step, and its join with the arm swelled the wrist just before it.)
+    # (Fenwick: the palm as it was made, a rounded box; but where it leaves the arm, merged from the wrist's own section (as wide across, as
+    # deep, as round) into it over the first three centimetres, so it doesn't start as a ledge standing out from the wrist all round. The
+    # wrist's section carried on a little way into the hand at its own size, and the two blended, not one swapped for the other.)
     wr = {k: at(arm, ARM_LEN - 0.001, k) for k in ('rx', 'zF', 'zB', 'cx', 'cz', 'p')}
-    PX, PZ, PL = 0.018 * hk, 0.0405 * hk, 0.094 * hk
+    O = W + d * 0.042 * hk; axes = np.stack([e1, d, z])
+    box = lambda P: rbox(P, O, axes, np.array([0.0105, 0.046, 0.033]) * hk, 0.0075 * hk)
     def palm(P):
         R = P - J; x = R @ e1; y = R @ d - ARM_LEN; zz = R[:, 2]
-        t = ss(0.0, 0.038 * hk, y)
-        hx = wr['rx'] + (PX - wr['rx']) * t; zf = wr['zF'] + (PZ - wr['zF']) * t; zb = wr['zB'] + (PZ - wr['zB']) * t
-        x0 = wr['cx'] * (1 - t); z0 = wr['cz'] * (1 - t) + 0.004 * t; n = wr['p'] + (4.0 - wr['p']) * t
-        hz = np.where(zz - z0 >= 0, zf, zb)
-        q = (np.abs((x - x0) / hx) ** n + np.abs((zz - z0) / hz) ** n) ** (1 / n)
-        side = (1 - q) * np.minimum(hx, hz)
-        return -smax(-np.minimum(side, y + 0.012), -(PL - y), 0.008 * hk)
+        hz = np.where(zz - wr['cz'] >= 0, wr['zF'], wr['zB']); n = wr['p']
+        q = (np.abs((x - wr['cx']) / wr['rx']) ** n + np.abs((zz - wr['cz']) / hz) ** n) ** (1 / n)
+        wrist = np.minimum((1 - q) * np.minimum(wr['rx'], hz), y + 0.012)
+        t = ss(-0.004, 0.03 * hk, y)
+        return wrist * (1 - t) + box(P) * t
     parts.append(('palm', palm))
     fingers = []
     for f, fz, fl, fr in [('index', 0.0315, 0.074, 0.0086), ('middle', 0.0105, 0.082, 0.009), ('ring', -0.0105, 0.077, 0.0086), ('pinky', -0.0305, 0.061, 0.0076)]:

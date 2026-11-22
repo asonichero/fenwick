@@ -128,9 +128,9 @@ test('her period layers: the dress (or kirtle), leggings where she wears them, d
   await loaded;
   const shown = f => Object.entries(f.gm).filter(([, m]) => m.visible).map(([k]) => k).sort(), bit = (f, r) => (f.skinMat.userData.u.uHide.value >> r) & 1;
   const belle = gfig('belle');
-  assert.deepEqual(shown(belle), ['Boots', 'DressLong']);      // (her drawers under the skirt, not drawn while it's down)
+  assert.deepEqual(shown(belle), ['Boots', 'Drawers', 'DressLong']);      // (her drawers under the skirt, drawn: it's cloth, and may lift off her)
   assert.deepEqual(belle.layers.sort(), ['top', 'under']); assert.equal(belle.skirt, 'long'); assert.equal(belle.clothes.bottoms, null);
-  assert.equal(bit(belle, F.R.SEAT), 1); assert.equal(bit(belle, F.R.FOREARM), 1);
+  assert.equal(bit(belle, F.R.SEAT), 1, 'her drawers over her seat'); assert.equal(bit(belle, F.R.FOREARM), 1);
   belle.setClothes({ top: 'up' }); assert.deepEqual(shown(belle), ['Boots', 'Drawers', 'DressLong']);      // (raised, the same dress: its cloth rolls the back up) assert.equal(bit(belle, F.R.SEAT), 1);
   belle.setClothes({ under: 'down' }); assert.deepEqual(shown(belle), ['Boots', 'DrawersDown', 'DressLong']); assert.equal(bit(belle, F.R.SEAT), 0); assert.equal(bit(belle, F.R.THIGH), 0);
   assert.ok(belle.skinMat.userData.u.uStock.value.w > 0.5, 'stockings under a dress');
@@ -230,7 +230,7 @@ test('her skirt is cloth below the waist: as made standing; across a lap it lies
   const s2 = seat(); assert.ok(s2.above < 0, `raised: nothing of it over her seat (${s2.above.toFixed(3)} m)`);
   assert.ok(C.roll && C.roll.size > 100, 'its back wound into a roll');
   belle.setClothes({ under: 'down' }); assert.equal((belle.skinMat.userData.u.uHide.value >> F.R.SEAT) & 1, 0, 'raised, and her drawers down: her seat not hidden');
-  belle.setClothes({ top: 'down', under: 'up' }); assert.ok(belle.gm.Drawers && !belle.gm.Drawers.visible, 'under a long skirt that’s down, her drawers not drawn');
+  belle.setClothes({ top: 'down', under: 'up' }); assert.ok(belle.gm.Drawers && belle.gm.Drawers.visible, 'under her skirt, her drawers drawn: nothing under it hidden');
   // (another of her, standing, is as she was made)
   other.root.updateMatrixWorld(true); other.tick(1 / 60);
   let oh = 0; for (let c = 0; c < other.cloth.NC; c++) oh += other.cloth.X[(c * (other.cloth.NR + 1) + other.cloth.NR) * 3 + 1] / other.cloth.NC;
