@@ -553,7 +553,7 @@ is his.
   apologises to her and promises amends.
 
 - **Kit, the goose-herd.** A young man, mildly comic, whose complaint
-  started it all; seen again in the coda.
+  started it all. Spoken of, never seen.
 
 - **Falada.** Adela's mare, sold away on Cicely's order; never seen. Her
   name is Cicely's word.
@@ -608,9 +608,9 @@ is his.
   own voice; her defiance and pride tuned for the arc; Falada as her
   word.
 
-- **Adela, the master, his son and Kit.** Adela on the heroine body; the
-  three men on Silas's body at other builds, with their own hair and
-  clothes.
+- **Adela, the master and his son.** Adela on the heroine body; the two
+  men on Silas's body at their own heights and builds, with their own
+  hair and clothes. Kit isn't built.
 
 - **The phase controller.** For the tutorial and its prompts, over the
   existing correction.

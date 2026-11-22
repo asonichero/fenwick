@@ -6,7 +6,8 @@
 // The engine (js/session.js, ported from Project Meridian) reads the same fields Meridian's crew roster gave it: pain, meters.wilfulness,
 // body (h, mass, fat, bust, response), dynamic, word, base, look, and what Silas calls her (short).
 //
-//   Cast.ROSTER.goldie · Cast.IDS (in chapter order) · Cast.figureSpec('goldie') → a spec for Figure.make · Cast.squireSpec() · Cast.SQUIRE
+//   Cast.ROSTER.goldie · Cast.IDS (the seven, in chapter order) · Cast.PROLOGUE (Cicely, Adela) · Cast.figureSpec('goldie') → a spec for
+//   Figure.make · Cast.squireSpec() · Cast.SQUIRE · Cast.MEN, Cast.manSpec('master') (the prologue's men)
 (function (root) {
 'use strict';
 
@@ -143,8 +144,49 @@ const ROSTER = {
     look: { skin: '#f6e2d6', hair: '#141010', hairStyle: 'braid', hairCap: 'sidepart', braidLen: 5, ribbon: '#8a1a24', eyes: '#3a2a22', lips: '#b8323a' },
     dynamic: { romance: null, bond: 0 }, word: 'Ebony', base: 'smile',
   },
+  // ── The prologue (docs/gdd.md, "Prologue: The True Bride"): Thornleigh, where Silas was estate manager before the Hall. Chapter 0: not one
+  // of the seven (Cast.IDS), listed apart (Cast.PROLOGUE). Cicely, the false bride, is the prologue's correction; Adela, the true bride, is
+  // never corrected. ──
+  cicely: {
+    id: 'cicely', chapter: 0, prologue: true, name: 'Cicely', short: 'Cicely', tale: 'The Goose Girl', title: 'The false bride', age: 20, role: 'Waiting-maid, received at Thornleigh as the bride',
+    gdd: {
+      names: 'Cicely. At Thornleigh, received as Adela.',
+      flaw: 'Deceit, out of envy',
+      discovery: 'Found out by Silas’s ruse: asked to judge a parallel case at the master’s table, she names her own sentence.',
+      arc: 'Sentenced in her own words, then given Silas’s terms: clemency if she submits to a measured correction at his hand, the mare’s name, Falada, her word. Forgiven, and offered the goose girl’s place she forced on her mistress.',
+      history: 'Adela’s waiting-maid since girlhood: a whole life spent behind someone else being given everything. On the road to Thornleigh she made Adela change clothes and places, and swear under the open sky to tell no living soul; then she had Adela’s mare sold away.',
+      temperament: 'Quick, bold, proud and envious. Sure of herself in borrowed finery and sharp-tongued when crossed; under it, a servant who has never had anything that was hers.',
+      resistance: 'Openly defiant once caught: she argues it’s unjust, looks back, pushes up. Her pride holds in what she feels until it breaks, all at once.',
+      motif: 'Borrowed finery: a gown that was never hers, and a plain dress that is.',
+    },
+    resist: { style: 'overt', overt: 0.85, covert: 0.6 }, meters: { wilfulness: 0.85, compliance: 0.2, mindfulness: 0.4 },
+    pain: { tolerance: 0.5, resilience: 0.55 }, home: null,
+    body: { type: 'neat and upright: a lady’s maid', h: { f: 1.64 }, mass: 0.42, fat: 0.4, bust: 0.45, response: 1 },
+    look: { skin: '#ecc8ac', hair: '#7a3a22', hairStyle: 'chignon', eyes: '#5a7a5a' },
+    dynamic: { romance: null, bond: 0 }, word: 'Falada', base: 'defiant',      // (her word given her by Silas, not chosen: the mare's name)
+  },
+  adela: {
+    id: 'adela', chapter: 0, prologue: true, corrected: false, name: 'Adela', short: 'Adela', tale: 'The Goose Girl', title: 'The true bride', age: 19, role: 'The heir’s bride, set to tend the geese',
+    gdd: {
+      names: 'Adela, a daughter of a distant house; at Thornleigh, the goose girl.',
+      flaw: 'Meekness: keeping her oath even against herself',
+      discovery: 'Kit’s complaint, that the new goose girl lets the flock stray while she combs out her hair, brings Silas; her story, told to the scullery’s iron stove, tells him the rest.',
+      arc: 'Restored when the truth is said at the master’s table, as much a surprise to her as to Cicely. The young lord apologises and promises amends. Never corrected.',
+      history: 'Betrothed from her mother’s house to Thornleigh’s heir; robbed of her place, her name and her mare on the road, and sworn to silence.',
+      temperament: 'Gentle, meek and dutiful; quietly grieving for her mare, Falada.',
+      resistance: 'None to speak of: she obeys, and keeps her word even when it harms her.',
+      motif: 'The iron stove: told what she couldn’t tell a living soul.',
+    },
+    resist: { style: 'passive', overt: 0.02, covert: 0.3 }, meters: { wilfulness: 0.02, compliance: 0.9, mindfulness: 0.6 },
+    pain: { tolerance: 0.5, resilience: 0.5 }, home: null,
+    body: { type: 'slight and graceful', h: { f: 1.66 }, mass: 0.36, fat: 0.36, bust: 0.4, response: 1 },
+    // (the tale's hair of pure gold, which she lets down to comb: here a long plait from a side parting)
+    look: { skin: '#f4dcc8', hair: '#e6cc86', hairStyle: 'braid', hairCap: 'sidepart', braidLen: 6, eyes: '#6a88a8' },
+    dynamic: { romance: null, bond: 0 }, word: '', base: 'shy',
+  },
 };
-const IDS = Object.keys(ROSTER).sort((a, b) => ROSTER[a].chapter - ROSTER[b].chapter);
+const IDS = Object.keys(ROSTER).filter(id => ROSTER[id].chapter >= 1).sort((a, b) => ROSTER[a].chapter - ROSTER[b].chapter);
+const PROLOGUE = ['cicely', 'adela'];
 
 // ── What they wear ──
 // Period dress, built in Blender (tools/blender/build_figures.py) and drawn on in js/figure.js: a dress (sleeves to the wrist, or to the elbow
@@ -165,6 +207,11 @@ const MAID = { kind: 'dress', sleeves: 'elbow', main: '#8a4a32', trim: '#5a3222'
 const LINEN = '#ddd4c2';
 const CHEMISE = { kind: 'chemise', sleeves: 'elbow', main: LINEN, trim: LINEN, chemise: LINEN, under: 'drawers', underCol: LINEN };
 const NIGHTDRESS = { kind: 'nightdress', sleeves: 'long', main: LINEN, trim: '#cfc4ae', chemise: LINEN, under: 'drawers', underCol: LINEN };
+// (the prologue: Adela's gown from her mother's house, deep blue wool with silver-grey braid, long-sleeved, a white chemise, pale stockings and
+// heeled shoes: Cicely's in the opening scene; and the goose girl's plain dress, undyed brown with elbow sleeves, a canvas apron, patched, grey
+// stockings and work shoes: Adela's at first, Cicely's after)
+const BRIDE = { kind: 'dress', sleeves: 'long', main: '#2e4a6e', trim: '#c8c8c0', chemise: '#f6f1e6', under: 'drawers', underCol: '#f4f0e6', stockings: '#ece6da', shoes: 'loafers', shoe: '#2a2a3a', sole: '#141418' };
+const GOOSE = { kind: 'dress', sleeves: 'elbow', main: '#8a7454', trim: '#5a4a34', apron: '#cfc2a4', chemise: LINEN, patches: true, under: 'drawers', underCol: LINEN, stockings: '#7a6e5e', shoes: 'work', shoe: '#4a3a2a', sole: '#221a14' };
 const WARDROBE = {
   goldie: {
     maid: Object.assign({}, MAID, { shoes: 'flats', shoe: '#3a2a20', sole: '#1e1612' }),
@@ -199,9 +246,11 @@ const WARDROBE = {
     dress: { kind: 'dress', sleeves: 'long', main: '#efe6d2', bodice: '#8a1a24', trim: '#d8b46a', chemise: '#fbf8f0', under: 'drawers', underCol: '#f6f2ea', stockings: '#f2eee6', shoes: 'flats', shoe: '#3a1418', sole: '#1a0a0c' },
     night: NIGHTDRESS,
   },
+  cicely: { gown: BRIDE, goose: GOOSE },
+  adela: { goose: GOOSE, gown: BRIDE },
 };
 // (what each is, for the set-up: a line about each outfit)
-const OUTFIT_NOTES = { night: 'for bed', maid: 'as maid, the Hall’s uniform', dayoff: 'her own, for her days off', own: 'her own, as found', dress: 'her dress', walking: 'walking the estate: kirtle and leggings', rags: 'as found, in rags', kirtle: 'kirtle and leggings', garden: 'for the garden', tower: 'from the tower' };
+const OUTFIT_NOTES = { night: 'for bed', maid: 'as maid, the Hall’s uniform', dayoff: 'her own, for her days off', own: 'her own, as found', dress: 'her dress', walking: 'walking the estate: kirtle and leggings', rags: 'as found, in rags', kirtle: 'kirtle and leggings', garden: 'for the garden', tower: 'from the tower' , gown: 'Adela’s gown, from her mother’s house', goose: 'the goose girl’s plain dress' };
 const PERIOD = {
   goldie: 'Her own at first: a mustard skirt and a laced rust bodice over a cream chemise, worn shoes. As maid: the Hall’s uniform, a russet work dress and clean apron, as Eleanor wears.',
   red: 'A brown working dress with red trim and a flour-dusted apron, red wool stockings, ankle boots; on the estate’s paths, more and more, a kirtle over madder leggings. Her madder-red hooded cloak is still to build.',
@@ -210,6 +259,8 @@ const PERIOD = {
   gretel: 'A patched brown kirtle cut short for running, over darned leggings; boots taken from somewhere.',
   rapunzel: 'From the tower, an outgrown linen gown, let out and patched. In the garden: a sage dress, a canvas apron, borrowed boots.',
   snow: 'A fine cream gown from her father’s house with a crimson laced bodice, gold braid, white stockings, thin shoes.',
+  cicely: 'Adela’s gown at first, deep blue wool with silver-grey braid, taken on the road; after, the goose girl’s plain dress, undyed brown, patched, with a canvas apron.',
+  adela: 'The goose girl’s plain dress, undyed brown, patched, a canvas apron and work shoes; her own gown, deep blue wool with silver-grey braid, when it’s given back.',
 };
 for (const id in WARDROBE) { ROSTER[id].wardrobe = WARDROBE[id]; ROSTER[id].period = PERIOD[id]; }
 const outfits = id => Object.keys(WARDROBE[id] || {});
@@ -252,12 +303,32 @@ const VILLAGE = {
   greatUncle: { label: 'The great-uncle', role: 'The previous owner, dead', note: 'Shut himself up in the Hall and let it decay in grief; the West Wing holds his last years.' },
 };
 
+// ── The prologue's men (docs/gdd.md, "Prologue cast"), on Silas's body at their own heights and builds: the master of Thornleigh, the tale's
+// old king, and his son and heir, Adela's intended. Gentlemen at their own table in the evening: a fine waistcoat over a white shirt, long-
+// sleeved, a cravat, dark trousers, boots. (Kit, the goose-herd, is only spoken of.) ──
+const MEN = {
+  master: { id: 'master', name: 'The master of Thornleigh', short: 'Sir', role: 'Silas’s employer at Thornleigh; the tale’s old king', age: 61, h: 1.78, build: { mass: 0.55, fat: 0.7 },
+    note: 'Just, and willing to be advised. He decrees, and sends the sentence to Silas.',
+    look: { skin: '#e4bca2', hair: '#9c968e', hairStyle: 'tousled', eyes: '#5a6a7a', beard: true },
+    wear: { top: 'waistcoat', sleeves: 'long', tunic: '#5a1e26', shirt: '#f2ede4', print: '#c8a85a', accent: '#f2ede4', scarf: true, trousers: '#26242a', legs: 'pressed', legAccent: '#1a181c' } },
+  heir: { id: 'heir', name: 'The young lord', short: 'My lord', role: 'The master’s son and heir; Adela’s intended (the tale’s prince)', age: 25, h: 1.83, build: { mass: 0.5, fat: 0.3 },
+    note: 'He goes to Adela when the truth is said, apologises, and promises amends.',
+    look: { skin: '#f0d0b4', hair: '#6a4a2a', hairStyle: 'tousled', eyes: '#4a6a8a', beard: false },
+    wear: { top: 'waistcoat', sleeves: 'long', tunic: '#24463a', shirt: '#f4f0e8', print: '#c8b48a', accent: '#f4f0e8', scarf: true, trousers: '#3a3430', legs: 'pressed', legAccent: '#262220' } },
+};
+
 const pronouns = () => ({ they: 'she', them: 'her', their: 'her', They: 'She' });
 // A heroine as a figure (all seven are women: the engine's other translation isn't used), in one of her outfits (her usual by default).
 function figureSpec(id, sex, outfit) {
   const r = ROSTER[id], L = r.look, W = WARDROBE[id], key = W[outfit] ? outfit : outfits(id)[0];
   return { who: id, sex: 'f', height: r.body.h.f, mass: r.body.mass, fat: r.body.fat, skin: L.skin, hair: L.hair, hairStyle: L.hairStyle, hairCap: L.hairCap, braidLen: L.braidLen, ribbon: L.ribbon,
     eyes: L.eyes, lips: L.lips || null, beard: false, outfit: 'period', period: W[key], periodKey: key, dept: W[key].trim, bust: r.body.bust };
+}
+// One of the prologue's men as a figure, in his evening clothes (c: { outfit: 'night' | 'none' } as for Silas).
+function manSpec(id, c) {
+  const M = MEN[id]; c = c || {};
+  return { sex: 'm', height: M.h, mass: M.build.mass, fat: M.build.fat, skin: M.look.skin, hair: M.look.hair, hairStyle: M.look.hairStyle, eyes: M.look.eyes, beard: !!M.look.beard,
+    outfit: c.outfit === 'none' || c.outfit === 'night' ? c.outfit : 'offduty', dept: M.wear.accent, off: M.wear, bust: 0.45, size: 1, who: id };
 }
 function squireSpec(c) {
   c = Object.assign({ skin: SQUIRE.look.skin, hair: SQUIRE.look.hair, hairStyle: SQUIRE.look.hairStyle, beard: true }, c || {});
@@ -274,10 +345,10 @@ function wriggle(id) {
   return Math.max(0.15, Math.min(1, 1.15 - size - 0.5 * (tol - 0.5)));
 }
 // Voice pitch for the babble and cries (Hz).
-const PITCH = { silas: 118, goldie: 222, red: 210, belle: 200, cinderella: 206, gretel: 214, rapunzel: 226, snow: 230 };
+const PITCH = { silas: 118, goldie: 222, red: 210, belle: 200, cinderella: 206, gretel: 214, rapunzel: 226, snow: 230, cicely: 212, adela: 224, master: 104, heir: 124 };
 const pitch = id => PITCH[id] || 208;
 
-const api = { METERS, ROSTER, IDS, SQUIRE, VILLAGE, WARDROBE, PERIOD, OUTFIT_NOTES, outfits, pronouns, figureSpec, squireSpec, pitch, wriggle };
+const api = { METERS, ROSTER, IDS, PROLOGUE, SQUIRE, MEN, VILLAGE, WARDROBE, PERIOD, OUTFIT_NOTES, outfits, pronouns, figureSpec, squireSpec, manSpec, pitch, wriggle };
 if (typeof module !== 'undefined' && module.exports) module.exports = api;
 root.Cast = api;
 })(typeof window !== 'undefined' ? window : globalThis);

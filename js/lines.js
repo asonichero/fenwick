@@ -163,6 +163,25 @@ const REACT = {
     word: '{word}— {word}, please stop!',
     end: ['…Do you still like me?', '…I’ll latch the gate. I promise.'],
   },
+  // (the prologue's false bride: proud and sharp in the borrowed gown, holding in all she feels, till it breaks; what she calls Silas, the
+  // steward, and then Mr Fenwick)
+  cicely: {
+    start: ['Get it over with, then. I won’t cry for you, steward.', 'Do it. You’ll not have the satisfaction.', 'A steward. Of all the— fine. Fine.'],
+    first: ['Ah—!', 'Oh! You—'],
+    flinching: ['That’s nothing. That’s— nothing.', 'Is that all a steward has in him?'],
+    struggling: ['Stop— you’ve made your point—', 'Enough— I said enough—'],
+    edge: ['I know what I did— I know— please—', 'I made her swear— I made her— I’m sorry—'],
+    past: ['I’m sorry— I took everything of hers— everything—'],
+    plead: ['Please—', 'Mr Fenwick— please—', 'Please, sir—'],
+    spent: ['…', '…oh…', 'Mm…'],
+    accept: ['Yes. I earned it. Every bit of it.', 'I know. I know what I did to her.'],
+    flushed: ['Don’t look at me.', 'Don’t— I’d rather you didn’t see me like this.'],
+    soothe: ['…Why are you being kind?', '…That helps. I don’t deserve that it helps.'],
+    defy: ['She never had to earn any of it! Not one thing!', 'Twenty years I dressed her. One week of being her, and I’m the thief?', 'You’d not dare if I were still the bride.'],
+    yield: ['…All right. All right. I was wrong. I was wicked to her.', 'Stop— I’ll say it. I wronged her. I wronged her.'],
+    word: '{word}! {word}— please— I can’t—',
+    end: ['…I named that. Out of my own mouth.', '…It’s done, then.'],
+  },
 };
 
 // Aftercare: the conversation once it's over. Her opening line (by outcome: done, or word if she called it; or, if it ended with her defiance
@@ -229,6 +248,13 @@ const AFTER = {
     order: { rest: 'Will Belle sit with me?', supper: 'I’ll sit next to you. Not Belle. Me.', fire: 'Only if you tell me I did well. After.', work: 'Gate drill. I’ll do it twice. With the latch.' },
     close: '…Thank you, Silas.',
   },
+  cicely: {
+    open: { done: ['…I thought you’d be cruel. You weren’t. That’s worse, somehow.', '…I’d have had her thrashed and turned out. And you— that was all.'], word: ['I said it. Her name. I’m sorry— I couldn’t. I’ll go.'], unbroken: ['Is that the sentence served? Then I’ll take my nothing and go.'] },
+    why: 'You made a lady tend geese and swear herself silent, and you’d have seen her turned out with nothing. Better you feel the weight of it once, from me, than carry it lightly the rest of your life.',
+    reply: { reassure: '…You’re not turning me out?', explain: 'I know. I watched her be given everything, all my life. I wanted one thing to be mine, and I took all of it.', ask: 'Sore. Ashamed. …Lighter, somehow. I don’t understand that.' },
+    order: { rest: 'I don’t know where I’m to sleep now. …Thank you.', supper: 'I can’t eat in front of you. …I’ll try.', fire: 'I’ll sit. If you’ll let me.', work: 'Give me something honest to do. Anything.' },
+    close: '…Thank you, Mr Fenwick.',
+  },
 };
 // The terms (the GDD's intervention scene, the first time she's taken in hand): Silas sets out what he expects and what he'll do; she agrees,
 // or she doesn't and it ends there; and she chooses her word, which stops anything at once. Steps for js/talk.js: lines, then her answer.
@@ -270,6 +296,18 @@ const TERMS = {
     { who: 'subject', text: 'You make it sound very grim.' },
     { who: 'captain', text: 'It is grim. You may still say no. I’ll protect you either way; the terms are how you help me do it.' },
   ],
+  // (the prologue: in his office, after the master's decree. She pleads; he sets his terms, and gives her the word himself: the mare she had
+  // sold away. Its own whole conversation: AGREE has nothing for her)
+  cicely: [
+    { who: 'subject', text: 'Please. Not that. Not what I said— I didn’t know it was me I was sentencing.' },
+    { who: 'captain', text: 'You knew what you’d done to her. And you’d have had that done to her.' },
+    { who: 'subject', text: '…What will you do with me?' },
+    { who: 'captain', text: 'If you want clemency, you’ll submit to me. A correction at my hand, measured. Not the sentence you named.' },
+    { who: 'captain', text: 'And if it’s ever too much, say the mare’s name. {word}. It stops at once, and you go on your way, and no one will stop you.' },
+    { who: 'subject', text: '…Her name. You’d have me say her name.' },
+    { who: 'captain', text: 'Only if you need it.' },
+    { who: 'subject', text: '…I submit.' },
+  ],
 };
 // (her agreement, and her word: the same shape for all, in her voice)
 const AGREE = {
@@ -287,13 +325,22 @@ const WHO = { silas: { short: 'Silas', word: '' }, captain: { short: 'Silas', wo
 const fill = (t, id) => { const C = root.Cast, r = (C && C.ROSTER[id]) || WHO[id] || WHO.silas; return t.replace(/\{word\}/g, r.word).replace(/\{name\}/g, r.short); };
 function place(id, position) { return fill(pick(PLACE[position] || PLACE.otk), id); }
 function react(id, key) { const R = REACT[id]; if (!R || !R[key]) return null; return fill(pick(R[key]), id); }
+// (anyone without lines of their own (the prologue's Adela, never corrected), an aftercare in few words, and terms without her own reasons)
+const AFTER_ANY = {
+  open: { done: ['…', '…It’s over.'], word: ['I said it. I’m sorry.'], unbroken: ['…Are we finished?'] },
+  why: 'It mattered, so I dealt with it. Now it’s done, and it stays done.',
+  reply: { reassure: '…Thank you.', explain: '…I understand.', ask: '…Sore. Better than I was.' },
+  order: { rest: 'Yes.', supper: 'Yes, sir.', fire: 'All right.', work: 'Yes. I’ll go back to it.' },
+  close: '…Thank you.',
+};
+const TERMS_ANY = [{ who: 'captain', text: 'You answer to me. When it’s needed, I correct you myself, and then it’s done.' }];
 function captain(key, id) { return CAPTAIN[key] ? fill(pick(CAPTAIN[key]), id) : null; }
 // The aftercare conversation, as steps for the page to play (js/talk.js): { who: 'subject' | 'captain', text } lines, and { choose: [{ label,
 // then: [...] }] }: what Silas says, explored (any or all of reassuring her, saying why it mattered, asking how she is), then what she's to do
 // with the rest of the day, one of them.
 // (mood 'unbroken': it ended with her defiance still standing; the safe word's opening comes first all the same)
 function after(id, outcome, mood) {
-  const A = AFTER[id], k = outcome === 'word' ? 'word' : mood === 'unbroken' && A.open.unbroken ? 'unbroken' : 'done', open = pick(A.open[k]);
+  const A = AFTER[id] || AFTER_ANY, k = outcome === 'word' ? 'word' : mood === 'unbroken' && A.open.unbroken ? 'unbroken' : 'done', open = pick(A.open[k]);
   const said = a => (a.id === 'explain' ? A.why : pick(a.captain));
   return [
     { who: 'subject', text: fill(open, id), expr: k === 'word' ? 'sad' : k === 'unbroken' ? (id === 'cinderella' || id === 'rapunzel' ? 'sad' : 'defiant') : 'teary' },
@@ -306,8 +353,10 @@ function after(id, outcome, mood) {
 // The terms, as steps: Silas's terms and her questions, then he asks for her word, and she agrees and gives it. (Whether she can decline here,
 // and what follows if she does, is the chapter's to script: docs/alpha-plan.md.)
 function terms(id) {
-  const T = TERMS[id], A = AGREE[id];
-  return T.map(s => ({ who: s.who, text: fill(s.text, id) }))
+  const T = TERMS[id] || TERMS_ANY, A = AGREE[id], steps = T.map(s => ({ who: s.who, text: fill(s.text, id) }));
+  if (TERMS[id] && !A) return steps;      // (her terms whole, the word given her in them: Cicely's)
+  if (!A) return steps.concat([{ who: 'captain', text: WORD_ASK }]);
+  return steps
     .concat([{ who: 'subject', text: fill(A[0], id) }, { who: 'captain', text: WORD_ASK }, { who: 'subject', text: fill(A[1], id) }, { who: 'captain', text: fill('{word}, then. Say it and I stop.', id) }]);
 }
 

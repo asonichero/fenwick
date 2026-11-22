@@ -23,7 +23,7 @@ node tools/export-head.js                                     # the head the gam
 - **Exact values:** click a dot to set that joint's rotation exactly, in degrees. For the hips, you also get the figure's place in centimetres and its turn.
 - **Report:** **Copy report** lists every moment you edited and each joint you changed: its own rotation (and what it was), where it is in the room, and where it is from the other figure's hips. Send it back to be built in. Nothing in the editor changes the game by itself.
 
-`model.html` shows the bodies and clothes as a turnaround; `household.html` lines everyone up (`?who=<id>&view=head-three` for a close look at someone's hair, `?<id>=<outfit>` for another outfit, `?clothes=up,down,down` for the layers raised and lowered).
+`model.html` shows the bodies and clothes as a turnaround; `household.html` lines everyone up (`?who=<id>&view=head-three` for a close look at someone's hair, `?<id>=<outfit>` for another outfit, `?clothes=up,down,down` for the layers raised and lowered, `?set=prologue` for the prologue's cast at Thornleigh).
 
 ## Clothes and hair
 

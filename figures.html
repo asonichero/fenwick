@@ -248,7 +248,10 @@ function view(name) {
 
 // ── The panel ──
 const seg = (id, items, cur, fn) => { const el = $(id); el.innerHTML = ''; for (const [v, label] of items) { const b = document.createElement('button'); b.textContent = label; b.className = v === cur ? 'on' : ''; b.onclick = () => fn(v); el.append(b); } };
-for (const id of Cast.IDS) { const r = Cast.ROSTER[id], o = document.createElement('option'); o.value = id; o.textContent = `${r.title === r.name ? r.name : r.name + ' · ' + r.title} · ${r.role}`; $('who').append(o); }
+for (const [label, ids] of [['The household', Cast.IDS], ['The prologue, at Thornleigh', Cast.PROLOGUE]]) {
+  const g = document.createElement('optgroup'); g.label = label; $('who').append(g);
+  for (const id of ids) { const r = Cast.ROSTER[id], o = document.createElement('option'); o.value = id; o.textContent = `${r.title === r.name ? r.name : r.name + ' · ' + r.title} · ${r.role}`; g.append(o); }
+}
 function relSliders() {
   const el = $('rel'); el.innerHTML = '';
   for (const [k, nm] of [['defiance', 'Defiance'], ['submission', 'Submission'], ['desire', 'Desire'], ['comfort', 'Comfort']]) {

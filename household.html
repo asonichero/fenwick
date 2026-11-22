@@ -20,7 +20,7 @@ button.on { background: #e8d4a8; border-color: #b08a3e; }
 <body>
 <div id="view"></div>
 <div id="bar"><h1>The household</h1><span id="who"></span></div>
-<div id="note">Silas and the seven heroines as drafted in js/cast.js: heights, builds, skin, hair and eyes, in their period clothes and hair (built in Blender: tools/blender/). Drag to turn; <code>?who=goldie</code> for one; <code>?view=side|back</code>; an outfit, <code>?red=walking</code>; the layers, <code>?clothes=up,down,down</code> (top, bottoms, under).</div>
+<div id="note">Silas and the seven heroines as drafted in js/cast.js: heights, builds, skin, hair and eyes, in their period clothes and hair (built in Blender: tools/blender/). Drag to turn; <code>?who=goldie</code> for one; <code>?set=prologue</code> for the prologue's cast at Thornleigh; <code>?view=side|back</code>; an outfit, <code>?red=walking</code>; the layers, <code>?clothes=up,down,down</code> (top, bottoms, under).</div>
 <script src="vendor/three.min.js"></script><script src="vendor/OrbitControls.js"></script><script src="vendor/GLTFLoader.js"></script>
 <script src="js/cast.js"></script><script src="js/figure.js"></script><script src="js/poses.js"></script>
 <script>
@@ -41,19 +41,22 @@ const floor = new THREE.Mesh(new THREE.CircleGeometry(16, 64), new THREE.MeshSta
 function resize() { renderer.setSize(innerWidth, innerHeight); camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix(); }
 addEventListener('resize', resize); resize();
 
-const only = q.get('who') && (Cast.ROSTER[q.get('who')] || q.get('who') === 'silas') ? q.get('who') : null;
-const ids = only ? [only] : ['silas'].concat(Cast.IDS), gap = 0.78, people = [];
+const only = q.get('who') && (Cast.ROSTER[q.get('who')] || Cast.MEN[q.get('who')] || q.get('who') === 'silas') ? q.get('who') : null;
+// (?set=prologue: the prologue's cast at Thornleigh, Silas among them)
+const prologue = q.get('set') === 'prologue', ids = only ? [only] : prologue ? ['master', 'heir', 'silas'].concat(Cast.PROLOGUE) : ['silas'].concat(Cast.IDS), gap = 0.78, people = [];
+const man = id => id === 'silas' || !!Cast.MEN[id];
 // (how each stands: weight on one leg, and the arms as fits her)
-const ARMS = { silas: 'fold', goldie: null, red: 'clasp', belle: 'clasp', cinderella: 'clasp', gretel: 'fold', rapunzel: null, snow: 'clasp' };
+const ARMS = { silas: 'fold', goldie: null, red: 'clasp', belle: 'clasp', cinderella: 'clasp', gretel: 'fold', rapunzel: null, snow: 'clasp', cicely: null, adela: 'clasp', master: 'rest', heir: null };
 Figure.preload().then(() => {
   ids.forEach((id, i) => {
-    const spec = id === 'silas' ? Cast.squireSpec() : Cast.figureSpec(id, 'f', q.get(id)), f = Figure.make(spec); scene.add(f.root);
-    if (q.get('clothes') && id !== 'silas') { const [top, bottoms, under] = q.get('clothes').split(','); f.setClothes({ top, bottoms, under }); }
+    const spec = id === 'silas' ? Cast.squireSpec() : Cast.MEN[id] ? Cast.manSpec(id) : Cast.figureSpec(id, 'f', q.get(id)), f = Figure.make(spec); scene.add(f.root);
+    if (q.get('clothes') && !man(id)) { const [top, bottoms, under] = q.get('clothes').split(','); f.setClothes({ top, bottoms, under }); }
     const x = (i - (ids.length - 1) / 2) * gap; Poses.stand(f, new V3(x, 0, 0), 0, { weight: i % 2 ? 0.6 : -0.6 });
     if (ARMS[id]) Poses.arms(f, ARMS[id]);
-    f.setExpr(id === 'silas' ? 'calm' : Cast.ROSTER[id].base);
-    const r = id === 'silas' ? Cast.SQUIRE : Cast.ROSTER[id], tag = document.createElement('div'); tag.className = 'tag';
-    tag.innerHTML = `<b>${r.title && r.title !== r.name && id !== 'silas' ? r.title : r.name}</b><small>${id === 'silas' ? 'Squire · ' + r.age : (r.title !== r.name ? r.name + ' · ' : '') + r.age + ' · ' + r.body.h.f.toFixed(2) + ' m'}</small>`;
+    f.setExpr(man(id) ? 'calm' : Cast.ROSTER[id].base);
+    const r = id === 'silas' ? Cast.SQUIRE : Cast.MEN[id] || Cast.ROSTER[id], tag = document.createElement('div'); tag.className = 'tag';
+    tag.innerHTML = man(id) ? `<b>${r.name}</b><small>${id === 'silas' ? (prologue ? 'Estate manager' : 'Squire') : r.role.split(';')[0]} · ${r.age}</small>`
+      : `<b>${r.title && r.title !== r.name ? r.title : r.name}</b><small>${(r.title !== r.name ? r.name + ' · ' : '') + r.age + ' · ' + r.body.h.f.toFixed(2) + ' m'}</small>`;
     document.body.append(tag); people.push({ f, tag, x, h: spec.height });
   });
   const span = Math.max(1.4, ids.length * gap), view = q.get('view') || 'front', near = /^head/.test(view) && only;
@@ -61,7 +64,7 @@ Figure.preload().then(() => {
   const dist = near ? 0.75 : span * 1.55 + 1.2, dir = /side/.test(view) ? new V3(1, 0.12, 0.05) : /back/.test(view) ? new V3(0, 0.12, -1) : /three/.test(view) ? new V3(0.7, 0.15, 0.7) : new V3(0.12, 0.12, 1);
   controls.target.set(0, near ? people[0].h - 0.14 : 0.92, 0); camera.position.copy(controls.target).addScaledVector(dir.normalize(), dist); controls.update();
   if (near) for (const P of people) P.tag.style.display = 'none';
-  $('who').textContent = only ? '' : `${ids.length} figures, in chapter order`;
+  $('who').textContent = only ? '' : prologue ? 'The prologue, at Thornleigh' : `${ids.length} figures, in chapter order`;
   window.ready = true;
 });
 const _p = new V3();
