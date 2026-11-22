@@ -225,7 +225,22 @@ def arm_profile():
     # growing here would overlap the palm's start and swell where they join)
     e = out[-1]
     for da in (0.006, 0.012): out.append(dict(e, y=e['y'] + da))
-    return smooth_rows(out, 2.5), (arc[i_wr] * S + lead), (arc[-1] - arc[i_wr]) * S
+    out = smooth_rows(out, 2.5); aw = arc[i_wr] * S + lead
+    # (Fenwick: the forearm tapered to the wrist. As measured, its lower part swelled toward the wrist (the hand, hanging beside it, caught in
+    # its outline) and then pinched in over the last two centimetres: a thick wrist with a step. A forearm is fullest a few centimetres below
+    # the elbow and narrows to the wrist, its lower quarter slender and nearly even, the wrist the narrowest of it: about half as thick (palm
+    # to back) and seven-tenths as wide (thumb to little finger) as at its fullest. Never fuller than measured, and never growing toward it.)
+    a0 = aw * 0.53 + 0.035; r0 = min(out, key=lambda r: abs(r['y'] - a0))
+    RXW, ZW = 0.47 * r0['rx'], 0.7 * max(r0['zF'], r0['zB'])
+    last = None
+    for r in out:
+        if r['y'] <= a0: continue
+        t = min(1.0, (r['y'] - a0) / max(1e-6, aw - a0)); f = ss(0.0, 0.75, t)
+        rx = min(r['rx'], r0['rx'] + (RXW - r0['rx']) * f); zf = min(r['zF'], r0['zF'] + (ZW - r0['zF']) * f); zb = min(r['zB'], r0['zB'] + (ZW - r0['zB']) * f)
+        if r['y'] > aw: rx, zf, zb = RXW, ZW, ZW
+        if last: rx, zf, zb = min(rx, last[0]), min(zf, last[1]), min(zb, last[2])
+        r['rx'], r['zF'], r['zB'] = rx, zf, zb; last = (rx, zf, zb)
+    return out, aw, (arc[-1] - arc[i_wr]) * S
 
 # the shoulder joint: the trunk's measured shoulder line, in from the deltoid's outer edge
 SH_Y = ym(shoulder_py + 22)
@@ -617,7 +632,7 @@ def hand_parts(sx, hk, arm):
     palm_side = -e1          # (the palm faces the body)
     parts = []
     # (Fenwick: the palm as it was made, a rounded box; but where it leaves the arm, merged from the wrist's own section (as wide across, as
-    # deep, as round) into it over the first three centimetres, so it doesn't start as a ledge standing out from the wrist all round. The
+    # deep, as round) into it over the first six centimetres, so it doesn't start as a ledge standing out from the wrist all round. The
     # wrist's section carried on a little way into the hand at its own size, and the two blended, not one swapped for the other.)
     wr = {k: at(arm, ARM_LEN - 0.001, k) for k in ('rx', 'zF', 'zB', 'cx', 'cz', 'p')}
     O = W + d * 0.042 * hk; axes = np.stack([e1, d, z])
@@ -627,7 +642,7 @@ def hand_parts(sx, hk, arm):
         hz = np.where(zz - wr['cz'] >= 0, wr['zF'], wr['zB']); n = wr['p']
         q = (np.abs((x - wr['cx']) / wr['rx']) ** n + np.abs((zz - wr['cz']) / hz) ** n) ** (1 / n)
         wrist = np.minimum((1 - q) * np.minimum(wr['rx'], hz), y + 0.012)
-        t = ss(-0.004, 0.03 * hk, y)
+        t = ss(-0.004, 0.06 * hk, y)      # (widening from the wrist over most of the back of the hand, as a hand does, to the knuckles)
         return wrist * (1 - t) + box(P) * t
     parts.append(('palm', palm))
     fingers = []
@@ -1604,16 +1619,45 @@ def period_garments(sex, torso, leg, arm, body, label, rig, only=None):
                 planes.append(((0, 0, zs), (0, 0, -1.0), lambda X: (X[:, 1] < ROLL_Y) & ~is_sl(X) & ~in_roll(X)))
             make(name + ('Up' if up else ''), top_of(up), (-0.42, hem - 0.035, -0.33), (0.42, L['collar'] + 0.03, 0.3), faces if not up else int(faces * 0.9), planes, TORSO_L, h=0.0034,
                  split=(is_sl, ARMS_L + ['torso']), custom=skirt_w)
+    # (Fenwick: a chemise, and his nightshirt, built as his day shirt is: the body of it his torso eased (fitted, not hanging from the bust),
+    # joined to the sleeves round the armhole; below the hips it hangs straight down to its hem, a little below his crotch (or hers), over
+    # the drawers; and raised, the hem taken up above the waist and rolled, as his shirt is. Its weights below the waist go to the hips and
+    # both thighs alike, so its tail doesn't split between the legs.)
+    def shirt(name, sleeves, hem, under_f, faces, ease0=0.016, slope=0.32):
+        if only and name not in only: return
+        _, sleeve, cuffs = bodice_and_sleeves(sleeves, under_f, L['trouserTop'])
+        under_top = over(under_f, 0.008, L['trouserTop']); yh = HIP_Y
+        neck = [((0, L['neckline'], 0.0), (0, math.cos(0.42), math.sin(0.42)))]
+        def shirt_w(X, G, names):
+            y = X[:, 1]; ix = {n: names.index(n) for n in ('hips', 'thighL', 'thighR')}
+            h = ss(yh, CROTCH_Y - 0.06, y); C = np.zeros_like(G); C[:, ix['hips']] = 1 - h; C[:, ix['thighL']] = h / 2; C[:, ix['thighR']] = h / 2
+            c = ss(L['waist'] - 0.01, yh, y)[:, None]
+            return G * (1 - c) + C * c
+        for up in (False, True):
+            hem_ = L['hemUp'] if up else hem
+            ease = lambda y, hem_=hem_, up=up: (ease0 - 0.004 * ss(L['neck'] - 0.03, L['neck'] + 0.01, y) + (0.012 * gauss(y - (hem_ + 0.005), 0.007) if up else 0.004 * ss(hem_ + 0.08, hem_, y)))
+            T = Cloth(torso, ease, slope=slope, below=L['armpit'] + 0.04)
+            def body(P, T=T):
+                Q = P.copy(); Q[:, 1] = np.maximum(Q[:, 1], yh)      # (below the hips, hanging straight down from them)
+                return np.maximum(np.where(P[:, 1] >= yh, T.f(P), T.f(Q)), under_top(P))
+            def top(P, body=body):
+                k = 0.001 + 0.022 * ss(L['armpit'] - 0.07, L['armpit'] + 0.01, P[:, 1])
+                a, b = body(P), sleeve(P); hh = np.maximum(k - np.abs(a - b), 0) / k
+                return np.maximum(a, b) + hh * hh * k * 0.25
+            is_sl = lambda X, body=body: sleeve(X) > body(X)
+            planes = [((0, hem_, 0), down_, lambda X, f=is_sl: ~f(X))] + [(c[0], c[1], is_sl) for c in cuffs] + neck
+            make(name + ('Up' if up else ''), top, (-0.42, min(hem_, WRIST_Y) - 0.04, -0.25), (0.42, L['collar'] + 0.03, 0.26), faces if not up else int(faces * 0.75), planes, TORSO_L,
+                 h=0.0034, split=(is_sl, ARMS_L + ['torso']), custom=shirt_w)
     dress('DressLong', 'long', SKIRT_HEM, 0.035, 0.012, 1.0, 1.25, drawers_f, L['trouserTop'], 16000)
     dress('DressElbow', 'elbow', SKIRT_HEM, 0.035, 0.012, 1.0, 1.25, drawers_f, L['trouserTop'], 16000)
     dress('Kirtle', 'elbow', KIRTLE_HEM, 0.022, 0.01, 0.8, 1.15, leggings_f, L['trouserTop'], 12000)
     # (Fenwick: what she sleeps in: a chemise, the linen shift worn under the dresses, gathered at the neck, elbow-sleeved, a little longer
     # than a shirt, her drawers or smalls showing below it; or a night-dress, long-sleeved and to the ankle. Both loose: hanging from her bust and shoulder blades, not fitted to the waist.
     # Raised, as the dresses are on their drapes: their backs lifted, so no raised mesh of their own)
-    dress('Chemise', 'elbow', L['chemiseHem'], 0.03, 0.016, 0.9, 1.15, drawers_f, L['trouserTop'], 13000, top=L['armpit'] + 0.02, bease=0.014, raised=False)
+    shirt('Chemise', 'elbow', L['chemiseHem'], drawers_f, 12000)
     dress('NightDress', 'long', L['nightHem'], 0.05, 0.016, 1.0, 1.2, drawers_f, L['trouserTop'], 16000, top=L['armpit'] + 0.02, bease=0.014, raised=False)
     # (his: a nightshirt, long-sleeved, loose, a little longer than a shirt, over his drawers)
-    if sex == 'm': dress('NightShirt', 'long', L['nightShirtHem'], 0.03, 0.016, 0.9, 1.1, drawers_f, L['trouserTop'], 14000, top=L['armpit'] + 0.02, bease=0.016, raised=False)
+    if sex == 'm': shirt('NightShirt', 'long', L['nightShirtHem'], drawers_f, 12000)
     # ── boots, as the men's: round the foot and up the shin ──
     Lk = [Cloth(leg, lambda y: 0.0095 + 0.003 * ss(0.12, 0.2, y), sx) for sx in (1, -1)]
     ft = [foot_part(sx, leg)[0].last for sx in (1, -1)]      # (round the last: no toes through the leather)

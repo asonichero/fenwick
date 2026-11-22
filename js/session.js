@@ -434,13 +434,16 @@ function create(stage, bay, opts) {
     const sq = otk ? R.A * (0.3 + 0.7 * P.wrig) * (st.running ? 1 : 0.6) * (1 - 0.4 * R.pride) : 0, ph = R.ph;      // (pride holds some of it in)
     const wrig = sp.wrig.to(sq * (Math.sin(t * 2.3 + ph[0]) * 0.6 + Math.sin(t * 3.9 + ph[1]) * 0.4), dt);
     const twist = sp.twist.to(sq * (Math.sin(t * 1.4 + ph[2]) * 0.6 + Math.sin(t * 5.1 + ph[3]) * 0.4), dt), shift = sp.shift.to(sq * Math.sin(t * 0.47 + ph[4]), dt);
-    const k = sp.kick.to(0, dt), ko = sp.kickO.to(0, dt), fl = sp.flinch.to(0, dt), ar = sp.arch.to(0, dt), bk = sp.buck.to(0, dt);
-    const lk = { L: sp.lkL.to(0, dt), R: sp.lkR.to(0, dt) }, spent = 1 - R.ff, aw = otk ? sp.away.to(0, dt) : 0, shr = sp.shrug.to(0, dt);
+    // (Fenwick: with her skirt down, her legs kept still: only her hips and back move, turning, so nothing of her can come through it; raised,
+    // she kicks and stamps as ever)
+    const legs = F.skirt && F.state.top !== 'up' ? 0 : 1;
+    const k = sp.kick.to(0, dt) * legs, ko = sp.kickO.to(0, dt) * legs, fl = sp.flinch.to(0, dt), ar = sp.arch.to(0, dt), bk = sp.buck.to(0, dt);
+    const lk = { L: sp.lkL.to(0, dt) * legs, R: sp.lkR.to(0, dt) * legs }, spent = 1 - R.ff, aw = otk ? sp.away.to(0, dt) : 0, shr = sp.shrug.to(0, dt);
     const armUp = { L: sp.armL.to(0, dt), R: sp.armR.to(0, dt) }, rb = { L: sp.rbL.to(0, dt), R: sp.rbR.to(0, dt) };
     // (spent: the head hangs, the hands loosen, the breath long)
     const hd = sp.head.to(0.15 * dd * R.ff - 0.3 * dd * spent, dt);
     const g = sp.grip.to((0.25 + 0.75 * dd) * (0.35 + 0.65 * R.ff), dt);
-    const pedal = R.step;      // (stepping, in bouts: −1…1, a foot at a time)
+    const pedal = R.step * legs;      // (stepping, in bouts: −1…1, a foot at a time)
     // (the more submissive: the head bowed rather than turned to the room, and at the end they stay down till they're told; the less, they
     // start to come up as soon as it's over)
     const sub = P.rel.submission, rise = (st.ending || st.phase === 'closing') ? sm(0, 1, (st.ending ? st.ending.t : 3) / 1.5) * (1 - sub) : 0;
@@ -451,7 +454,7 @@ function create(stage, bay, opts) {
       placeOTK(P, fl);
       // over the left thigh the back rounds down toward the floor, the head up and turned to the room; on a smack the back arches and the head
       // comes up. Squirming rolls and turns the hips and the back; a buck heaves the hips up off the lap, the back hollowing under it.
-      F.bone.hips.position.z -= 0.035 * Math.max(0, bk) * s; F.bone.hips.position.x += 0.022 * (wrig + aw) * s;
+      F.bone.hips.position.z -= 0.035 * Math.max(0, bk) * s * legs; F.bone.hips.position.x += 0.022 * (wrig + aw) * s * legs;      // (her skirt down: turning only, not shifting)
       F.bone.hips.rotation.set(0.04 - 0.05 * ar - 0.16 * bk, 0.26 * wrig + 0.14 * shift + 0.3 * aw, 0.07 * wrig + 0.09 * shift + 0.04 * fl * (J.side === 'L' ? 1 : -1));
       F.bone.spine.rotation.set(0.04 - 0.08 * ar + 0.12 * bk, -0.1 * wrig + 0.1 * twist - 0.12 * aw, 0.03 * wrig + 0.05 * twist);
       F.bone.chest.rotation.set(0.85 - 0.14 * ar + 0.06 * bk + 0.12 * spent * dd - 0.42 * uK, 0.04 * twist + 0.14 * gK, 0);
@@ -467,9 +470,9 @@ function create(stage, bay, opts) {
       for (const [side, sx] of [['L', 1], ['R', -1]]) {
         // (kicks come from the knee: the lower leg flicking up, the foot leaving the floor; the hip goes with it only a little)
         const kick = side === J.side ? k : ko, knee = Math.max(0, 1.15 * kick + 1.3 * lk[side] + 0.8 * Math.max(0, side === 'L' ? pedal : -pedal));
-        const kk = P.sex === 'm' ? 0 : Math.max(0, 0.3 * kick + 0.3 * Math.max(0, sx * wrig));      // (the men: none from the hip at all)
+        const kk = P.sex === 'm' ? 0 : Math.max(0, 0.3 * kick + 0.3 * Math.max(0, sx * wrig) * legs);      // (the men: none from the hip at all)
         // (the men keep their legs closer, the thighs meeting below the crotch: what hangs between them tucked forward, out of reach behind)
-        const Wt = otkH.clone().addScaledVector(otkU, -(0.62 * s - 0.2 * kk) + sx * 0.05 * twist * s).addScaledVector(otkX, sx * ((P.sex === 'm' ? 0.035 : 0.085) * s + 0.04 * kk)); Wt.y = 0.06 + 0.5 * kk;
+        const Wt = otkH.clone().addScaledVector(otkU, -(0.62 * s - 0.2 * kk) + sx * 0.05 * twist * s * legs).addScaledVector(otkX, sx * ((P.sex === 'm' ? 0.035 : 0.085) * s + 0.04 * kk)); Wt.y = 0.06 + 0.5 * kk;
         const legOTK = () => { legTo(F, side, Wt, new V3(-0.15, -1, 0).normalize()); flexKnee(F, side, Math.min(1.5, knee));
           F.bone['foot' + side].rotation.x = 1.0 - 0.3 * Math.min(1, knee); F.bone['toe' + side].rotation.x = -0.6 + 0.3 * Math.min(1, knee); F.bone['foot' + side].updateMatrixWorld(true); };
         legOTK(); const low = footLow(F, side); if (low < 0) { Wt.y -= low; legOTK(); }
@@ -529,7 +532,7 @@ function create(stage, bay, opts) {
       // their toes, the head up; they step in bouts, and now and then a lower leg kicks up behind (the women stamp; the men only shift their
       // weight). Defiant, they push up off it on their hands till they're put back.
       setRoot(F, table.at, table.yaw);
-      const toe = sp.toe.to(0, dt), fwd = Math.max(0, fl), stamp = sp.stamp.to(0, dt);
+      const toe = sp.toe.to(0, dt) * legs, fwd = Math.max(0, fl) * legs, stamp = sp.stamp.to(0, dt) * legs;
       let hipZ = table.d - 0.12 * s + 0.01 * fwd, hipY = (H(F).hips - 0.02 + 0.035 * Math.max(0, toe)) * s;
       F.bone.hips.position.set(0, hipY / s, hipZ / s);
       // (bent as far as it takes for the chest to lie on the top: past level for the tall, short of it for the short)
