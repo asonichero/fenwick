@@ -221,9 +221,10 @@ def arm_profile():
     top_r = out[0]
     for a, k in [(lead * 0.66, 1.05), (lead * 0.33, 1.0), (0.03, 0.9), (0.018, 0.72), (0.01, 0.45)]:
         out.insert(0, ring(a, (0.004, -0.01), top_r['rx'] * k, top_r['zF'] * k, top_r['zB'] * k, 2.0))
-    # past the wrist a little, into the hand
+    # past the wrist a little, into the hand: the wrist's own section, unchanged (the palm starts from it: see hand_parts; a section that went on
+    # growing here would overlap the palm's start and swell where they join)
     e = out[-1]
-    for da in (0.01, 0.02): out.append(dict(e, y=e['y'] + da, rx=e['rx'] * 0.98, zF=e['zF'] * 1.02, zB=e['zB'] * 1.02))
+    for da in (0.006, 0.012): out.append(dict(e, y=e['y'] + da))
     return smooth_rows(out, 2.5), (arc[i_wr] * S + lead), (arc[-1] - arc[i_wr]) * S
 
 # the shoulder joint: the trunk's measured shoulder line, in from the deltoid's outer edge
@@ -609,14 +610,27 @@ def rbox(P, O, axes, half, rad):
     L = (P - O) @ axes.T; q = np.abs(L) - half
     return rad - (np.linalg.norm(np.maximum(q, 0), axis=1) + np.minimum(q.max(1), 0))
 
-def hand_parts(sx, hk):
+def hand_parts(sx, hk, arm):
     """The hand along the arm's line from the wrist: a rounded palm, four fingers of two segments (a little apart, curling a touch toward the
     palm), the thumb from the heel of the palm. Each part: a function of points → inside (+) / outside (−), and its reach (a box)."""
     J, d, e1 = arm_axis(sx); z = np.array([0, 0, 1.0]); W = arm_at(sx, ARM_LEN) + np.array([0, 0, 0.004])
     palm_side = -e1          # (the palm faces the body)
     parts = []
-    O = W + d * 0.042 * hk; axes = np.stack([e1, d, z])
-    parts.append(('palm', lambda P, O=O, axes=axes: rbox(P, O, axes, np.array([0.0105, 0.046, 0.033]) * hk, 0.0075 * hk)))
+    # (Fenwick: the palm lofted from the wrist: where it leaves the arm, the wrist's own section (as wide across, as deep front to back, as
+    # round), widening over the heel of the hand to the palm's, flatter and squarer, and rounded off at the knuckles. A box the palm's full
+    # size from the wrist on stood out from it all round, a step, and its join with the arm swelled the wrist just before it.)
+    wr = {k: at(arm, ARM_LEN - 0.001, k) for k in ('rx', 'zF', 'zB', 'cx', 'cz', 'p')}
+    PX, PZ, PL = 0.018 * hk, 0.0405 * hk, 0.094 * hk
+    def palm(P):
+        R = P - J; x = R @ e1; y = R @ d - ARM_LEN; zz = R[:, 2]
+        t = ss(0.0, 0.038 * hk, y)
+        hx = wr['rx'] + (PX - wr['rx']) * t; zf = wr['zF'] + (PZ - wr['zF']) * t; zb = wr['zB'] + (PZ - wr['zB']) * t
+        x0 = wr['cx'] * (1 - t); z0 = wr['cz'] * (1 - t) + 0.004 * t; n = wr['p'] + (4.0 - wr['p']) * t
+        hz = np.where(zz - z0 >= 0, zf, zb)
+        q = (np.abs((x - x0) / hx) ** n + np.abs((zz - z0) / hz) ** n) ** (1 / n)
+        side = (1 - q) * np.minimum(hx, hz)
+        return -smax(-np.minimum(side, y + 0.012), -(PL - y), 0.008 * hk)
+    parts.append(('palm', palm))
     fingers = []
     for f, fz, fl, fr in [('index', 0.0315, 0.074, 0.0086), ('middle', 0.0105, 0.082, 0.009), ('ring', -0.0105, 0.077, 0.0086), ('pinky', -0.0305, 0.061, 0.0076)]:
         K = W + d * 0.086 * hk + z * fz * hk; M = K + d * fl * 0.5 * hk + palm_side * 0.003; T = K + d * fl * 0.94 * hk + palm_side * 0.01
@@ -804,7 +818,7 @@ def body_field(torso, leg, arm, sex, sexk=(1.0, 1.0, 1.0)):
     _ty = np.array([r['y'] for r in sorted(torso, key=lambda r: r['y'])]); _tc = np.array([r['cz'] for r in sorted(torso, key=lambda r: r['y'])])
     at_cz = lambda y: np.interp(y, _ty, _tc)
     S_ = {'torso': Surface(torso), 'legL': Surface(leg, 1), 'legR': Surface(leg, -1), 'armL': Surface(arm, 1, arm_axis(1)), 'armR': Surface(arm, -1, arm_axis(1))}
-    H = {'handL': hand_parts(1, hk), 'handR': hand_parts(-1, hk)}; Ft = {'footL': foot_part(1, leg), 'footR': foot_part(-1, leg)}
+    H = {'handL': hand_parts(1, hk, arm), 'handR': hand_parts(-1, hk, arm)}; Ft = {'footL': foot_part(1, leg), 'footR': foot_part(-1, leg)}
     comps = {k: v.f for k, v in S_.items()}; comps.update({k: v[0] for k, v in H.items()}); comps.update({k: v[0] for k, v in Ft.items()})
     add, cut, ksex = sex_parts(sex, S_['torso'], sexk)
     if add: comps['sex'] = add
@@ -836,7 +850,7 @@ def body_field(torso, leg, arm, sex, sexk=(1.0, 1.0, 1.0)):
             f[i] = f[i] + m[i] * (acc / ws - f[i])
         # each arm: the measured arm, the hand, and over the top of the joint the deltoid's cap, a round form the trunk's slope runs onto
         for sx, s_ in ((1, 'L'), (-1, 'R')):
-            a = smax(smax(c['arm' + s_], c['hand' + s_], 0.008), c['delt' + s_], 0.02)
+            a = smax(smax(c['arm' + s_], c['hand' + s_], 0.003), c['delt' + s_], 0.02)      # (the hand starts as the wrist ends: a close join)
             f = smax(f, a, 0.022)
         f = smax(f, c['footL'], 0.014); f = smax(f, c['footR'], 0.014)
         if add: f = smax(f, c['sex'], ksex)      # (his a soft join, no crease where it meets the body; hers closer, a crease against the thighs)
