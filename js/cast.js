@@ -158,8 +158,10 @@ const MAID = { kind: 'dress', sleeves: 'elbow', main: '#8a4a32', trim: '#5a3222'
 // (Fenwick: what each sleeps in, barefoot. Those whose dresses have elbow sleeves, with the white chemise showing below them, sleep in that
 // chemise and their drawers; Gretel in a rough one of unbleached linen, patched, and her smalls; Rapunzel, Snow White and Belle in a linen
 // night-dress, like Rapunzel's tower gown, to the ankle)
-const CHEMISE = { kind: 'chemise', sleeves: 'elbow', main: '#f4efe4', trim: '#f4efe4', chemise: '#f4efe4', under: 'drawers', underCol: '#f2ede2' };
-const NIGHTDRESS = { kind: 'nightdress', sleeves: 'long', main: '#f2ece0', trim: '#e2d8c6', chemise: '#f2ece0', under: 'drawers', underCol: '#f4f0e6' };
+// (nightclothes in undyed linen, as Silas's: Gretel's rougher and more worn, darker, patched)
+const LINEN = '#ddd4c2';
+const CHEMISE = { kind: 'chemise', sleeves: 'elbow', main: LINEN, trim: LINEN, chemise: LINEN, under: 'drawers', underCol: LINEN };
+const NIGHTDRESS = { kind: 'nightdress', sleeves: 'long', main: LINEN, trim: '#cfc4ae', chemise: LINEN, under: 'drawers', underCol: LINEN };
 const WARDROBE = {
   goldie: {
     maid: Object.assign({}, MAID, { shoes: 'flats', shoe: '#3a2a20', sole: '#1e1612' }),
@@ -183,7 +185,7 @@ const WARDROBE = {
   },
   gretel: {
     kirtle: { kind: 'kirtle', sleeves: 'elbow', main: '#5a4630', trim: '#3a2a1a', chemise: '#e2d8c4', patches: true, under: 'smalls', underCol: '#e2d8c4', legs: 'leggings', legCol: '#3e3a32', darned: true, shoes: 'boots', shoe: '#3a2a1e' },
-    night: { kind: 'chemise', sleeves: 'elbow', main: '#d8ccb2', trim: '#d8ccb2', chemise: '#d8ccb2', patches: true, under: 'smalls', underCol: '#e2d8c4' },
+    night: { kind: 'chemise', sleeves: 'elbow', main: '#c6b797', trim: '#c6b797', chemise: '#c6b797', patches: true, under: 'smalls', underCol: '#cfc2a4' },
   },
   rapunzel: {
     garden: { kind: 'dress', sleeves: 'long', main: '#8a9a74', trim: '#5a6a4a', apron: '#d8ccb0', chemise: '#f6f1e6', under: 'drawers', underCol: '#f4f0e6', stockings: '#ece6da', shoes: 'boots', shoe: '#5a4632' },

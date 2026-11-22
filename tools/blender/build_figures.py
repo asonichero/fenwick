@@ -1423,7 +1423,7 @@ def period_garments(sex, torso, leg, arm, body, label, rig, only=None):
     L['seatPeak'], L['seatFold'], L['seatTop'] = seat_marks(body_field(torso, leg, arm, sex), L['hipX'] * 0.8)
     # (her landmarks for the period wardrobe: the neckline lower and rounder than a shirt's; the skirt's and kirtle's hems; the drawers' and
     # smalls' leg openings; where lowered drawers come to rest above the knees; no high-cut briefs any more, so no briefCut)
-    L['neckline'] = L['neck'] - 0.026; L['skirtHem'] = SKIRT_HEM; L['kirtleHem'] = KIRTLE_HEM; L['chemiseHem'] = CROTCH_Y - 0.03; L['nightHem'] = ANKLE_Y + 0.07; L['nightShirtHem'] = KNEE_Y + 0.05
+    L['neckline'] = L['neck'] + (0.004 if sex == 'm' else -0.026); L['skirtHem'] = SKIRT_HEM; L['kirtleHem'] = KIRTLE_HEM; L['chemiseHem'] = CROTCH_Y - 0.03; L['nightHem'] = ANKLE_Y + 0.07; L['nightShirtHem'] = KNEE_Y + 0.05      # (his neckline his day shirt's: cut lower, it opened below where the skin under his shirt is hidden from)
     L['drawersLeg'] = DRAWERS_LEG; L['briefLeg'] = SMALLS_LEG      # (a chemise and his nightshirt a shirt's length or a little more: what's under them still shows below)
     L['drawersDown'] = KNEE_Y + 0.165; L['sleeveE'] = L['rollA'] + 0.012;      # (an elbow sleeve ends just past where the forearm's skin is hidden from: no gap)
     L['period'] = 1.0; L.pop('briefCut', None)
