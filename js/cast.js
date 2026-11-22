@@ -68,6 +68,7 @@ const ROSTER = {
       resistance: 'Quiet. She complies correctly and without complaint while withholding everything she is not asked for. The work is getting past her management, so she feels something in front of him instead of handling it alone.',
     },
     // (her defiance is pride, not misbehaviour: drafted high enough that the session's pride (holding back, then breaking bigger) shows)
+    braces: true,      // (braced across the knee when it's too much and she's given in: the chair and his leg, not reaching back)
     resist: { style: 'quiet', overt: 0.45, covert: 0.7 }, meters: { wilfulness: 0.45, compliance: 0.7, mindfulness: 0.75 },
     pain: { tolerance: 0.6, resilience: 0.5 }, home: 'upper',
     body: { type: 'tall and poised', h: { f: 1.68 }, mass: 0.4, fat: 0.35, bust: 0.45, response: 1 },
@@ -85,6 +86,7 @@ const ROSTER = {
       temperament: 'Patient, dutiful, quiet, with a stubborn kindness she hides behind work. Beneath the exhaustion, a wish for the village gatherings she keeps slipping out to.',
       resistance: 'Passive. She says yes to everything and complies to the point of collapse, hiding how tired she is. Her lapses are night outings and overwork, not defiance.',
     },
+    braces: true,      // (braced across the knee when it's too much and she's given in: the chair and his leg, not reaching back)
     resist: { style: 'passive', overt: 0.05, covert: 0.6 }, meters: { wilfulness: 0.05, compliance: 0.9, mindfulness: 0.35 },
     pain: { tolerance: 0.72, resilience: 0.38 }, home: 'servants',
     body: { type: 'slight, worn thin by work', h: { f: 1.63 }, mass: 0.32, fat: 0.25, bust: 0.35, response: 1 },
@@ -101,6 +103,7 @@ const ROSTER = {
       temperament: 'Sharp, practical, watchful, proud of her survival instinct. Trusts nothing she has not tested; lies by reflex. Fiercely loyal to her brother, quietly funny once she is fed.',
       resistance: 'Concealment. She lies, hoards food under floorboards and sets snares, with little outright defiance: open defiance gets people hurt. Discipline is about security.',
     },
+    braces: true,      // (braced across the knee when it's too much and she's given in: the chair and his leg, not reaching back)
     resist: { style: 'concealment', overt: 0.2, covert: 0.85 }, meters: { wilfulness: 0.2, compliance: 0.4, mindfulness: 0.6 },
     pain: { tolerance: 0.7, resilience: 0.62 }, home: 'kitchens',
     body: { type: 'small and wiry', h: { f: 1.58 }, mass: 0.38, fat: 0.2, bust: 0.3, response: 1 },

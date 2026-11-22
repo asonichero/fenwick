@@ -37,6 +37,15 @@ const TUNE = {
     // (her hands on the floor: ahead of her shoulders, out to their sides, how high off it; the way each elbow bends: out to that side, toward
     // her head, up (from the pose editor: both toward her head, a little toward her far side, clear of his leg))
     hands: { ahead: 0.085, out: 0.04, height: 0.12, elbowL: [-0.38, 0.87, -0.32], elbowR: [0.42, 0.8, -0.43] },
+    // (braced, where it's her way (Cast: braces) and she's both distressed and submissive: holding on rather than reaching back. From the
+    // pose editor: her near hand gripping the side of the chair by his left hip, the far one his left shin below the knee; she slides a
+    // little toward her feet and down to reach (along her, down), her chest a little up and her head round (degrees, added). The chair's
+    // grip in his seated frame (his left, up, forward), the shin's in that bone's own; the palm's way and the fingers' with each; the way each
+    // elbow bends (out to that side, toward her head, up); the near hand's knuckles, closed on the chair)
+    brace: { shift: [-0.037, -0.02], chest: [3.1, 0, -0.4], neck: [0.5, 2.1, -4.9],
+      chairAt: [0.252, 0.486, 0.06], chairPalm: [-0.98, 0.02, 0.2], chairFingers: [-0.02, -1, -0.03],
+      shinAt: [0.065, -0.229, 0.021], shinPalm: [-0.98, 0.16, -0.12], shinFingers: [0.08, -0.23, -0.97],
+      elbowL: [0.95, 0.32, -0.05], elbowR: [0.86, -0.47, 0.17], knucklesL: [62.5, 60.5, 53.5, 55] },
   },
   table: {
     // (her, over the table, as the pose editor set her: her spine and chest turned that much from her own posing (degrees; the small of her
@@ -208,7 +217,7 @@ function create(stage, bay, opts) {
     const free = !st.ending && !st.act && st.phase === 'turn' && !st.word && R.ff > 0.4 && R.cool <= 0 && !R.cover && !R.up;
     const w = dfy * (1 - 0.6 * sub);
     if (free && dfy > 0.25 && D > 0.3) {
-      if (otk && !R.pinOn && Math.random() < dt * 0.1 * w) { R.cover = { t: 0, dur: 1.3 + 0.6 * Math.random(), said: false }; R.n.covers++; }
+      if (otk && !R.pinOn && (R.braceK || 0) < 0.3 && Math.random() < dt * 0.1 * w) { R.cover = { t: 0, dur: 1.3 + 0.6 * Math.random(), said: false }; R.n.covers++; }
       else if (Math.random() < dt * 0.045 * w) { R.up = { t: 0, dur: 1.2 + 0.8 * Math.random(), said: false }; R.n.ups++; }
     }
     if (R.glance <= 0 && dfy > 0.2 && R.ff > 0.4 && !st.ending && Math.random() < dt * 0.18 * dfy) { R.glance = 0.9 + 0.8 * Math.random(); R.n.glances++; }
@@ -228,6 +237,9 @@ function create(stage, bay, opts) {
     if (st.ending || st.phase !== 'turn') R.pinOn = false;      // (let go once it's over)
     R.coverK = ease_(R.coverK, R.cover ? 1 : 0, R.cover ? 5 : 3); R.upK = ease_(R.upK, R.up && R.up.t >= 0 ? 1 : 0, R.up ? 4 : 2.5);
     R.pinK = ease_(R.pinK, R.pinOn ? 1 : 0, 3); R.glanceK = ease_(R.glanceK, R.glance > 0 ? 1 : 0, 4);
+    // (Fenwick: braced, holding the chair and his leg, as the distress rises in one whose way it is and who's given in to it)
+    const brace = otk && P.r && P.r.braces && !R.pinOn && !st.ending && st.phase === 'turn' ? sm(0.55, 0.85, D) * sm(0.5, 0.8, sub) : 0;
+    R.braceK = ease_(R.braceK || 0, brace, 2.5);
   }
   // What a smack takes out of their defiance, and what that becomes. It can't fall further than how much it hurts lets it (gone by about the
   // edge; sooner the more submissive, later the more there was); each smack takes a share of what's left above that. Drained inside the edge,
@@ -342,7 +354,9 @@ function create(stage, bay, opts) {
     const at = local(captain, TH.side * cs, 0, TH.along * cs).addScaledVector(toWorldDir(captain, 1, 0, 0), 0.012 * flinch);
     const lap = Math.max(lapAt(at), lapAt(local(captain, -TH.side * cs, 0, TH.along * cs)) - 0.01);
     otkH.set(at.x, lap + 0.115 * s * (0.9 + 0.2 * (P.r.body.fat + P.r.body.mass) / 2) - 0.012 * flinch + TH.height, at.z);
-    F.root.quaternion.copy(otkQ); F.root.position.copy(otkH).sub(new V3(0, H(F).hips * s, 0).applyQuaternion(otkQ)); F.root.updateMatrixWorld(true);
+    F.root.quaternion.copy(otkQ); F.root.position.copy(otkH).sub(new V3(0, H(F).hips * s, 0).applyQuaternion(otkQ));
+    const bK = P.rx.braceK || 0; if (bK > 0.001) { const TB = TUNE.otk.brace; F.root.position.addScaledVector(otkU, TB.shift[0] * s * bK).addScaledVector(UP, TB.shift[1] * bK); }
+    F.root.updateMatrixWorld(true);
   }
   // How far the hand is raised, 0 … 1, by the swing's phase (for the shoulder and the torso turning into it).
   function raiseOf(sw) { if (!sw) return 0; const ph = swingPhase(sw); const at = x => (x === 'raised' ? 1 : 0); return lerp(at(ph.from), at(ph.to), ph.e); }
@@ -547,6 +561,7 @@ function create(stage, bay, opts) {
       F.bone.neck.rotation.set(-0.7 + 0.4 * sub - 0.25 * dfy - 0.4 * hd - 0.2 * ar - 0.15 * bk - 0.35 * rise - 0.15 * gK - 0.15 * uK,
         lerp(-0.7 * (1 - 0.75 * sub), 0.75, gK) + (0.1 * dd * R.ff + 0.12 * sq) * Math.sin(t * 1.7 + ph[1]), -0.1 + 0.15 * gK);
       F.bone.chest.rotation.x -= 0.2 * rise;
+      if (R.braceK > 0.001) { const TB = TUNE.otk.brace, k = R.braceK * Math.PI / 180; for (const [b, e] of [['chest', TB.chest], ['neck', TB.neck]]) { const r = F.bone[b].rotation; r.set(r.x + e[0] * k, r.y + e[1] * k, r.z + e[2] * k); } }
       F.bone.clavL.rotation.z += 0.1 * Math.max(0, shr); F.bone.clavR.rotation.z -= 0.1 * Math.max(0, shr);
       F.root.updateMatrixWorld(true);
       // legs: the toes on the floor beyond the bench's end, knees soft; a kick bends the knee, the foot leaving the floor (the side struck on a
@@ -607,8 +622,23 @@ function create(stage, bay, opts) {
           const at = bk.p.clone().addScaledVector(otkU, -0.07 * s).addScaledVector(otkX, -0.035 * s).addScaledVector(bk.n, 0.035);
           Wt.lerp(at, pK).addScaledVector(out, 0.16 * s * Math.sin(Math.PI * pK)).addScaledVector(bk.n, 0.06 * Math.sin(Math.PI * pK)); fingers.lerp(ac, pK).normalize(); palm.lerp(bk.n, pK).normalize(); pole.lerp(otkX.clone().negate().addScaledVector(bk.n, 0.7).normalize(), pK).normalize();
         }
+        // (Fenwick: braced: the near hand on the chair beside him (not from the bed, where it rests on the mattress), the far one round his shin)
+        const bK = side === 'L' && rest ? 0 : R.braceK || 0;
+        if (bK > 0.001) {
+          const TB = TUNE.otk.brace, C_ = captain, EB = TB['elbow' + side];
+          let T_, pw, fw;
+          if (side === 'L') { T_ = local(C_, TB.chairAt[0], TB.chairAt[1], TB.chairAt[2]); pw = toWorldDir(C_, ...TB.chairPalm).normalize(); fw = toWorldDir(C_, ...TB.chairFingers).normalize(); }
+          else { const sb = C_.bone.shinL; T_ = sb.localToWorld(new V3(...TB.shinAt)); pw = new V3(...TB.shinPalm).transformDirection(sb.matrixWorld); fw = new V3(...TB.shinFingers).transformDirection(sb.matrixWorld); }
+          Wt.lerp(T_, bK); palm.lerp(pw, bK).normalize(); fingers.lerp(fw, bK).normalize();
+          pole.lerp(out.clone().multiplyScalar(EB[0]).addScaledVector(otkU, EB[1]).addScaledVector(UP, EB[2]).normalize(), bK).normalize();
+        }
         const handOTK = () => { reach(F, side, Wt, pole, palm, fingers); F.grip(side, rest ? clamp(0.6 + 0.3 * g - 0.3 * back, 0.2, 0.95) : lerp(lerp(0.1 + 0.3 * g, 0.35 + 0.3 * g, short), 0.12, cK) * (1 - pK) + 0.45 * pK, rest ? 0.05 : 0.35 - 0.25 * g, rest ? 0.5 : 0.25); F.bone['hand' + side].updateMatrixWorld(true); };
-        handOTK(); const hl = rest ? 0 : handLow(F, side); if (hl < 0) { Wt.y -= hl; handOTK(); }
+        handOTK(); const hl = rest || bK > 0.5 ? 0 : handLow(F, side); if (hl < 0) { Wt.y -= hl; handOTK(); }
+        if (bK > 0.001) {      // (holding on: the near hand's fingers closed on the chair's edge, the far one's round his leg)
+          const kn = TUNE.otk.brace.knucklesL, sg = side === 'L' ? -1 : 1;
+          ['index', 'middle', 'ring', 'pinky'].forEach((f_, i) => { const r = F.bone[f_ + '1' + side].rotation; r.z = lerp(r.z, side === 'L' ? -kn[i] * Math.PI / 180 : sg * Math.max(Math.abs(r.z), 0.8), bK); });
+          F.bone['hand' + side].updateMatrixWorld(true);
+        }
       }
     } else if (st.position === 'table') {
       // Over the end of the table: the front of the hips against its edge, the chest down on it, the head turned to the side, the arms out along
