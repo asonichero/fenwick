@@ -367,19 +367,22 @@ float seamAt(float d, float w) { return 1.0 - smoothstep(w * 0.5, w, abs(d)); }`
 // skin. Her areolae and nipples (round the breast's apex, which Blender raises a little: uNip, its radius in w), the crease under each breast and
 // the shade beneath, the breastbone between; the collarbones and the notch between them; the navel (uNav, a dimple in the model) and a faint
 // line down to it, the lines of the hip bones; behind, the spine's groove, the inner edges of the shoulder blades, the dimples above the seat;
-// the kneecaps. uBust: how far below the apex the breast meets the chest, and how deep the crease is there (by her bust's size). uBd0: neck, armpit, waist, the top of the seat; uBd1: shoulder x, hip x, crotch, knee; uKnee: the knee joint. Only where the model gives them.)
+// the kneecaps. uBust: how far below the apex the breast meets the chest, and how deep the crease is there (by her bust's size); z 1 for his
+// (the pectoral's lower edge in place of the crease, and the rest of his own below). uBd0: neck, armpit, waist, the top of the seat; uBd1:
+// shoulder x, hip x, crotch, knee; uKnee: the knee joint. Only where the model gives them.)
 const SKIN_DETAIL = `
 if (uNip.w > 0.0) {
   vec3 b = vBind; float ax = abs(b.x), sx = b.x >= 0.0 ? 1.0 : -1.0;
   float neck = uBd0.x, pit = uBd0.y, waist = uBd0.z, seatTop = uBd0.w, shX = uBd1.x, hipX = uBd1.y, crotch = uBd1.z, knee = uBd1.w;
   float front = smoothstep(0.0, 0.03, b.z), back = smoothstep(0.0, 0.03, -b.z);
   vec3 c = vec3(sx * uNip.x, uNip.y, uNip.z), k = vec3(1.0);
+  float male = uBust.z, nr = mix(1.0, 0.7, male);      // (his: smaller and browner, the nipple small and flat)
   // the areola, a little uneven in tone; the nipple deeper, shaded on its lower side and lit on its upper, with a soft edge where it rises
-  float d = length(b - c), R = uNip.w, ny = clamp((b.y - c.y) / 0.0055, -1.0, 1.0);
-  k *= mix(vec3(1.0), vec3(0.86, 0.69, 0.65), (1.0 - smoothstep(R - 0.003, R + 0.0006, d)) * (0.85 + 0.15 * fn3(b * 900.0)));
-  k *= mix(vec3(1.0), vec3(0.88, 0.76, 0.74) * (1.0 - 0.1 * max(0.0, -ny)), 1.0 - smoothstep(0.0042, 0.006, d));
-  k *= 1.0 - 0.12 * (1.0 - smoothstep(0.0, 0.0014, abs(d - 0.0058))) * (1.0 - smoothstep(-0.9, 0.1, ny));
-  k *= 1.0 + 0.14 * (1.0 - smoothstep(0.0, 0.0018, length(b - c - vec3(sx * 0.0012, 0.0018, 0.004))));
+  float d = length(b - c), R = uNip.w, ny = clamp((b.y - c.y) / (0.0055 * nr), -1.0, 1.0);
+  k *= mix(vec3(1.0), mix(vec3(0.86, 0.69, 0.65), vec3(0.8, 0.64, 0.58), male), (1.0 - smoothstep(R - 0.003 * nr, R + 0.0006, d)) * (0.85 + 0.15 * fn3(b * 900.0)));
+  k *= mix(vec3(1.0), vec3(0.88, 0.76, 0.74) * (1.0 - 0.1 * max(0.0, -ny)), 1.0 - smoothstep(0.0042 * nr, 0.006 * nr, d));
+  k *= 1.0 - 0.12 * (1.0 - smoothstep(0.0, 0.0014, abs(d - 0.0058 * nr))) * (1.0 - smoothstep(-0.9, 0.1, ny));
+  k *= 1.0 + 0.14 * (1.0 - male * 0.6) * (1.0 - smoothstep(0.0, 0.0018, length(b - c - vec3(sx * 0.0012, 0.0018, 0.004))));
   // the crease under each breast and the shade above it; the breastbone between them
   vec2 e = (b.xy - c.xy) / vec2(0.07, uBust.x); float el = length(e), under = step(b.y, c.y - 0.012) * front * smoothstep(0.03, 0.07, b.z);
   k *= 1.0 - 0.16 * uBust.y * under * (1.0 - smoothstep(0.0, 0.08, abs(el - 1.0))) * smoothstep(0.004, 0.02, ax);
@@ -399,13 +402,27 @@ if (uNip.w > 0.0) {
     k *= 1.0 - 0.06 * front * exp(-dot(nq / 2.6, nq / 2.6));
     k *= 1.0 - 0.035 * front * (1.0 - smoothstep(0.0015, 0.005, ax)) * smoothstep(uNav.y + 0.02, uNav.y + 0.05, b.y) * (1.0 - smoothstep(c.y - 0.1, c.y - 0.06, b.y));
   }
-  // the lines of the hip bones, short and soft, angled in toward the mons
+  // the lines of the hip bones, short and soft, angled in toward the mons (his longer and a little deeper, toward the groin)
   float hv = (b.y - crotch - 0.05) - (ax - 0.035) * 1.25;
-  k *= 1.0 - 0.045 * front * (1.0 - smoothstep(0.002, 0.009, abs(hv))) * smoothstep(0.045, 0.06, ax) * (1.0 - smoothstep(0.075, hipX, ax));
+  k *= 1.0 - (0.045 + 0.03 * male) * front * (1.0 - smoothstep(0.002, 0.009, abs(hv))) * smoothstep(0.045 - 0.01 * male, 0.06 - 0.01 * male, ax) * (1.0 - smoothstep(0.075, hipX, ax));
+  // (his: down the middle of the belly from the breastbone to the navel, a faint line, and the two lines across it above the navel; the
+  // outer edge of the belly's muscle, a soft curve; and his hair, fine and dark: over the breastbone and out under the pectorals, a trail
+  // from the navel down, and a little on the forearms and shins)
+  if (male > 0.5 && uNav.w > 0.5) {
+    float nv = uNav.y, top = c.y - 0.045;
+    k *= 1.0 - 0.05 * front * (1.0 - smoothstep(0.0015, 0.006, ax)) * smoothstep(nv + 0.012, nv + 0.03, b.y) * (1.0 - smoothstep(top - 0.02, top, b.y));
+    for (int j = 1; j <= 2; j++) { float yl = nv + 0.045 * float(j) + 0.003 * ax / 0.05; k *= 1.0 - 0.035 * front * (1.0 - smoothstep(0.0, 0.0045, abs(b.y - yl))) * smoothstep(0.006, 0.012, ax) * (1.0 - smoothstep(0.045, 0.06, ax)); }
+    float ob = ax - (0.065 + 0.012 * sin((b.y - nv) * 9.0)); k *= 1.0 - 0.03 * front * (1.0 - smoothstep(0.0, 0.007, abs(ob))) * smoothstep(nv - 0.06, nv - 0.03, b.y) * (1.0 - smoothstep(top - 0.03, top, b.y));
+    float strand = smoothstep(0.5, 0.85, fn3(vec3(b.x * 1500.0, b.y * 420.0, b.z * 1500.0))) * (0.6 + 0.4 * fn3(b * 160.0));
+    float chest = front * exp(-pow(ax / 0.055, 2.0) - pow((b.y - c.y - 0.005) / 0.055, 2.0)) * (0.55 + 0.45 * exp(-pow(ax / 0.02, 2.0)));
+    float trail = front * (1.0 - smoothstep(0.004, 0.014 + 0.012 * smoothstep(nv - 0.02, crotch + 0.02, b.y), ax)) * smoothstep(crotch + 0.01, crotch + 0.04, b.y) * (1.0 - smoothstep(nv + 0.01, nv + 0.035, b.y));
+    float limbs = 0.35 * (step(8.5, vRegion) * step(vRegion, 9.5) + step(6.5, vRegion) * step(vRegion, 7.5)) * (1.0 - step(0.5, uStock.w));
+    k *= 1.0 - 0.28 * strand * clamp(chest + trail + limbs, 0.0, 1.0);
+  }
   // behind: the groove of the spine; the shoulder blades (the inner edge near upright, the point at the bottom, the outer edge up to the
   // armpit); the two dimples above the seat
   k *= 1.0 - 0.07 * back * (1.0 - smoothstep(0.002, 0.009, ax)) * smoothstep(seatTop + 0.05, seatTop + 0.1, b.y) * (1.0 - smoothstep(neck - 0.07, neck - 0.03, b.y));
-  vec2 sp = vec2(ax, b.y), ia = vec2(0.062, pit - 0.075);
+  vec2 sp = vec2(ax * 0.135 / shX, b.y), ia = vec2(0.062, pit - 0.075);      // (to the breadth of the shoulders: his broader)
   float sd = min(segd(sp, vec2(0.05, pit + 0.075), ia), segd(sp, ia, vec2(0.108, pit - 0.008)));
   k *= 1.0 - 0.055 * back * (1.0 - smoothstep(0.001, 0.009, sd)) * smoothstep(pit - 0.1, pit - 0.08, b.y);
   k *= 1.0 - 0.13 * back * exp(-(((ax - 0.036) / 0.009) * ((ax - 0.036) / 0.009) + ((b.y - seatTop - 0.05) / 0.011) * ((b.y - seatTop - 0.05) / 0.011)));
@@ -1895,8 +1912,9 @@ function makeGLB(spec, T) {
   const skinM = tmat(spec.skin, { skin: true, morph: true, regions: true, marks: true, bindAttr: true, tone: true, detail: true, unique: true, rim: '#6a5048', rimK: 0.5, side: spec.sex === 'm' ? THREE.DoubleSide : THREE.FrontSide });
   { const L = T.L, U = skinM.userData.u;      // (Fenwick: the skin's painted detail, where the model says where it goes)
     const bk = F.keys.bust || 0, bs = F.keys.bustSmall || 0;      // (the fold lower on a fuller bust, the crease fainter on a smaller)
-    U.uBust.value.set(0.055 + 0.05 * bk - 0.004 * bs, 1 + 0.4 * bk - 0.45 * bs, 0, 0);
-    if (L.nipple) { U.uNip.value.set(L.nipple[0], L.nipple[1], L.nipple[2], 0.0165 * (1 + 0.2 * bk - 0.12 * bs)); U.uBd0.value.set(L.neck, L.armpit, L.waist, L.seatTop); U.uBd1.value.set(L.shX, L.hipX, L.crotch, L.knee); }
+    const him = spec.sex === 'm';
+    U.uBust.value.set(him ? 0.03 : 0.055 + 0.05 * bk - 0.004 * bs, him ? 0.45 : 1 + 0.4 * bk - 0.45 * bs, him ? 1 : 0, 0);      // (his: the pectoral's lower edge, shallow)
+    if (L.nipple) { U.uNip.value.set(L.nipple[0], L.nipple[1], L.nipple[2], him ? 0.011 : 0.0165 * (1 + 0.2 * bk - 0.12 * bs)); U.uBd0.value.set(L.neck, L.armpit, L.waist, L.seatTop); U.uBd1.value.set(L.shX, L.hipX, L.crotch, L.knee); }
     if (L.navel) U.uNav.value.set(L.navel[0], L.navel[1], L.navel[2], 1);
     const kn = T.joints.shinL; if (L.nipple && kn) U.uKnee.value.set(kn[0], kn[1], kn[2], 1);
     if (L.toes && L.footFrame) { U.uFootF.value.fromArray(L.footFrame); U.uToe.value.forEach((v, i) => v.fromArray(L.toes, i * 4)); } }

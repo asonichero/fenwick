@@ -815,13 +815,21 @@ def bust_apex(torso):
 def navel_at(torso):
     yn = float(min(np.arange(CROTCH_Y + 0.1, ym(armpit_py), 0.005), key=lambda y: at(torso, y, 'rx'))) - 0.04
     return np.array([0.0, yn, front_z(Surface(torso), yn)])
+# (Fenwick: his nipples: on the pectorals a few centimetres below the armpits' level, a little over half way out from the middle of his chest
+# to its side, on its surface)
+def his_nipples(torso):
+    y = ym(armpit_py) - 0.035; Sf = Surface(torso); half = at(torso, y, 'rx'); out = []
+    for sx in (1, -1):
+        x = sx * 0.56 * half; z = front_z(Sf, y, x); out.append((np.array([x, y, z]), np.array([0.0, 0.0, 1.0])))
+    return out
 def skin_forms(torso, sex):
-    if sex == 'm': return lambda P: 0.0
-    ap = bust_apex(torso); nv = navel_at(torso)
+    if sex == 'n': return lambda P: 0.0
+    ap = bust_apex(torso) if sex == 'f' else his_nipples(torso); nv = navel_at(torso)
+    rise, wide = (0.0045, 0.0072) if sex == 'f' else (0.0016, 0.0052)      # (his flatter and smaller)
     def f(P):
         d = 0.0
         for A, n in ap:
-            q = P - A; d = d + 0.0045 * np.exp(-np.sum(q * q, 1) / (2 * 0.0072 ** 2))
+            q = P - A; d = d + rise * np.exp(-np.sum(q * q, 1) / (2 * wide ** 2))
         q = (P - nv) / np.array([0.0055, 0.0085, 0.009]); d = d - 0.0062 * np.exp(-0.5 * np.sum(q * q, 1))
         return d
     return f
@@ -1155,12 +1163,12 @@ def landmarks(sex, torso):
     if sex == 'm': S0_, R0_, A_, t_ = his_axis(Surface(torso)); L['sexRest'] = float(math.atan2(t_[2] - A_[2], A_[1] - t_[1])); L['scrotum'] = [float(v) for v in list(S0_) + list(R0_)]      # (its centre and radii: the game finds its points by these)      # (how far forward of straight down he hangs)       # (her leg openings: a line from beside the gusset's bottom (x, y) rising at this slope to the hip)
     L['downTop'] = KNEE_Y + 0.085; L['briefDown'] = CROTCH_Y - 0.115
     L['bootTop'] = 0.205; L['hipX'] = float(at(LEG, CROTCH_Y - 0.02, 'cx')); L['shX'] = SH_X; L['abd'] = ABD
-    if sex != 'm':      # (Fenwick: her left breast's apex and the navel, for the skin's painted detail)
-        ap = bust_apex(torso)
+    if sex != 'n':      # (Fenwick: the left nipple (her breast's apex, or on his pectoral) and the navel, for the skin's painted detail; his as hers)
+        ap = bust_apex(torso) if sex == 'f' else his_nipples(torso)
         if ap: L['nipple'] = [float(v) for v in ap[0][0]]
         L['navel'] = [float(v) for v in navel_at(torso)]
         L['toes'] = [v for t in toe_nails() for v in t]      # (the toenails, big to little, in the foot's frame: centre u, y, w and the toe's radius)
-        O_, l_, f_ = foot_frame(1, LEG); L['footFrame'] = [float(O_[0]), float(O_[2]), math.cos(TOE_OUT), math.sin(TOE_OUT)]      # (her left foot's: under the ankle (x, z), its turn out)
+        O_, l_, f_ = foot_frame(1, LEG if sex == 'f' else male(LEG, 'leg')); L['footFrame'] = [float(O_[0]), float(O_[2]), math.cos(TOE_OUT), math.sin(TOE_OUT)]      # (the left foot's: under the ankle (x, z), its turn out)
     return {k: ([float(a) for a in v] if isinstance(v, list) else float(v)) for k, v in L.items()}
 
 def mesh_from(name, V, Fc, faces):

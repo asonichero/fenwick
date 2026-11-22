@@ -195,7 +195,7 @@ test('her clothes drawn on: lacing, chemise, apron, print, patches; the leggings
   assert.equal(u(silas, 'Shirt').uL0.value.x, 4); assert.equal(u(silas, 'Boots').uParam.value.x, 0);
 });
 
-test('her skin’s painted detail and her feet, where the model puts them; the crease under her breasts by her bust; none on Silas', async () => {
+test('the skin’s painted detail and the feet, where the model puts them; the crease under her breasts by her bust; Silas’s his own', async () => {
   await loaded;
   const U = f => f.skinMat.userData.u, belle = gfig('belle'), red = gfig('red'), gretel = gfig('gretel'), silas = gfig('silas'), L = belle.L;
   assert.ok(L.nipple && L.navel && L.toes && L.footFrame, 'the model gives them'); assert.equal(L.toes.length, 20);
@@ -203,7 +203,10 @@ test('her skin’s painted detail and her feet, where the model puts them; the c
   const w = U(belle).uToe.value.map(v => v.z);       // (the toenails big to little, each a little further back than the last)
   for (let i = 1; i < 5; i++) assert.ok(w[i] < w[i - 1], `toe ${i}`);
   assert.ok(U(red).uBust.value.x > U(belle).uBust.value.x, 'lower on a fuller bust'); assert.ok(U(gretel).uBust.value.y < U(belle).uBust.value.y, 'fainter on a smaller');
-  assert.equal(U(silas).uNip.value.w, 0); assert.equal(U(silas).uFootF.value.z, 0);
+  // (his: the same detail, his own variant: smaller nipples on his pectorals, his navel, kneecaps and toenails)
+  assert.ok(silas.L.nipple && silas.L.navel && silas.L.toes && silas.L.footFrame, 'his model gives them too');
+  assert.equal(U(silas).uBust.value.z, 1); assert.ok(U(silas).uNip.value.w > 0 && U(silas).uNip.value.w < U(belle).uNip.value.w); assert.equal(U(silas).uNav.value.w, 1); assert.ok(U(silas).uFootF.value.z > 0.9);
+  assert.ok(silas.L.nipple[1] > silas.L.navel[1] + 0.15 && silas.L.nipple[0] > 0.06, 'his nipples on his chest, out from the middle');
 });
 
 test('her skirt is cloth below the waist: as made standing; across a lap it lies over her seat and falls off her legs; raised, rolled to the small of her back, her seat clear; another of her as she was', async () => {
