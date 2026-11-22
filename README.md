@@ -5,8 +5,8 @@ A third-person narrative walking simulator with gated spatial progression, envir
 ## Run it
 
 ```
-npm run serve        # http://localhost:8123/ opens the correction test (session.html); /figures.html a heroine and Silas, posed or in a correction; /household.html the line-up; /model.html the bodies and clothes; /rooms.html the room editor
-npm test             # the pain model, the scripted correction, conversations, the figures' rig, the cast and their lines, the estate, the guest bedroom
+npm run serve        # http://localhost:8123/ opens the game (game.html): the title, then the prologue's opening scene; /session.html the correction test; /figures.html a heroine and Silas, posed or in a correction; /household.html the line-up; /model.html the bodies and clothes; /rooms.html the room editor
+npm test             # the pain model, the scripted correction, conversations, the figures' rig, the cast and their lines, the estate, the guest bedroom, the hall, the prologue's script
 ```
 
 No build step and no dependencies: three.js r128 is in `vendor/`. The bodies, clothes and hair are built in Blender and saved as `models/fenwick_{f,m}.glb`, `models/fenwick_hair.glb` and `models/fenwick_meta.json`. To rebuild them you need Blender 5 (the `bpy` module from PyPI works, with numpy and scikit-image) or Blender's own binary with `-b --python`:
@@ -22,6 +22,8 @@ node tools/export-head.js                                     # the head the gam
 - **Editing by dragging:** a dot sits on each joint of whoever you're editing, her or Silas (blue left, red right, white the middle). Dragging the hips moves the whole figure; dragging a hand or foot places it and the arm or leg follows; dragging any other joint turns the bone above it. **Pin hands** holds both hands still while the rest moves.
 - **Exact values:** click a dot to set that joint's rotation exactly, in degrees. For the hips, you also get the figure's place in centimetres and its turn.
 - **Report:** **Copy report** lists every moment you edited and each joint you changed: its own rotation (and what it was), where it is in the room, and where it is from the other figure's hips. Send it back to be built in. Nothing in the editor changes the game by itself.
+
+`game.html` is the game: the title, then the prologue's opening scene in Thornleigh's hall (the false bride's sentence), played as a cutscene. A few cards told over black, then the scene: cuts and a slow push between shots, each line typing out in the speaker's voice (a click or space shows it whole, then goes on; Esc skips the scene), heads turning to whoever's speaking, faces set per line, and what's done: Adela coming in through the archway, the master's nod, his son rising and crossing to her, Silas's bow, then the cut to black. The script is `js/prologue.js` (who's where, the shots, the beats: lines, faces, looks, acts); `js/cutscene.js` plays it, and will play the scenes after it. Until the reveal the two women are shown as the bride and the goose girl. `?at=N` opens straight on beat N and holds it, for checking a shot.
 
 `rooms.html` is the room editor, after the ones in redlessons and consequence: a room's furniture to arrange (click a piece, drag it across the floor; the arrows nudge it as the camera sees the floor, Q and E turn it, or type where it goes), from set views, the walls nearest the camera out of the way, the roof and the marks shown or not, the scene's cast in their places. Changes are kept in the browser as they're made, and the game builds the room from them; **Copy layout** gives the layout to paste over `LAYOUT` in the room's file (`js/hall.js`). Its first room is Thornleigh's great hall, the prologue's opening scene.
 
@@ -70,6 +72,7 @@ A heroine and Silas together in a plain space, as Meridian's figures page has th
 | `tools/blender/build_figures.py`, `tools/blender/build_hair.py`, `tools/export-head.js` | Building the bodies and clothes, and the hair, in Blender |
 | `js/pain.js`, `js/discipline.js`, `js/talk.js`, `js/audio.js`, `js/stage.js` | Ported from Meridian: the pain model, the scripted correction, conversations, synthesised sound (plus a hearth ambience), the renderer |
 | `session.html`, `figures.html`, `household.html`, `model.html` | The correction test; a heroine and Silas, posed or in a looping correction; the household line-up; the models' turnaround |
+| `game.html`, `js/prologue.js`, `js/cutscene.js` | The game: the title and the prologue's opening scene; its script; the cutscene player |
 | `rooms.html`, `js/hall.js` | The room editor; Thornleigh's great hall, the prologue's opening scene |
 | `docs/gdd.md`, `docs/The_Manor_in_the_Woods_GDD.docx` | The design document |
 | `docs/alpha-plan.md` | The plan: stated, ported, drafted, open |

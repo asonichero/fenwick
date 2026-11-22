@@ -1,0 +1,163 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Fenwick Hall</title>
+<style>
+:root { --panel: rgba(26, 20, 16, 0.88); --line: #4e4034; --ink: #efe4d0; --dim: #ab9c88; --amber: #d8a24a; --teal: #9cc28a; --serif: Georgia, 'Iowan Old Style', 'Palatino Linotype', serif; }
+html, body { margin: 0; height: 100%; background: #05070a; color: var(--ink); font: 14px/1.4 system-ui, -apple-system, "Segoe UI", sans-serif; overflow: hidden; }
+#view { position: fixed; inset: 0; }
+button { font: inherit; color: var(--ink); background: #2e2620; border: 1px solid var(--line); border-radius: 12px; padding: 7px 14px; cursor: pointer; }
+button:hover { border-color: var(--amber); } button:disabled { opacity: 0.45; cursor: default; border-color: var(--line); }
+a { color: var(--amber); }
+.panel { background: var(--panel); border: 1px solid var(--line); border-radius: 18px; backdrop-filter: blur(6px); }
+/* black over the scene: the title, the cards told before it, the cut at its end */
+#black { position: fixed; inset: 0; background: #05070a; z-index: 5; opacity: 1; transition: opacity 1.4s ease; pointer-events: none; }
+#black.off { opacity: 0; } #black.quick { transition: opacity 0.6s ease; }
+#title, #card, #end { position: fixed; inset: 0; z-index: 6; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; padding: 24px; box-sizing: border-box; }
+#title h1 { font: 400 clamp(34px, 7vw, 64px)/1.05 var(--serif); letter-spacing: 0.06em; margin: 0; color: #f3e6cc; }
+#title .sub { font: italic 400 clamp(15px, 2.4vw, 20px)/1.3 var(--serif); color: var(--dim); margin: 10px 0 30px; }
+#title .pro { font-size: 11px; letter-spacing: 0.22em; text-transform: uppercase; color: var(--amber); margin-bottom: 14px; }
+#begin { font: 400 17px var(--serif); padding: 10px 26px; border-radius: 22px; }
+#title .note { margin-top: 14px; font-size: 12px; color: var(--dim); min-height: 1.4em; }
+#title .more { position: fixed; bottom: calc(14px + env(safe-area-inset-bottom)); font-size: 12px; color: var(--dim); } #title .more a { margin: 0 6px; }
+#card { display: none; cursor: pointer; max-width: 680px; margin: 0 auto; } #card.on { display: flex; }
+#card .big { font: 400 clamp(30px, 6vw, 52px)/1.1 var(--serif); letter-spacing: 0.08em; color: #f3e6cc; }
+#card .small { font: italic 400 17px/1.4 var(--serif); color: var(--dim); margin-top: 10px; }
+#card .text { font: 400 clamp(17px, 2.6vw, 22px)/1.55 var(--serif); color: #e8dcc4; }
+#card > * { opacity: 0; transition: opacity 0.9s ease; } #card.shown > * { opacity: 1; }
+.hint { margin-top: 26px; font-size: 12px; color: var(--amber); opacity: 0; transition: opacity 0.6s ease 0.8s; } #card.shown .hint { opacity: 0.8; }
+#end { display: none; } #end.on { display: flex; }
+#end .k { font-size: 11px; letter-spacing: 0.22em; text-transform: uppercase; color: var(--amber); }
+#end h2 { font: 400 clamp(26px, 5vw, 40px)/1.15 var(--serif); margin: 10px 0 4px; color: #f3e6cc; } #end p { font: italic 16px var(--serif); color: var(--dim); margin: 0 0 24px; }
+#end .row { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; }
+/* the dialogue, at the foot of the screen: the speaker's name on a tab, the line typing out */
+#dock { position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(18px + env(safe-area-inset-bottom)); width: min(780px, calc(100% - 24px)); z-index: 4; }
+#say { position: relative; box-sizing: border-box; padding: 16px 20px 14px; display: none; cursor: pointer; min-height: 78px; }
+#say .who { position: absolute; top: -12px; left: 18px; background: #3a2e24; border: 1px solid var(--line); border-radius: 10px; padding: 1px 10px; font-size: 12px; color: var(--amber); letter-spacing: 0.02em; }
+#say .who.silas { color: var(--teal); }
+#say .txt { font: 18px/1.45 var(--serif); }
+#say .next { display: none; position: absolute; right: 14px; bottom: 8px; font-size: 13px; color: var(--amber); animation: nudge 1.1s ease-in-out infinite; pointer-events: none; }
+@keyframes nudge { 0%, 100% { opacity: 0.35; transform: translateX(0); } 50% { opacity: 1; transform: translateX(3px); } }
+#skip { position: fixed; top: calc(12px + env(safe-area-inset-top)); right: calc(12px + env(safe-area-inset-right)); z-index: 7; display: none; font-size: 13px; padding: 5px 12px; background: rgba(26, 20, 16, 0.7); }
+/* letterbox bars while the scene plays */
+.bar { position: fixed; left: 0; right: 0; height: 0; background: #05070a; z-index: 3; transition: height 1.2s ease; } #barT { top: 0; } #barB { bottom: 0; }
+body.film .bar { height: 6vh; }
+kbd { font: 11px ui-monospace, monospace; color: var(--dim); }
+@media (max-width: 760px) { #say { padding: 13px 15px 11px; } #say .txt { font-size: 15px; } body.film .bar { height: 3vh; } }
+@media (hover: none) { kbd { display: none; } }
+</style>
+</head>
+<body>
+<div id="view"></div>
+<div class="bar" id="barT"></div><div class="bar" id="barB"></div>
+<div id="black"></div>
+<div id="title">
+  <div class="pro">Prologue · The True Bride</div>
+  <h1>Fenwick Hall</h1>
+  <div class="sub">The Manor in the Woods</div>
+  <button id="begin" disabled>Begin</button>
+  <div class="note" id="loading">Lighting the hall…</div>
+  <div class="more"><a href="session.html">The correction (test)</a>·<a href="rooms.html">Rooms</a>·<a href="figures.html">Figures</a>·<a href="household.html?set=prologue">The prologue’s cast</a></div>
+</div>
+<div id="card"><div class="big"></div><div class="small"></div><div class="text"></div><div class="hint">Click to go on <kbd>space</kbd></div></div>
+<div id="end"><div class="k">Next</div><h2 id="endT"></h2><p id="endW"></p><div class="row"><button id="again">Play the scene again</button><button id="toTitle">To the title</button></div></div>
+<div id="dock"><div id="say" class="panel"><div class="who" id="sayWho"></div><div class="txt" id="sayTxt"></div><div class="next" id="sayNext">▸</div></div></div>
+<button id="skip">Skip scene <kbd>esc</kbd></button>
+
+<script src="vendor/three.min.js"></script><script src="vendor/OrbitControls.js"></script><script src="vendor/postprocessing.js"></script><script src="vendor/GLTFLoader.js"></script>
+<script src="js/cast.js"></script><script src="js/figure.js"></script><script src="js/poses.js"></script><script src="js/stage.js"></script><script src="js/kit.js"></script><script src="js/hall.js"></script>
+<script src="js/audio.js"></script><script src="js/prologue.js"></script><script src="js/cutscene.js"></script>
+<script>
+'use strict';
+// The game: the title, then the prologue's opening scene (js/prologue.js, played by js/cutscene.js) in Thornleigh's hall.
+// ?at=N: straight into the scene at beat N, the line shown whole and held (for checking a shot); ?still=1: the picture kept for capture; ?low=1
+const $ = id => document.getElementById(id), q = new URLSearchParams(location.search), V3 = THREE.Vector3;
+const stage = Stage.create($('view'), { keep: !!q.get('still'), low: !!q.get('low') }), scene = stage.scene, camera = stage.camera;
+stage.controls.enabled = false;            // (the camera's the scene's)
+camera.far = 120; camera.updateProjectionMatrix();
+// (a little warm light from where the camera stands, as a film's fill, so faces read in a hall lit by candles and the fire)
+const fill = new THREE.PointLight(0xffe0bc, 1.6, 5, 2); camera.add(fill); scene.add(camera);
+const SC = Prologue.SCENES.hall, room = Hall.build(scene); room.showMarks(false);
+const at0 = q.get('at') != null ? Math.max(0, +q.get('at') || 0) : null, still = at0 != null;
+{ const v = room.views['From the foot']; stage.go(new V3(...v[0]), new V3(...v[1]), 0); }
+
+// ── The cast, made as the scene lists them ──
+let cast = null, cs = null;
+const specOf = s => s[0] === 'man' ? Cast.manSpec(s[1]) : s[0] === 'silas' ? Cast.squireSpec() : Cast.figureSpec(s[1], 'f', s[2]);
+const ready = Figure.preload().then(() => {
+  cast = {}; for (const id in SC.cast) { const f = Figure.make(specOf(SC.cast[id].spec)); scene.add(f.root); cast[id] = f; }
+  $('begin').disabled = false; $('loading').textContent = '';
+});
+
+// ── The dialogue box: the line types out in the speaker's voice; a click (or space) shows it whole, then goes on ──
+let advance = null, typer = null;
+function line({ id, name, text, ms }) {
+  return new Promise(res => {
+    const box = $('say'), el = $('sayTxt'); box.style.display = 'block'; $('sayWho').textContent = name; $('sayWho').className = 'who' + (id === 'silas' ? ' silas' : ''); $('sayNext').style.display = 'none';
+    if (window.GameAudio && GameAudio.ctx) GameAudio.speak(id, text, Math.min(3.2, text.length * 0.035), { pitch: Cast.pitch(id) });
+    let i = 0; clearInterval(typer); el.textContent = '';
+    const whole = () => { clearInterval(typer); el.textContent = text; $('sayNext').style.display = 'block'; advance = () => { advance = null; $('sayNext').style.display = 'none'; res(); }; };
+    if (still) { whole(); advance = null; return; }
+    advance = whole; typer = setInterval(() => { el.textContent = text.slice(0, ++i); if (i >= text.length) whole(); }, Cutscene.TYPE_MS);
+  });
+}
+const hideLine = () => { $('say').style.display = 'none'; };
+function black(on, quick) { $('black').classList.toggle('quick', !!quick); $('black').classList.toggle('off', !on); return new Promise(r => setTimeout(r, on ? (quick ? 650 : 1450) : 300)); }
+const ui = { line, fade: async on => { hideLine(); await black(on, true); }, names() {}, pause: ms => new Promise(r => { if (!still) setTimeout(r, ms); }) };      // (?at: held on it)
+
+// ── The cards, told over black before the scene ──
+function card(c) {
+  return new Promise(res => {
+    const el = $('card'); el.querySelector('.big').textContent = c.big || ''; el.querySelector('.small').textContent = c.small || ''; el.querySelector('.text').textContent = c.text || '';
+    el.classList.add('on'); el.classList.remove('shown'); requestAnimationFrame(() => requestAnimationFrame(() => el.classList.add('shown')));
+    const t0 = performance.now();
+    advance = () => { if (performance.now() - t0 < 500) return; advance = null; el.classList.remove('shown'); setTimeout(() => { el.classList.remove('on'); res(); }, 650); };
+  });
+}
+
+// ── Playing it ──
+let playing = false;
+async function run(from, cards) {
+  $('end').classList.remove('on'); $('title').style.display = 'none';
+  if (cards) { await black(true, true); for (const c of SC.cards) await card(c); }
+  if (cs) cs.stop();
+  cs = Cutscene.create({ stage, room, scene: SC, cast, ui }); window.cs = cs;
+  playing = true; $('skip').style.display = still ? 'none' : 'block'; document.body.classList.add('film');
+  const done = cs.play(from || 0);
+  black(false);
+  const whole = await done;
+  playing = false; $('skip').style.display = 'none'; document.body.classList.remove('film'); hideLine();
+  if (whole !== false || !still) finish();
+}
+async function finish() {
+  await black(true, true); hideLine();
+  $('endT').textContent = SC.next.title; $('endW').textContent = SC.next.where + ' (being built)'; $('end').classList.add('on');
+}
+function skip() { if (!playing || !cs) return; cs.stop(); playing = false; if (advance) advance(); if (advance) advance(); }
+function audioOn() { if (window.GameAudio && GameAudio.init()) GameAudio.hearth({ fire: 0.85, wind: 0.25 }); }
+
+$('begin').onclick = () => { audioOn(); ready.then(() => run(0, true)); };
+$('again').onclick = () => run(0, false);
+$('toTitle').onclick = () => { $('end').classList.remove('on'); $('title').style.display = 'flex'; };
+$('skip').onclick = skip;
+$('say').onclick = () => advance && advance();
+$('card').onclick = () => advance && advance();
+addEventListener('keydown', e => {
+  if (e.key === ' ' || e.key === 'Enter') { if (advance) { advance(); e.preventDefault(); } }
+  else if (e.key === 'Escape') skip();
+});
+
+// ── Each frame: the walls between the camera and the scene out of the way, the fire, the people ──
+stage.start(dt => {
+  const s = room.sidesAt(camera.position); s.add('C');
+  for (const [o, side] of room.sideOf) o.visible = !s.has(side);
+  room.tick(dt); if (cs) cs.tick(dt); else if (cast) for (const id in cast) cast[id].tick(dt);
+});
+if (still) ready.then(() => { $('title').style.display = 'none'; run(at0).catch(e => console.error(e)); setTimeout(() => { window.ready = true; }, 2500); });
+else ready.then(() => { window.ready = true; });
+window.__game = { stage, room, scene: SC, get cs() { return cs; }, get cast() { return cast; }, run };
+</script>
+</body>
+</html>
