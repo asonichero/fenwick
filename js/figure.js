@@ -634,7 +634,12 @@ function openEdges(geo) {
 }
 const HEM_K = 6;
 function withHems(g, src, r) {
-  const E = openEdges(src); if (!E.length) return g;
+  let E = openEdges(src);
+  // (Fenwick: not where its skirt was taken off for its cloth (skirtless): that's a seam, the skirt going on below it, not an edge; its sleeves'
+  // own edges kept)
+  const seam = src.userData.seamY, sp = src.attributes.position, sr = src.attributes.region;
+  if (seam != null) E = E.filter(([a, b]) => !(sp.getY(a) < seam + 1e-4 && sp.getY(b) < seam + 1e-4 && !(sr && (sr.getX(a) > 0.5 || sr.getX(b) > 0.5))));
+  if (!E.length) return g;
   const P = src.attributes.position, N = src.attributes.normal, nx = new Map(), pv = new Map();
   for (const [a, b] of E) { if (!nx.has(a)) nx.set(a, b); if (!pv.has(b)) pv.set(b, a); }
   const vs = [...new Set(E.flat())], ring = new Map(), pos = [], from = [];
@@ -2052,7 +2057,7 @@ function skirtless(geo, y) {
   const p = geo.attributes.position, reg = geo.attributes.region, ix = geo.index.array, keep = [];
   for (let t = 0; t < ix.length; t += 3) { const a = ix[t], b = ix[t + 1], c = ix[t + 2]; if (p.getY(a) >= y || p.getY(b) >= y || p.getY(c) >= y || (reg && reg.getX(a) > 0.5)) keep.push(a, b, c); }
   const g = new THREE.BufferGeometry(); g.name = geo.name; for (const k in geo.attributes) g.setAttribute(k, geo.attributes[k]); g.setIndex(keep);
-  g.morphAttributes = geo.morphAttributes; g.morphTargetsRelative = geo.morphTargetsRelative; g.userData = Object.assign({}, geo.userData, { shared: false, hull: undefined }); return g;
+  g.morphAttributes = geo.morphAttributes; g.morphTargetsRelative = geo.morphTargetsRelative; g.userData = Object.assign({}, geo.userData, { shared: false, hull: undefined, seamY: y }); return g;
 }
 // ── Fenwick: her skirt's cloth. Below the waist her skirt (or kirtle, or nightclothes) is a sheet of cloth simulated live: a grid of points,
 // columns round her and rows from the waist to the hem, its shape at rest taken from the garment as built (so standing it's the skirt as it
@@ -2154,6 +2159,18 @@ function makeCloth(F, name) {
     const k = c * (NR + 1) + r; if (R[k] > 0) continue; let s = 0, w = 0;
     for (const [dc, dr] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { const cc = (c + dc + NC) % NC, r2 = r + dr; if (r2 < 0 || r2 > NR) continue; const v = R[cc * (NR + 1) + r2]; if (v > 0) { s += v; w++; } }
     if (w) R[k] = s / w;
+  }
+  // (Fenwick: and at the top, where it comes out of the bodice: as close as the bodice is at its foot, a millimetre inside it, flaring to the
+  // skirt's own outline over the strip below (the widest of the garment round the waist otherwise took in the skirt's gathers, and the
+  // skirt stood out from the bodice in a ledge))
+  { const E = new Float32Array(NC).fill(-1);
+    for (let i = 0; i < n; i++) {
+      if (arm[i]) continue; const x = P[i * 3] - cx, y = P[i * 3 + 1], z = P[i * 3 + 2] - cz; if (y < y0 || y > y0 + 0.012) continue;
+      const c = Math.round(((Math.atan2(z, x) + 2 * Math.PI) % (2 * Math.PI)) / (2 * Math.PI) * NC) % NC, r = Math.hypot(x, z); if (r > E[c]) E[c] = r;
+    }
+    for (let it = 0; it < 4; it++) for (let c = 0; c < NC; c++) if (E[c] < 0) { const a = E[(c + 1) % NC], b = E[(c + NC - 1) % NC]; if (a > 0 || b > 0) E[c] = a > 0 && b > 0 ? (a + b) / 2 : Math.max(a, b); }
+    const rTop = Math.max(1, Math.floor(0.07 / dy));
+    for (let c = 0; c < NC; c++) if (E[c] > 0) for (let r = 0; r <= rTop; r++) { const k = c * (NR + 1) + r, t = ss(0, rTop, r); R[k] = (E[c] - 0.001) * (1 - t) + Math.max(R[k], E[c] - 0.001) * t; }
   }
   // (the rest shape: that outline, with soft folds below the hips; the points' own rest positions are what its pattern's drawn by)
   const B = new Float32Array(NC * (NR + 1) * 3), hipY = L.skirtC[2];

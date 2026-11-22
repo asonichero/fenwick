@@ -144,13 +144,21 @@ test('her period layers: the dress (or kirtle), leggings where she wears them, d
   const red = gfig('red'); assert.ok(red.gm.DressElbow); red.setPeriod(Cast.WARDROBE.red.walking); assert.ok(red.gm.Kirtle && red.gm.Leggings && !red.gm.DressElbow);
 });
 
-test('a hand on her back rests on what she has on there: a bodice close, a chemise a little off her, a loose nightdress well off', async () => {
+test('a hand on her back rests on what she has on there: a bodice close, a chemise a little off her, a night-dress (fitted to the waist) close', async () => {
   await loaded;
   const at = (id, outfit) => { const f = F.make(Cast.figureSpec(id, 'f', outfit)); return [f.backOf('back'), f.backOf('mid')]; };
   const [dress, dressMid] = at('belle', 'dress'), [chemise] = at('goldie', 'night'), [gown, gownMid] = at('belle', 'night');
   assert.ok(Math.abs(dress - 0.012) < 1e-6 && Math.abs(dressMid - 0.012) < 1e-6, 'a bodice: as close as it can be');
   assert.ok(chemise > dress + 0.003 && chemise < 0.03, 'a chemise: ' + chemise);
-  assert.ok(gown > 0.04 && gownMid > 0.04, 'a nightdress: ' + gown + ', ' + gownMid);
+  assert.ok(gown < 0.025 && gownMid < 0.025, 'a night-dress: ' + gown + ', ' + gownMid);
+});
+
+test('a skirt taken off for its cloth leaves its sleeves, and no edge drawn where the cloth joins', async () => {
+  await loaded;
+  const f = F.make(Cast.figureSpec('belle', 'f', 'night')), g = f.gm.NightDress.geometry, p = g.attributes.position, reg = g.attributes.region, ix = g.index.array;
+  let low = 0; for (let t = 0; t < ix.length; t += 3) if (reg.getX(ix[t]) > 0.5 && p.getY(ix[t]) < f.L.waist - 0.05) low++;
+  assert.ok(low > 100, 'its long sleeves kept below the waist: ' + low);
+  assert.ok(g.userData.seamY > 0, 'where the cloth joins it, marked');
 });
 
 test('the Blender-built seat’s spots are on its outer surface, in order down it', async () => {

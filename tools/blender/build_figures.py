@@ -1539,6 +1539,9 @@ def period_garments(sex, torso, leg, arm, body, label, rig, only=None):
             # (below its fullest, it falls straight, flaring a little; and never in over anything it's already come down past)
             hang = np.maximum.accumulate(np.where(YG <= ya, S_, 0.0)[::-1])[::-1]
             R[j] = np.where(YG >= ya, env(np.minimum(YG, top)), np.maximum(ra + flare * t ** 1.15 * (1 + (back_full - 1) * behind), hang))
+            # (Fenwick: and drawn in over the last few centimetres to where the bodice is at the waist seam, gathered there: taut across her
+            # waist's curve all the way up, it met the bodice standing out from it in a ledge)
+            seam = ss(top - 0.05, top, YG); R[j] = R[j] * (1 - seam) + np.minimum(R[j], np.maximum(np.interp(np.minimum(YG, top), ys, rb[j]) + 0.0075, und)) * seam      # (never in over what's under it)
         # the folds: gathers at the waist, flat over the hips, broad below
         T_ = np.clip((top - YG) / (top - hem), 0, 1)[None, :]; PH = ANG[:, None]
         hang = ss(0.0, 0.12, apex_y[:, None] - YG[None, :])
@@ -1551,7 +1554,7 @@ def period_garments(sex, torso, leg, arm, body, label, rig, only=None):
             k = (phi + np.pi) / (2 * np.pi) * NA; k0 = np.floor(k).astype(int) % NA; k1 = (k0 + 1) % NA; v = k - np.floor(k)
             u = np.clip((y - y0) / dy, 0, len(YG) - 1.001); i0 = np.floor(u).astype(int); w = u - i0
             r = (R[k0, i0] * (1 - w) + R[k0, i0 + 1] * w) * (1 - v) + (R[k1, i0] * (1 - w) + R[k1, i0 + 1] * w) * v
-            return np.where((y >= hem - 0.03) & (y <= top + 0.02), r - d, -1.0)      # (clear of what's under it by its shape, not shaped by it)
+            return np.where((y >= hem - 0.03) & (y <= top + 0.002), r - d, -1.0)      # (clear of what's under it by its shape, not shaped by it; ending at the seam, under the bodice)
         return f
     # (her bodice: fitted; joined to its sleeves over the shoulder and round the armhole, as the uniform's jacket was)
     def bodice_and_sleeves(sleeves, under_f, under_top, top=None, bease=0.0075):

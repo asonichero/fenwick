@@ -475,19 +475,8 @@ $('peResetAll').onclick = () => { if (!PE.on) return; applySnap(PE.base); peRefr
 $('peClear').onclick = () => { PE.saved = {}; if (PE.on) { applySnap(PE.base); } $('eText').value = ''; peRefresh(false); };
 // ── the report: every moment edited, each joint changed (its own rotation, degrees, as the posing code sets it; where it is, in the room and
 // from the other figure's hips), and each figure moved
-// (the first editor's sliders, if this browser kept any (localStorage 'fenwick.tune'): no longer applied, but listed where they differ from
-// js/session.js's TUNE, so whatever was tuned there can still be folded in)
-function oldTune() {
-  let o = null; try { o = JSON.parse(localStorage.getItem('fenwick.tune') || 'null'); } catch (e) {}
-  if (!o) return [];
-  const out = [], walk = (v, c, at) => {
-    if (v && typeof v === 'object') { for (const k in v) walk(v[k], c && typeof c === 'object' ? c[k] : undefined, at ? at + '.' + k : k); return; }
-    if (typeof v !== 'number' || (typeof c === 'number' && Math.abs(c - v) < 1e-6)) return;
-    out.push(`${at} ${+v.toFixed(4)}` + (typeof c === 'number' ? ` (code ${c})` : ' (no longer used)'));
-  };
-  walk(o, Session.TUNE, '');
-  return out.length ? ['Slider settings from the first pose editor, kept in this browser but no longer applied (where they differ from the code):', '  ' + out.join(' · '), ''] : [];
-}
+// (the first editor's sliders kept their settings in this browser: what mattered of them is in js/session.js's TUNE now, the rest is gone)
+try { localStorage.removeItem('fenwick.tune'); } catch (e) {}
 function peReport() {
   keepEdit(); const recs = Object.values(PE.saved);
   const L = ['Fenwick Hall pose editor report, ' + new Date().toISOString().slice(0, 16).replace('T', ' '),
@@ -511,7 +500,6 @@ function peReport() {
     }
     L.push('');
   }
-  L.push(...oldTune());
   $('eText').value = L.join('\n'); try { navigator.clipboard.writeText($('eText').value).catch(() => {}); } catch (e) {} $('eText').select();
 }
 $('peReport').onclick = peReport;

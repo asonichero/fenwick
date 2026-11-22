@@ -34,10 +34,15 @@ const TUNE = {
     // flatter across her, the little finger still bent over her far side; his collarbone as above)
     bare: { wrist: [0.04, -0.05, 0.032], palm: [-0.15, -0.32, -0.94], fingers: [-0.41, 0.88, -0.23], elbow: [0.253, -0.247, -0.016],
       knuckles: [13, 13, 32.5, 50], spread: 0.15, thumb: [1, 6, -6.3] },
-    // (her hands on the floor: ahead of her shoulders, out to their sides, how high off it)
-    hands: { ahead: 0.085, out: 0.04, height: 0.12 },
+    // (her hands on the floor: ahead of her shoulders, out to their sides, how high off it; the way each elbow bends: out to that side, toward
+    // her head, up (from the pose editor: both toward her head, a little toward her far side, clear of his leg))
+    hands: { ahead: 0.085, out: 0.04, height: 0.12, elbowL: [-0.38, 0.87, -0.32], elbowR: [0.42, 0.8, -0.43] },
   },
   table: {
+    // (her, over the table, as the pose editor set her: her spine and chest turned that much from her own posing (degrees; the small of her
+    // back lifted, her chest kept down on the top); the way her elbows bend: out to that side, toward the table's far end, up (out and back,
+    // level with the top))
+    her: { spine: [-10.8, 0.2, -4.6], chest: [25.5, 1.6, 5.8], elbow: [0.71, -0.71, 0] },
     // (Silas over the table, standing at her left, as placed in the pose editor with his right hand raised: from her hips, out from her side
     // and along toward her head (−: toward her legs), scaled with her; facing her side, turned that much toward her head (degrees); his hips'
     // place in him (across, up, forward); each foot where it stands in his own frame (across, forward), the way its knee bends and its toes
@@ -587,7 +592,7 @@ function create(stage, bay, opts) {
         const short = Math.max(clamp((Wt.distanceTo(shd) - arm * 0.97) / (0.08 * s), 0, 1), clamp(3 * up + 2 * back, 0, 1));      // (0: on the floor … 1: off it)
         const flat = otkU.clone().addScaledVector(out, 0.35).normalize(), hang = UP.clone().negate().addScaledVector(otkU, 0.35).normalize();
         const fingers = flat.clone().lerp(hang, short).normalize(), palm = new V3(0, -1, 0).lerp(otkU.clone().negate(), short).normalize();
-        const pole = out.clone().addScaledVector(otkU, -0.6).addScaledVector(UP, 0.3).normalize();
+        const EP = TH_['elbow' + side], pole = out.clone().multiplyScalar(EP[0]).addScaledVector(otkU, EP[1]).addScaledVector(UP, EP[2]).normalize();
         if (rest) { pole.copy(rest.E).sub(shd).normalize(); palm.set(0, -1, 0); fingers.copy(rest.fB).addScaledVector(rest.al, 0.7).normalize(); }
         // the far hand, on purpose: back over the seat, flat on it, the elbow up; or held, the wrist at the small of their back, palm up, the
         // forearm across it, the elbow out to their side
@@ -619,7 +624,8 @@ function create(stage, bay, opts) {
       const tTop = topFor(F), lie = Math.PI / 2 + Math.asin(clamp((hipY - (tTop + 0.12 * s)) / Lt, -0.6, 0.95));
       const up = 0.15 * ar + 0.6 * uK + 0.45 * rise + 0.1 * dfy;
       F.bone.hips.rotation.set(lie - up, 0.03 * Math.sin(t * 1.1 + ph[2]) * dd * R.ff, 0);
-      F.bone.spine.rotation.set(0.03 - 0.04 * ar, 0.06 * gK, 0); F.bone.chest.rotation.set(0.02 - 0.05 * ar, 0.1 * gK, 0);
+      const TB = TUNE.table.her, dg = Math.PI / 180;
+      F.bone.spine.rotation.set(0.03 - 0.04 * ar + TB.spine[0] * dg, 0.06 * gK + TB.spine[1] * dg, TB.spine[2] * dg); F.bone.chest.rotation.set(0.02 - 0.05 * ar + TB.chest[0] * dg, 0.1 * gK + TB.chest[1] * dg, TB.chest[2] * dg);
       F.bone.neck.rotation.set(-0.5 + 0.35 * sub - 0.5 * hd - 0.15 * ar - 0.2 * dfy - 0.2 * gK - 0.25 * rise, -0.7 * (1 - 0.6 * sub) + 1.0 * gK + 0.05 * Math.sin(t * 1.3 + ph[0]) * dd * R.ff, 0.12 - 0.2 * gK);
       F.root.updateMatrixWorld(true);
       // (Fenwick: the feet planted a fixed distance back from the table's edge, whatever the rest of her does; her legs straight to them,
@@ -646,7 +652,7 @@ function create(stage, bay, opts) {
           fdir = X.clone().multiplyScalar(sx).addScaledVector(U, 0.3).addScaledVector(UP, -0.35).normalize(); palm = UP.clone().negate();
           Wt = inFrame(table.at, table.yaw, sx * (table.w / 2 - 0.035), tTop + 0.03, table.d + 0.5 * s).addScaledVector(fdir, -0.06 * s);
         }
-        pinHand(F, side, Wt, X.clone().multiplyScalar(sx).addScaledVector(UP, 0.5).normalize(), palm, fdir, UP, tTop);
+        const EB = TUNE.table.her.elbow; pinHand(F, side, Wt, X.clone().multiplyScalar(sx * EB[0]).addScaledVector(U, EB[1]).addScaledVector(UP, EB[2]).normalize(), palm, fdir, UP, tTop);
         F.grip(side, clamp(0.62 + 0.3 * g, 0.4, 0.95), 0.05, 0.6);
         F.bone['clav' + side].rotation.z += sx * 0.1 * Math.max(0, shr);
       }
