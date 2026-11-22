@@ -382,11 +382,10 @@ transactional at first.
 
 The game opens at the end of Silas's earlier life, in the last scene of
 a story that is already over but for its reckoning. It puts the player
-into a correction within a minute, shows who Silas is before he has the
-Hall, teaches the correction and its defiance in a scene that can't be
-failed, and ends with the letter that sends him to the Fenwood. Its tale
-is Grimm's The Goose Girl, told from its end. The names here are working
-names.
+into a correction within two minutes, shows who Silas is before he has
+the Hall, teaches the correction and its defiance in a scene that can't
+be failed, and ends with the letter that sends him to the Fenwood. Its
+tale is Grimm's The Goose Girl, told from its end.
 
 **Why open here.** Opening on Silas's arrival at the Hall means righting
 his own room, a first breakfast and a walk of the grounds before he
@@ -407,8 +406,8 @@ daughter of a distant house. She travelled to Thornleigh with her
 waiting-maid, Cicely. On the road Cicely made her change clothes and
 places, and swear under the open sky to tell no living soul. At
 Thornleigh, Cicely was received as the bride. Adela was set to tend the
-geese with Kit, the goose-herd, and Cicely had Adela's mare, the one
-creature that knew its mistress, sold away.
+geese with Kit, the goose-herd, and Cicely had Adela's mare, Falada, the
+one creature that knew its mistress, sold away.
 
 **What Silas found.** Kit complained that the new goose girl let the
 flock stray while she combed out her hair, and the complaint came to
@@ -417,46 +416,66 @@ give one. He nearly took her silence for content with her lot (his flaw:
 reading silence as agreement), but too much didn't fit: her hands, her
 speech, the way she grieved at the gate where her mare had gone. Knowing
 she had sworn to tell no living soul, he had her tell it to the old iron
-stove in the scullery, and listened beyond the wall. He took what he
-heard to his master, and proposed a way to let the false bride judge
-herself.
+stove in the scullery, and listened beyond the wall; she never knew he
+heard. He took it to his master, and proposed a way to let the false
+bride judge herself.
 
 ### The opening scene: the false bride's sentence
 
-The game opens in the hall at Thornleigh, in the evening. The master
-sits at the head of the table with his son beside him, and Cicely at his
-son's side in Adela's gown. Adela stands by the door in the goose girl's
-plain dress. Silas stands before them.
+The hall at Thornleigh, in the evening. The master sits at the head of
+the table with his son beside him, and Cicely at his son's side in
+Adela's gown. Adela, called in on a pretext to wait at table, stands by
+the door in the goose girl's plain dress, knowing nothing of what is
+coming. Silas stands before them.
 
-- **The question.** At his master's nod, Silas puts a case to the table
-  as a hypothetical: a servant who deceived her masters, took her
-  mistress's place and set her mistress to tend geese. What should be
-  done with such a woman? This is the scene's one dialogue choice, how
-  plainly he puts it. It teaches dialogue, and sets how defiant Cicely
-  is when the correction starts.
+- **The parallel.** At his master's nod, Silas brings the table a case
+  he says was put to him by a neighbouring estate, for its judgement: a
+  journeyman sent with his master's son to a new place took the son's
+  coat and papers on the road, was received there as the son, and had
+  the son set to herd swine. What should be done with such a man? It's
+  close enough to be her own story, and far enough that she doesn't see
+  it.
 
-- **The sentence.** Sure of herself, Cicely names a harsh one: stripped
-  of all she took, soundly thrashed, and turned out of the house with
-  nothing.
+- **The sentence.** Glad to be asked, and sure of herself, Cicely names
+  a harsh one: stripped of all he took, soundly thrashed, and turned out
+  with nothing.
 
 - **The reveal.** "You have named your own sentence." The master says
-  the truth aloud. His son goes to Adela and takes her hand, and they
-  leave together, the master after them.
+  the truth aloud. It's a surprise to both women: Cicely didn't know
+  she'd been found out, and Adela didn't know anyone had heard her.
 
-- **The decree.** The sentence stands, and Silas is to carry it out. He
-  does it as he does everything, in proportion: a correction at his
-  hand, measured rather than savage, with the turning-out left until
-  after. The room empties to the two of them.
+- **The apology.** The young lord goes to Adela. He apologises, and
+  promises she'll be treated well, and better, to make amends.
 
-**Length.** Four to six exchanges: under a minute of play before the
-correction starts.
+- **The decree.** The master commands Silas to carry out the sentence,
+  in the estate office he works from. Silas bows, and the scene cuts.
+
+### The confrontation: his terms
+
+Silas's office, off the yard: his desk and ledgers, a chair, a door that
+shuts. Cicely pleads not to be done by as she would have had Adela done.
+Silas sets his terms. If she wants clemency she'll submit, to a
+correction at his hand, measured, not the sentence she named. And if
+it's ever too much, she can say the mare's name, Falada, and it will be
+over at once, and she'll be free to go on her way.
+
+- **The choice.** How he answers her plea (firm, dry or gentle) is the
+  prologue's one dialogue choice. It teaches dialogue, and sets how
+  defiant she is when the correction starts.
+
+- **The word.** The mare's name is her word: the game's safe word, given
+  inside the story before the first strike. Every subject in the game
+  has one; the prologue is where the player learns it.
+
+**Length.** The two scenes together run under two minutes of play before
+the correction starts.
 
 ### The correction: the tutorial
 
-**The setting.** Across his knee, on a chair in the emptied hall: the
-game's default correction, with the controls the rest of the game uses.
-She is in Adela's gown, raised and rolled at the back as every dress is;
-then her drawers are lowered.
+**The setting.** Across his knee, on the chair at his desk: the game's
+default correction, with the controls the rest of the game uses. She is
+in Adela's gown, raised and rolled at the back as every dress is; then
+her drawers are lowered.
 
 **A scripted arc over the live systems.** A small phase controller
 drives her defiance, pride and submission through the phases below.
@@ -466,9 +485,10 @@ prompt teaches each control as it first matters. The player can't fail
 it. Pace and strength change what she says and how quickly each phase
 gives way to the next, within bounds.
 
-- **1. Defiance.** She refuses it outright and argues. She looks back at
-  him over her shoulder and pushes up out of position, and he puts her
-  back. Teaches pace, strength and putting her back in place.
+- **1. Defiance.** She submitted to the terms, but her pride fights the
+  correction itself. She argues it's unjust, looks back at him over her
+  shoulder and pushes up out of position, and he puts her back. Teaches
+  pace, strength and putting her back in place.
 
 - **2. Covering.** Her hand comes back over her seat. The first time he
   tells her to move it; the second time he takes her wrist and holds it
@@ -486,19 +506,20 @@ gives way to the next, within bounds.
   life spent behind someone else being given everything. Teaches that a
   correction ends on acceptance, not exhaustion.
 
-**Her word.** She has her safe word throughout, as every subject does,
-and the first prompt says so: she can always stop it. The script never
-needs it. If she uses it, the correction ends there, and the arc
-completes through the aftercare's dialogue instead.
+**Her word.** She can say Falada at any point, and the first prompt
+reminds the player of it. The script never needs it. If she says it,
+it's over at once, as he promised: she goes on her way, turned out as
+she named, without the offer, and the coda finds the geese in Kit's care
+alone.
 
 ### Aftercare and the offer
 
-Seated together, as every correction ends. She is forgiven. Then Silas
-uses the one discretion that is his: the master's sentence turns her out
-with nothing, but Silas offers her the place she made her mistress take,
-tending Thornleigh's geese with Kit, under his eye. It is offered, not
-imposed, and she takes it. She leaves the hall in the goose girl's plain
-dress; Adela's gown stays behind.
+Seated together in his office, as every correction ends. She is
+forgiven. Then Silas uses the one discretion that is his: the master's
+sentence turns her out with nothing, but Silas offers her the place she
+made her mistress take, tending Thornleigh's geese with Kit, under his
+eye. It is offered, not imposed, and she takes it. She leaves the office
+in the goose girl's plain dress; Adela's gown stays behind.
 
 ### Coda: the letter
 
@@ -521,32 +542,40 @@ is his.
   girl.
 
 - **Adela, the true bride (age 19).** Gentle and meek, keeping her oath
-  even against herself. On screen only in the opening scene; no
-  correction.
+  even against herself. She learns the truth is known in the same moment
+  Cicely does. On screen only in the opening scene; no correction.
 
 - **The master of Thornleigh.** Silas's employer, the tale's old king:
-  just, and willing to be advised. He decrees.
+  just, and willing to be advised. He decrees, and sends the sentence to
+  Silas.
 
-- **His son.** The heir and Adela's intended: the tale's prince.
+- **His son.** The young lord, Adela's intended: the tale's prince. He
+  apologises to her and promises amends.
 
 - **Kit, the goose-herd.** A young man, mildly comic, whose complaint
   started it all; seen again in the coda.
+
+- **Falada.** Adela's mare, sold away on Cicely's order; never seen. Her
+  name is Cicely's word.
 
 ### From Grimm to Thornleigh
 
 - **Kept.** The swap on the road and the oath under the open sky; the
   goose girl combing out her hair while the flock strays; her story told
-  to the iron stove; the false bride naming her own sentence.
+  to the iron stove; the mare's name, Falada; the false bride naming her
+  own sentence.
 
 - **Changed.** No magic: the talking horse's head becomes a mare sold
   away and grieved for at the gate. The king and prince become a
-  landowner and his heir. The tale's sentence, death in a barrel studded
-  with nails, becomes a harsh one she names, carried out in proportion
-  and followed by mercy.
+  landowner and his heir. The king's question becomes a parallel case
+  put to the table. The tale's sentence, death in a barrel studded with
+  nails, becomes a harsh one she names, carried out in proportion and
+  followed by mercy.
 
-- **Added.** Silas as the tale's investigator, and the false bride's
-  redemption: she takes the place she forced on her mistress, as a
-  chance rather than a punishment.
+- **Added.** Silas as the tale's investigator; the young lord's apology;
+  the mare's name as the false bride's word; and her redemption: she
+  takes the place she forced on her mistress, as a chance rather than a
+  punishment.
 
 ### What it establishes
 
@@ -561,17 +590,23 @@ is his.
   he nearly reads a sworn silence as agreement: the flaw the chapters go
   on to test.
 
+- **The safe word.** Set inside the story before the first strike, and
+  always hers to say.
+
 - **The correction system.** Taught on a subject who can't be failed,
   and whose parting from him costs neither of them anything.
 
 ### What it needs
 
-- **One room.** The hall at Thornleigh, with a small exterior for the
-  coda: the goose yard and the gate.
+- **Two rooms and a yard.** The hall at Thornleigh for the opening;
+  Silas's office for the confrontation, the correction and the
+  aftercare; and a small exterior for the coda: the goose yard and the
+  gate.
 
 - **Cicely.** A new figure on the heroine body, in Adela's gown (a
   period dress) and then the goose girl's plain dress; her lines in her
-  own voice; her defiance and pride tuned for the arc.
+  own voice; her defiance and pride tuned for the arc; Falada as her
+  word.
 
 - **Adela, the master, his son and Kit.** Adela on the heroine body; the
   three men on Silas's body at other builds, with their own hair and
@@ -584,17 +619,17 @@ is his.
 
 ## Chapter progression and ensemble dynamics
 
-| Chapter  | Unlocked zone                    | Featured                     | Core conflict and climax beat                                                                                                                  |
-|----------|----------------------------------|------------------------------|------------------------------------------------------------------------------------------------------------------------------------------------|
-| Prologue | The hall at Thornleigh           | Cicely, the false bride      | Naming her own sentence; Silas carrying it out in proportion and offering her the goose girl's place; the letter that sends him to the Fenwood |
-| Ch. 1    | Main Hall and guest bedrooms     | Goldilocks                   | Discovering the trespasser; establishing house rules and putting her to work restoring order                                                   |
-| Ch. 2    | Front gate and forest trail      | Little Red Riding Hood       | Rescuing her from the wolf; twilight escort to the village and the start of her woods lessons                                                  |
-| Ch. 3    | Study and West Wing landing      | Belle                        | Settling her father's debt; establishing her as ward and bookkeeper and catching her at the West Wing door                                     |
-| Ch. 4    | Servants' wing and laundry yard  | Cinderella (with Goldilocks) | Uncovering her exhaustion and night outings; confronting her stepmother at the village border                                                  |
-| Ch. 5    | Smokehouse and root cellar       | Gretel (with Hansel)         | Following snare trails into the brush; bringing the siblings onto the estate and teaching trust                                                |
-| Ch. 6    | Eastern briar wall and gatehouse | Rapunzel                     | Evicting Gothel from the gatehouse; guiding Rapunzel into the walled garden for the first time                                                 |
-| Ch. 7    | Far creek and timberline camp    | Snow White (with Belle)      | Accepting guardianship from the woodcutters; enforcing gate security as external threats converge                                              |
-| Finale   | The restored West Wing           | Full ensemble                | Unlocking the West Wing to resolve the previous owner's mystery while defending the estate from Snow White's stepmother and the wolf pack      |
+| Chapter  | Unlocked zone                            | Featured                     | Core conflict and climax beat                                                                                                                                                                   |
+|----------|------------------------------------------|------------------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| Prologue | The hall and estate office at Thornleigh | Cicely, the false bride      | Naming her own sentence; Silas's terms (clemency if she submits, the mare's name as her word); the correction, forgiveness and the goose girl's place; the letter that sends him to the Fenwood |
+| Ch. 1    | Main Hall and guest bedrooms             | Goldilocks                   | Discovering the trespasser; establishing house rules and putting her to work restoring order                                                                                                    |
+| Ch. 2    | Front gate and forest trail              | Little Red Riding Hood       | Rescuing her from the wolf; twilight escort to the village and the start of her woods lessons                                                                                                   |
+| Ch. 3    | Study and West Wing landing              | Belle                        | Settling her father's debt; establishing her as ward and bookkeeper and catching her at the West Wing door                                                                                      |
+| Ch. 4    | Servants' wing and laundry yard          | Cinderella (with Goldilocks) | Uncovering her exhaustion and night outings; confronting her stepmother at the village border                                                                                                   |
+| Ch. 5    | Smokehouse and root cellar               | Gretel (with Hansel)         | Following snare trails into the brush; bringing the siblings onto the estate and teaching trust                                                                                                 |
+| Ch. 6    | Eastern briar wall and gatehouse         | Rapunzel                     | Evicting Gothel from the gatehouse; guiding Rapunzel into the walled garden for the first time                                                                                                  |
+| Ch. 7    | Far creek and timberline camp            | Snow White (with Belle)      | Accepting guardianship from the woodcutters; enforcing gate security as external threats converge                                                                                               |
+| Finale   | The restored West Wing                   | Full ensemble                | Unlocking the West Wing to resolve the previous owner's mystery while defending the estate from Snow White's stepmother and the wolf pack                                                       |
 
 ### Ambient vignettes between chapters
 
