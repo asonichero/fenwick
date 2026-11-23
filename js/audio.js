@@ -164,6 +164,30 @@ A.thwack = function (power, muffle, vol) {
   burst(t + 0.011, 0.03, 0.25 * p, 'bandpass', 1200, 0.9);                                  // a second, softer slap as the hand settles
   tone(t, 380, 190, 0.09, 0.45 * p);                                                         // the "pap" of flesh
 };
+// A knock at the door: knuckles on oak, three raps (n), the last a touch later and lighter; each a dull thump of the boards and the tap of the
+// knuckle on them.
+A.knock = function (n, vol) {
+  if (!A.init()) return; const ctx = A.ctx, N = A.nodes, t0 = ctx.currentTime + 0.02, k = vol == null ? 1 : vol; n = n || 3;
+  const out = ctx.createGain(); out.gain.value = k; out.connect(N.sfx);
+  for (let i = 0; i < n; i++) {
+    const t = t0 + i * 0.2 + (i === n - 1 ? 0.04 : 0), p = i === n - 1 ? 0.8 : 1;
+    const o = ctx.createOscillator(), g = ctx.createGain(); o.type = 'sine'; o.frequency.setValueAtTime(155, t); o.frequency.exponentialRampToValueAtTime(85, t + 0.12);
+    g.gain.setValueAtTime(0.0001, t); g.gain.linearRampToValueAtTime(0.8 * p, t + 0.004); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.17); o.connect(g); g.connect(out); o.start(t); o.stop(t + 0.19);
+    const src = ctx.createBufferSource(); src.buffer = N.noise; const f = ctx.createBiquadFilter(); f.type = 'bandpass'; f.frequency.value = 950; f.Q.value = 1.3;
+    const h = ctx.createGain(); h.gain.setValueAtTime(0.0001, t); h.gain.linearRampToValueAtTime(0.55 * p, t + 0.002); h.gain.exponentialRampToValueAtTime(0.0001, t + 0.05);
+    src.connect(f); f.connect(h); h.connect(out); src.start(t, Math.random() * 2); src.stop(t + 0.07);
+  }
+};
+// A letter opened: the wax seal cracking, then the stiff paper unfolded, in a couple of rustles.
+A.paper = function (vol) {
+  if (!A.init()) return; const ctx = A.ctx, N = A.nodes, t0 = ctx.currentTime + 0.02, k = vol == null ? 1 : vol;
+  const out = ctx.createGain(); out.gain.value = k; out.connect(N.sfx);
+  const burst = (t, len, peak, type, fq, q) => { const src = ctx.createBufferSource(); src.buffer = N.noise; const f = ctx.createBiquadFilter(); f.type = type; f.frequency.value = fq; f.Q.value = q;
+    const g = ctx.createGain(); g.gain.setValueAtTime(0.0001, t); g.gain.linearRampToValueAtTime(peak, t + Math.min(0.02, len * 0.2)); g.gain.exponentialRampToValueAtTime(0.0001, t + len);
+    src.connect(f); f.connect(g); g.connect(out); src.start(t, Math.random() * 2); src.stop(t + len + 0.02); };
+  burst(t0, 0.03, 0.5, 'highpass', 2600, 0.8); burst(t0 + 0.012, 0.025, 0.3, 'bandpass', 1500, 1.5);      // (the seal)
+  for (const [dt, len, pk] of [[0.35, 0.28, 0.16], [0.62, 0.22, 0.12], [0.86, 0.32, 0.14]]) burst(t0 + dt, len, pk, 'bandpass', 3200 + Math.random() * 1200, 0.7);      // (the folds opened out)
+};
 // The birch: the swish of the twigs through the air (call it as the arm comes down), and the sharp crack and scatter of them on bare skin.
 A.swish = function (power, vol) {
   if (!A.init()) return; const ctx = A.ctx, N = A.nodes, t = ctx.currentTime + 0.005, k = vol == null ? 1 : vol, p = clamp(power, 0.3, 1.3);

@@ -6,8 +6,10 @@
 //   The furniture and the marks (where Cicely stands before the desk; where Silas shuts the door; where he stands before her) are laid out by
 // Office.ROOM, as the hall's are (rooms.html arranges them). The walls, the door, the window and the fireplace stay put.
 //
+//   By day (the coda, some weeks on: setDay(true)) the sun comes in at the window, the candle's out, the fire's low, and through the open door
+// the yard's in daylight; by night (as built) the evening.
 //   const office = Office.build(scene) → { group, pieces, keys, place(key, at), layout(), spots(), views, bounds, sideOf, sidesAt, resides(),
-//     showMarks(on), setLow(on), door: { set(k), to(k, ms) → Promise, get k }, setChair('out' | 'desk'), bay() (for js/session.js), tick(dt) }
+//     showMarks(on), setLow(on), setDay(on), door: { set(k), to(k, ms) → Promise, get k }, setChair('out' | 'desk'), bay() (for js/session.js), tick(dt) }
 //   · Office.ROOM, Office.LAYOUT, Office.LABELS
 (function (root) {
 'use strict';
@@ -70,7 +72,7 @@ function build(scene) {
   const box = (w, h, d, m, x, y, z, to, o) => { const b = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), m); b.position.set(x, y, z); if (o && o.ry) b.rotation.y = o.ry; if (o && o.rx) b.rotation.x = o.rx; if (o && o.rz) b.rotation.z = o.rz; b.castShadow = !(o && o.noCast); b.receiveShadow = true; if (o && o.noCloth) b.userData.noCloth = true; (to || G).add(b); return b; };
   const cyl = (r0, r1, h, m, x, y, z, to, o) => { const c = new THREE.Mesh(new THREE.CylinderGeometry(r0, r1, h, (o && o.seg) || 14), m); c.position.set(x, y, z); if (o && o.rot) c.rotation.set(o.rot[0], o.rot[1], o.rot[2]); c.castShadow = !(o && o.noCast); c.receiveShadow = true; (to || G).add(c); return c; };
   const ball = (r, m, x, y, z, to, s) => { const b = new THREE.Mesh(new THREE.SphereGeometry(r, 12, 8), m); b.position.set(x, y, z); if (s) b.scale.set(s[0], s[1], s[2]); b.castShadow = true; (to || G).add(b); return b; };
-  const flames = [];
+  const flames = []; let candleFlames = [];
   const flame = (x, y, z, to, s) => { const f = new THREE.Mesh(new THREE.ConeGeometry(0.012 * (s || 1), 0.045 * (s || 1), 8), flameM); f.position.set(x, y, z); (to || G).add(f); flames.push(f); return f; };
 
   // ── The shell: walls cut by their openings, a dark skirting, the floor, the beamed ceiling ──
@@ -115,7 +117,6 @@ function build(scene) {
   // (the frame round it)
   box(0.08, DOOR.h + 0.06, 0.1, oakDark, DOOR.x - DOOR.w / 2 - 0.02, (DOOR.h + 0.06) / 2, Z1 - 0.03, sides.S); box(0.08, DOOR.h + 0.06, 0.1, oakDark, DOOR.x + DOOR.w / 2 + 0.02, (DOOR.h + 0.06) / 2, Z1 - 0.03, sides.S);
   box(DOOR.w + 0.12, 0.1, 0.1, oakDark, DOOR.x, DOOR.h + 0.03, Z1 - 0.03, sides.S);
-  { const out = new THREE.Mesh(new THREE.PlaneGeometry(DOOR.w, DOOR.h), dark); out.position.set(DOOR.x, DOOR.h / 2, Z1 + T - 0.02); out.rotation.y = Math.PI; sides.S.add(out); }      // (the yard beyond, dark)
   const setDoor = k => { door.k = k; leaf.rotation.y = -DOOR.open * k; leaf.updateMatrixWorld(true); };
   door.set = k => { door.done = null; door.ms = 0; setDoor(k); };
   door.to = (k, ms) => new Promise(res => { if (!ms) { setDoor(k); res(); return; } Object.assign(door, { from: door.k, target: k, t: 0, ms, done: res }); });
@@ -163,6 +164,7 @@ function build(scene) {
     box(0.004, 0.003, 0.22, paper, -0.05, 0.14, 0.02, ink, { rx: 1.0, ry: 0.3 });
     const cs = new THREE.Group(); cs.position.set(-0.6, top, -0.24); g.add(cs); cyl(0.06, 0.07, 0.015, pewter, 0, 0.008, 0, cs); cyl(0.012, 0.015, 0.14, pewter, 0, 0.08, 0, cs); cyl(0.025, 0.02, 0.025, pewter, 0, 0.16, 0, cs);
     cyl(0.013, 0.013, 0.12, wax, 0, 0.23, 0, cs); flame(0, 0.31, 0, cs, 1.3);
+    candleFlames = flames.slice(-1);
     deskLight = new THREE.PointLight(srgb('#ffc070'), 1.3, 5, 2); deskLight.position.set(0, 0.42, 0); cs.add(deskLight); }
   // his chair: plain, sturdy, armless, a ladder back (it's across his knee here, later)
   { const g = piece('chair'), w = 0.48, d = 0.46, sh = 0.46;
@@ -198,6 +200,24 @@ function build(scene) {
     const ring = new THREE.Mesh(new THREE.RingGeometry(0.22, 0.27, 32), m); ring.rotation.x = -Math.PI / 2; ring.position.y = 0.01; g.add(ring);
     const ar = new THREE.Mesh(new THREE.ConeGeometry(0.08, 0.22, 3), m); ar.rotation.x = Math.PI / 2; ar.position.set(0, 0.012, 0.36); g.add(ar); marks.push(g); g.visible = false; }
 
+  // ── Beyond the door: the yard, a few paces of cobbles and the barn wall across it, by day or by night (seen only through the open door) ──
+  const yardTex = night => K.canvasTex(512, 256, (c, w, h) => {
+    const g = c.createLinearGradient(0, 0, 0, h * 0.5); if (night) { g.addColorStop(0, '#0e1424'); g.addColorStop(1, '#1e2234'); } else { g.addColorStop(0, '#9fbcd4'); g.addColorStop(1, '#dfe4dc'); }
+    c.fillStyle = g; c.fillRect(0, 0, w, h);
+    // (the barn across the yard: its boarded wall and roof, a wide door; a cart's wheel against it; a lean-to's corner)
+    c.fillStyle = night ? '#141210' : '#6a4a32'; c.fillRect(0, h * 0.34, w, h * 0.66);
+    c.fillStyle = night ? '#0e0c0a' : '#4a3424'; for (let x = 0; x < w; x += 14) c.fillRect(x, h * 0.34, 2, h * 0.66);
+    c.fillStyle = night ? '#1a1612' : '#3e3a36'; c.beginPath(); c.moveTo(-10, h * 0.36); c.lineTo(w * 0.5, h * 0.12); c.lineTo(w + 10, h * 0.36); c.closePath(); c.fill();
+    c.fillStyle = night ? '#080706' : '#2e2016'; c.fillRect(w * 0.36, h * 0.5, w * 0.24, h * 0.5);
+    c.strokeStyle = night ? '#0a0908' : '#3a2a1a'; c.lineWidth = 5; c.beginPath(); c.arc(w * 0.8, h * 0.82, 38, 0, 7); c.stroke(); for (let a = 0; a < 6; a++) { c.beginPath(); c.moveTo(w * 0.8, h * 0.82); c.lineTo(w * 0.8 + 38 * Math.cos(a), h * 0.82 + 38 * Math.sin(a)); c.stroke(); }
+    if (!night) { c.fillStyle = 'rgba(255,240,200,0.12)'; c.fillRect(0, h * 0.34, w, h * 0.3); }
+  });
+  const yardDay = yardTex(false), yardNight = yardTex(true), yardM = new THREE.MeshBasicMaterial({ map: yardNight });
+  const cobblesM = std({ map: tex(K.stoneTex, [2, 2]), roughness: 0.95, color: srgb('#8a8278') });
+  { const y = new THREE.Group(); sides.S.add(y);
+    const ground = new THREE.Mesh(new THREE.PlaneGeometry(4.5, 4), cobblesM); ground.rotation.x = -Math.PI / 2; ground.position.set(DOOR.x, -0.005, Z1 + T + 2); ground.receiveShadow = true; y.add(ground);
+    const back = new THREE.Mesh(new THREE.PlaneGeometry(6, 3), yardM); back.position.set(DOOR.x, 1.4, Z1 + T + 3.6); back.rotation.y = Math.PI; y.add(back); }
+
   // ── Light: the evening. The candle on the desk and the fire, warm; the window cold; a key from high in front of the desk for the shadows ──
   const hemi = new THREE.HemisphereLight(srgb('#c0b098'), srgb('#2a2018'), 0.6); G.add(hemi);
   const amb = new THREE.AmbientLight(srgb('#3a3028'), 0.4); G.add(amb);
@@ -205,6 +225,22 @@ function build(scene) {
   key.castShadow = true; key.shadow.mapSize.set(2048, 2048); key.shadow.bias = -0.0004; key.shadow.normalBias = 0.02; key.shadow.camera.near = 0.3; key.shadow.camera.far = 8; G.add(key); G.add(key.target);
   const fireL = new THREE.PointLight(srgb('#ff9a4a'), 3.2, 6, 2); fireL.position.set(X0 + 0.7, 0.5, FIRE.z); G.add(fireL);
   const winL = new THREE.PointLight(srgb('#4a5a8a'), 0.35, 4, 2); winL.position.set(X1 - 0.6, 1.6, WIN.z); G.add(winL);
+  // (by day: the sun in at the window, slanting down across the desk and the floor; and the yard's light in at the door)
+  const sun = new THREE.SpotLight(srgb('#fff1d8'), 0, 12, 0.5, 0.6, 1.4); sun.position.set(X1 + 2.6, 3.4, WIN.z + 0.6); sun.target.position.set(0.2, 0.3, -0.9); G.add(sun); G.add(sun.target);
+  const doorL = new THREE.PointLight(srgb('#e6ecf2'), 0, 5, 2); doorL.position.set(DOOR.x, 1.4, Z1 - 0.3); G.add(doorL);
+  const yardL = new THREE.PointLight(srgb('#dfe6ee'), 0.15, 7, 2); yardL.position.set(DOOR.x, 2.6, Z1 + T + 1.6); G.add(yardL);      // (the yard's own light, on whoever's in it)
+  const glassDay = K.windowTex(false), glassNight = glassM.map;
+  let day = false;
+  function setDay(on) {
+    day = !!on;
+    hemi.color.copy(srgb(day ? '#e4e0d4' : '#c0b098')); hemi.groundColor.copy(srgb(day ? '#6a5a48' : '#2a2018')); hemi.intensity = day ? 0.8 : 0.6;
+    amb.color.copy(srgb(day ? '#8a8478' : '#3a3028')); amb.intensity = day ? 0.42 : 0.4;
+    key.color.copy(srgb(day ? '#fff4e4' : '#ffd8a8')); key.intensity = day ? 6 : 14;
+    sun.intensity = day ? 20 : 0; doorL.intensity = day ? 1.2 : 0; yardL.intensity = day ? 2.2 : 0.15; winL.intensity = day ? 0 : 0.35;
+    glassM.map = day ? glassDay : glassNight; glassM.emissive.copy(srgb(day ? '#dfe6e8' : '#1a2238')); glassM.emissiveIntensity = day ? 0.6 : 0.45; glassM.needsUpdate = true;
+    yardM.map = day ? yardDay : yardNight; yardM.needsUpdate = true;
+    if (deskLight) deskLight.visible = !day; for (const f of candleFlames) f.visible = !day;      // (the candle out, by day)
+  }
 
   // ── Which side each thing goes with, for hiding the walls nearest the camera ──
   const bounds = { minX: X0, maxX: X1, minZ: Z0, maxZ: Z1, ht: HT };
@@ -227,7 +263,10 @@ function build(scene) {
     const cr = L.chair.ry || 0;
     return { silas: { at: at('chair', 0, 0.04), yaw: cr, seatY: 0.49 }, chairSide: { at: at('chair', 0.55, 0.02), yaw: cr - Math.PI / 2 },
       deskEast: { at: at('desk', DW / 2 + 0.42, 0), yaw: L.desk.ry || 0 }, deskNE: { at: at('desk', DW / 2 + 0.36, -DD / 2 - 0.32), yaw: L.desk.ry || 0 }, deskSE: { at: at('desk', DW / 2 + 0.32, DD / 2 + 0.3), yaw: L.desk.ry || 0 },
-      cicely: mark('cicelyMark'), door: mark('doorMark'), near: mark('nearMark') };
+      cicely: mark('cicelyMark'), door: mark('doorMark'), near: mark('nearMark'),
+      // (beyond the door, in the yard, facing in; and before the desk, near enough to lay something on it, facing it)
+      outside: { at: new V3(DOOR.x, 0, Z1 + T + 0.55), yaw: Math.PI }, front: { at: at('desk', 0.18, DD / 2 + 0.33), yaw: (L.desk.ry || 0) + Math.PI },
+      byDesk: { at: at('desk', DW / 2 + 0.3, DD / 2 + 0.55), yaw: (L.desk.ry || 0) + Math.PI } };      // (off the desk's front corner, a pace from her there)
   };
   const views = {
     'From the door': [[DOOR.x - 0.75, 1.65, Z1 - 0.45], [-0.2, 0.95, -1.5]], 'Behind the desk': [[-0.9, 1.75, Z0 + 0.35], [0.4, 0.95, 0.8]],
@@ -252,7 +291,7 @@ function build(scene) {
   let t = 0;
   const setLow = on => { key.castShadow = !on; };
   return { group: G, pieces, keys: Object.keys(LAYOUT), place, layout: () => JSON.parse(JSON.stringify(L)), spots, views, bounds, sideOf, sidesAt, resides, name: 'Silas’s office at Thornleigh',
-    showMarks: on => { for (const m of marks) m.visible = !!on; }, setLow, key, door, setChair, bay, get chairOut() { return chairOut; },
+    showMarks: on => { for (const m of marks) m.visible = !!on; }, setLow, setDay, get day() { return day; }, key, door, setChair, bay, get chairOut() { return chairOut; },
     tick(dt) { t += dt;
       if (door.ms) { door.t += dt * 1000; const k = Math.min(1, door.t / door.ms), e = k * k * (3 - 2 * k); setDoor(door.from + (door.target - door.from) * e); if (k >= 1) { door.ms = 0; const d = door.done; door.done = null; if (d) d(); } }
       const f = 0.85 + 0.1 * Math.sin(t * 7.1) + 0.06 * Math.sin(t * 12.7 + 1.1); fireL.intensity = 3.2 * f; deskLight.intensity = 1.3 * (0.95 + 0.05 * Math.sin(t * 9.3));

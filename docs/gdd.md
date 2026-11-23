@@ -583,14 +583,27 @@ plain dress; Adela's gown stays behind.
 
 ### Coda: the letter
 
-A few weeks later. Silas walks the Thornleigh grounds and finds Cicely
-with the geese, steady and competent at it, and they exchange a few
-words. She is settled, and the post is the master's to give, not his, so
-his leaving takes nothing from her. A rider brings a solicitor's letter:
-a great-uncle Silas barely knew has died, and Fenwick Hall is his. His
-master releases him with thanks. The prologue ends on the road to the
-Fenwood, where Chapter 1 begins and, for the first time, the final say
-is his.
+A few weeks later, by day. Silas is at his desk in the estate office
+when there's a knock: Cicely, in the goose girl's plain dress, with a
+letter a rider left at the yard gate. She lays it on his desk; he leaves
+it there unopened and comes round the desk to her. The player chooses
+what he asks, in any order, and the conversation closes only when every
+line has been taken: how she's keeping (she sleeps now; her hands are
+ruined, and she doesn't mind), the geese and Kit (Kit says she has a way
+with them), Lady Adela (Cicely asked her pardon, and was given it), and
+the letter (a solicitor's; the rider looked at her as if she might steal
+it, and she didn't). Throughout, how she is matters more to him than
+whatever the letter holds. The time that has passed and what the
+correction did are shown, not told: she is steady, good at her work, and
+easy with him. She goes back to her geese, and he tells her to come to
+him if ever she's not well, letter or no letter. Alone, he takes the
+letter up and breaks the seal, and the view cuts to the page as its
+words are written out: a great-uncle Silas barely knew has died, and the
+Hall in the Fenwood, named with the player's surname, is his. She is
+settled, and the post is the master's to give, not his, so his leaving
+takes nothing from her. His master releases him with thanks. The
+prologue ends on the road to the Fenwood, where Chapter 1 begins and,
+for the first time, the final say is his.
 
 ### Prologue cast
 

@@ -314,7 +314,107 @@ const AFTERCARE = {
   next: { title: 'Coda: the letter', where: 'Some weeks on: the goose yard, and a rider with a letter (being built)' },
 };
 
-const SCENES = { hall: HALL, office: OFFICE, correction: CORRECTION, aftercare: AFTERCARE };
+// ── Coda: the letter (docs/gdd.md, "Coda: the letter"). Some weeks on, by day: Silas at his desk; a knock; Cicely, in the goose girl's plain
+// dress, with a letter a rider left at the yard gate. He leaves it where she lays it and comes round the desk to her: what he asks her (how
+// she's keeping, the geese, Lady Adela, the letter), every one of it, in whatever order, before she goes back to her work; how she is matters
+// more to him than whatever the letter holds. She's settled, steady, and better for it. Then, alone, he opens it, and the view's of the page,
+// its words written out as he reads them: his great-uncle is dead, and the Hall in the Fenwood is his. ──
+const CODA = {
+  id: 'coda', room: 'office', day: true, title: 'The letter',
+  start: { door: 0 },
+  cast: {
+    silas: { spec: ['silas'], seat: 'silas', arms: 'desk', face: 'calm', gait: 'silas', look: 'down' },      // (at his ledger)
+    cicely: { spec: ['her', 'cicely', 'goose'], mark: 'front', face: 'smile', arms: 'clasp', off: true, enter: { from: 'outside' },
+      gait: { mix: { female: 0.55, walk: 0.3, sad: 0.15 }, arms: 0.5, sway: 0.5, head: 0.06, slump: 0, pace: 1.0 } },      // (a working woman's walk now: steady, unhurried)
+  },
+  names: { silas: '{first}', cicely: 'Cicely' },
+  points: { door: { from: 'door', at: [0, 1.5, 0.6] }, letterAt: { from: 'front', at: [-0.08, 0.767, 0.42] } },
+  // (the letter: in her right hand as she comes in; its text, as it's written out on the page)
+  letter: { start: { by: 'cicely', side: 'R' }, text: [
+    { right: 'Wendham, the 9th of October' }, { gap: 26 },
+    { p: 'Sir,' },
+    { p: 'It falls to me to tell you of the death, on the last day of September, of Mr Ambrose {last}, of {hall} in the Fenwood: your great-uncle, on your father’s side, whom I believe you met but once, as a boy.', indent: true },
+    { p: 'He died without issue. By his will he leaves to you, as his nearest living kin, the house and estate of {hall}, with its lands, its tenancies, and such of its household as remain.', indent: true },
+    { p: 'I should tell you plainly that the house has been much neglected in his later years, and its affairs are in some disorder. Its people, I am told, have been left very much to themselves.', indent: true },
+    { p: 'I would be glad to wait upon you at your earliest convenience, or to receive you at the Hall, where the keys are kept against your coming.', indent: true },
+    { gap: 14 }, { right: 'I have the honour to be, Sir,' }, { right: 'your most obedient servant,' }, { gap: 10 }, { sign: 'Edwin Hollis' },
+  ] },
+  shots: {
+    day: { at: true, cam: [2.05, 1.6, 0.95], look: [0.72, 0.95, -1.75] },            // (from across the room by the window: him at his desk, the sun in)
+    dayIn: { at: true, cam: [1.75, 1.45, 0.3], look: [0.74, 1.0, -1.8] },
+    him: { at: true, cam: [1.08, 1.38, -0.42], look: [0.75, 1.13, -1.86] },          // (across the desk: him at it)
+    doorway: { at: true, cam: [0.3, 1.6, -2.25], look: [1.25, 1.15, 1.9] },          // (past his shoulder, from behind the desk: the door)
+    her: { at: true, cam: [0.84, 1.47, -1.3], look: [0.93, 1.42, -0.47] },            // (across the desk: her, before it)
+    lay: { at: true, cam: [2.25, 1.78, -1.25], look: [0.98, 1.22, -0.6] },            // (side on: her hand to the desk)
+    rise: { at: true, cam: [-1.25, 1.8, 0.9], look: [1.15, 1.0, -1.2] },              // (from the fire side: him getting up, coming round)
+    two: { at: true, cam: [1.12, 1.62, 1.8], look: [1.37, 1.48, -0.36] },            // (the two of them, before the desk, side on)
+    herOver: { at: true, cam: [2.4, 1.66, 0.45], look: [0.93, 1.45, -0.47] },        // (over his shoulder: her face)
+    himOver: { at: true, cam: [0.42, 1.56, -1.02], look: [1.8, 1.6, -0.25] },         // (over hers: his)
+    exit: { at: true, cam: [0.55, 1.6, -1.1], look: [1.3, 1.2, 2.0] },               // (from the desk: her going out at the door)
+    take: { at: true, cam: [2.2, 1.8, -1.25], look: [0.95, 1.3, -0.6] },              // (side on: him at the desk, taking it up)
+    open: { at: true, cam: [0.7, 1.58, -1.72], look: [0.93, 1.42, -0.47] },          // (across the desk: him, the letter open before him)
+  },
+  beats: [
+    // (by day: him at his desk, at his ledger; a knock)
+    { shot: 'day', push: 'dayIn', ms: 7000, pause: 2400 },
+    { sfx: 'knock', pause: 500 }, { look: { silas: 'door' }, pause: 700 },
+    { shot: 'him', who: 'silas', face: 'calm', text: 'Come in.' },
+    { shot: 'doorway', act: 'door', to: 1, ms: 1100, pause: 150 },
+    { act: 'walk', by: 'cicely', path: ['outside', 'door', 'front'], toward: 'silas', look: { silas: 'cicely' } },
+    { shot: 'her', who: 'cicely', to: 'silas', face: 'smile', text: 'Beg pardon, Mr {last}. A rider left this at the yard gate for you. He’d come no further: the grey gander saw him off.' },
+    { shot: 'lay', act: 'lay', by: 'cicely', at: 'letterAt', look: { cicely: 'letter' } },
+    { look: { cicely: 'silas', silas: 'letter' }, pause: 900 },
+    { shot: 'him', look: { silas: 'cicely' }, who: 'silas', to: 'cicely', face: 'smile', text: 'Thank you, Cicely.' },
+    // (he leaves it where it lies, and comes round the desk to her)
+    { shot: 'rise', act: 'stand', by: 'silas', at: 'chairSide', toward: 'cicely', pause: 200 },
+    { act: 'walk', by: 'silas', path: ['chairSide', 'deskNE', 'deskSE', 'byDesk'], toward: 'cicely', wait: false, who: 'silas', to: 'cicely', face: 'calm', text: 'It’s kept the length of the road. It’ll keep a while longer.' },
+    { shot: 'two', act: 'turn', by: 'cicely', toward: 'byDesk', wait: false, who: 'silas', to: 'cicely', face: 'caring', text: 'I’ve hardly seen you these three weeks but from the window. Have you a minute?' },
+    { shot: 'herOver', who: 'cicely', to: 'silas', face: 'cheeky', hold: 'choices', text: 'A minute, sir. The geese won’t count themselves.' },
+    // (what he asks her: every one, in whatever order; and only then does she go back to her work)
+    { talk: { hint: 'Ask what you like, in any order.', options: [
+      { id: 'keeping', label: 'Ask how she’s keeping', beats: [
+        { shot: 'himOver', who: 'silas', to: 'cicely', face: 'caring', text: 'How are you keeping? Truly. Not the answer you’d give the steward.' },
+        { shot: 'herOver', who: 'cicely', to: 'silas', face: 'wistful', text: 'Truly? …I sleep. I didn’t, those first nights. Now I’m out at first light, and by dark I’m too tired to lie awake thinking.' },
+        { look: { cicely: 'down' }, who: 'cicely', to: 'silas', face: 'smile', text: 'My hands are ruined. The bride I played at being would have wept over them. I find I don’t mind.' },
+        { shot: 'himOver', look: { cicely: null }, who: 'silas', to: 'cicely', face: 'smile', text: 'That’s the best news I’ve had in weeks.' },
+        { shot: 'herOver', who: 'cicely', to: 'silas', face: 'cheeky', text: 'Better than whatever’s in that letter?' },
+        { shot: 'himOver', who: 'silas', to: 'cicely', face: 'calm', text: 'A great deal better.' } ] },
+      { id: 'geese', label: 'Ask after the geese', beats: [
+        { shot: 'himOver', who: 'silas', to: 'cicely', face: 'calm', text: 'And the geese?' },
+        { shot: 'herOver', who: 'cicely', to: 'silas', face: 'cheeky', text: 'Forty-one of them, and the grey gander’s stopped trying to kill me. Mostly.' },
+        { who: 'cicely', to: 'silas', face: 'smile', text: 'Kit says I’ve a way with them. He said it as if it pained him.' },
+        { shot: 'himOver', who: 'silas', to: 'cicely', face: 'smile', text: 'From Kit, that’s very nearly a medal.' } ] },
+      { id: 'adela', label: 'Ask if she’s seen Lady Adela', beats: [
+        { shot: 'himOver', who: 'silas', to: 'cicely', face: 'calm', text: 'Have you seen Lady Adela?' },
+        { shot: 'herOver', look: { cicely: 'down' }, who: 'cicely', to: 'silas', face: 'wistful', text: 'She came down to the yard last week. I thought she’d come to look at me, the way I used to look at her.' },
+        { look: { cicely: null }, who: 'cicely', to: 'silas', face: 'teary', text: 'She asked how I was. As though it mattered. So I asked her pardon, and she gave it. I don’t know that I would have, in her place.' },
+        { shot: 'himOver', who: 'silas', to: 'cicely', face: 'soft', text: 'That was the harder thing, asking. Harder than anything in this room. I’m glad you did.' } ] },
+      { id: 'letter', label: 'Ask about the letter', beats: [
+        { shot: 'himOver', who: 'silas', to: 'cicely', face: 'calm', text: 'Did the rider say who it’s from?' },
+        { shot: 'herOver', who: 'cicely', to: 'silas', face: 'calm', text: 'A solicitor, in Wendham. He wanted it in your hand and no one else’s, and he looked at me as if I might steal it.' },
+        { look: { cicely: 'letter' }, who: 'cicely', to: 'silas', face: 'shy', text: '…I didn’t.' },
+        { shot: 'himOver', look: { cicely: null }, who: 'silas', to: 'cicely', face: 'caring', text: 'I know. It never crossed my mind.' },
+        { shot: 'herOver', who: 'cicely', to: 'silas', face: 'surprised', text: 'You’ve not even opened it.' },
+        { shot: 'himOver', who: 'silas', to: 'cicely', face: 'soft', text: 'Whatever a solicitor has to say will keep. You’re here now.' } ] },
+    ] } },
+    // (and then she's back to her work)
+    { shot: 'two', who: 'cicely', to: 'silas', face: 'smile', text: 'I’d best get back, sir, before Kit decides they’re all his again.' },
+    { shot: 'herOver', who: 'silas', to: 'cicely', face: 'caring', text: 'Go on, then. And Cicely: if ever you’re not well, you come to me. Letter or no letter.' },
+    { shot: 'himOver', who: 'cicely', to: 'silas', face: 'soft', text: 'I know, sir. …I know.' },
+    { shot: 'exit', clear: true, act: 'walk', by: 'cicely', path: ['front', 'door', 'outside'], look: { silas: 'cicely' } },
+    { act: 'gone', by: 'cicely', pause: 700 },
+    // (alone: the letter, now. He takes it up from where she laid it, breaks the seal, and reads)
+    { shot: 'take', look: { silas: 'letter' }, act: 'walk', by: 'silas', path: ['byDesk', 'front'], toward: 'silas' },
+    { act: 'take', by: 'silas', pause: 400 },
+    { shot: 'open', act: 'open', by: 'silas', pause: 1000 },
+    { act: 'read', by: 'silas' },
+    { click: true },
+    { end: true },
+  ],
+  next: { title: 'The road to the Fenwood', where: 'Your master’s leave, and the way to {hall} (being built)' },
+};
+
+const SCENES = { hall: HALL, office: OFFICE, correction: CORRECTION, aftercare: AFTERCARE, coda: CODA };
 
 // A shot, in the room: its camera and the point it looks at ([x, y, z] each), from the spots (the hall's spots(): { id: { at, yaw } }).
 function shot(scene, name, spots) {
@@ -325,8 +425,8 @@ function shot(scene, name, spots) {
   return { cam: W(s.cam), look: W(s.look) };
 }
 // Everyone who says anything in it, and everyone it names.
-const flat = beats => beats.flatMap(b => [b].concat(b.choose ? b.choose.options.flatMap(o => flat(o.beats)) : []));
+const flat = beats => beats.flatMap(b => [b].concat(b.choose ? b.choose.options.flatMap(o => flat(o.beats)) : [], b.talk ? b.talk.options.flatMap(o => flat(o.beats)) : []));
 const speakers = scene => [...new Set(flat(scene.beats).filter(b => b.who).map(b => b.who))];
 
-root.Prologue = { SCENES, ORDER: ['hall', 'office', 'correction', 'aftercare'], shot, speakers };
+root.Prologue = { SCENES, ORDER: ['hall', 'office', 'correction', 'aftercare', 'coda'], shot, speakers };
 })(typeof window !== 'undefined' ? window : globalThis);

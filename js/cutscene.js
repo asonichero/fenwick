@@ -5,8 +5,16 @@
 //
 //   const cs = Cutscene.create({ stage, room, scene, cast: { id: figure }, ui });  cs.place() (everyone where the scene starts them)
 //   await cs.play(from);  cs.tick(dt) each frame;  cs.stop()
-//   ui: { line({ id, name, text, ms }) → Promise (on to the next when it resolves), fade(on) → Promise, names(map), pause(ms) → Promise (optional),
-//     choose({ id, name, prompt, hint, options: [{ id, label, text }] }) → Promise(option id) }
+//   ui: { line({ id, name, text, ms, hold }) → Promise (on to the next when it resolves; hold 'choices': as soon as it's shown whole, the choices
+//     to come up under it), fade(on) → Promise, names(map), pause(ms) → Promise (optional), choose({ id, name, prompt, hint, options: [{ id, label,
+//     text }] }) → Promise(option id) (a prompt of null: under the line already shown; an option with no text: its label alone), and optional:
+//     sfx(name) (a sound: 'knock', 'paper'), click() → Promise (a cue, and wait for the player), clear() (the dialogue box away), hurry(fn) (a
+//     click or a key, while the letter's being written: all of it, at once) }
+//   A beat can also be: talk (lines of inquiry, in any order, every one of them, before the scene goes on: { prompt, hint, options: [{ id,
+//   label, beats }] }); sfx; click (wait for the player); clear (the last line away); hold: 'choices' (a line the talk's first choices come up
+//   under).
+//   A scene can have a letter (scene.letter): folded, carried in someone's hand (start: { by, side }), laid on something (act lay, at a point),
+//   taken up (take), opened (open: unfolded and held to read) and read (read: the view cut to it, its text written out as if as it's read).
 //   fill(text) → text: the player's name put into the script's lines and names (js/player.js: Player.fill)
 (function (root) {
 'use strict';
@@ -18,6 +26,7 @@ const TYPE_MS = 24;       // (a character of a line, typing out: as the page's b
 function create(o) {
   const { stage, room, scene, cast, ui } = o, fill = o.fill || (t => t), spots = room.spots(), S = {}, names = {};
   for (const k in scene.names) names[k] = fill(scene.names[k]);
+  const ME = scene.me || 'silas';      // (who the player speaks as, in a talk)
   let stopped = false, now = 0, speaking = null, talkUntil = 0; const chosen = Object.assign({}, o.chosen || {});
   const v3 = a => new V3(a[0], a[1], a[2]);
   const spotOf = id => spots[(scene.cast[id] || {}).seat || (scene.cast[id] || {}).mark || id];
@@ -26,7 +35,15 @@ function create(o) {
   for (const id in cast) S[id] = { F: cast[id], c: scene.cast[id] || {}, base: null, look: undefined, auto: null, yaw: 0, pitch: 0, nod: 0, bow: 0, mo0: 0, walk: null, blend: null,
     react: 0.2 + 0.45 * ((id.charCodeAt(0) * 7 + id.length * 13) % 10) / 10, seen: null, seenAt: 0, ph: id.charCodeAt(1) || 1 };      // (each turns to a new speaker after their own moment)
   const keep = s => { const b = s.F.bone; s.base = { spine: b.spine.rotation.clone(), chest: b.chest.rotation.clone(), neck: b.neck.rotation.clone() }; };
-  function seatAt(s, spot) { P.seat(s.F, spot.at, spot.yaw, { seatY: spot.seatY, lean: 0.03, look: 0.06 }); P.arms(s.F, 'clasp'); keep(s); }
+  function seatAt(s, spot) { P.seat(s.F, spot.at, spot.yaw, { seatY: spot.seatY, lean: s.c.arms === 'desk' ? 0.1 : 0.03, look: 0.06 }); if (s.c.arms === 'desk') deskHands(s); else P.arms(s.F, 'clasp'); keep(s); }
+  // (sat at a desk: both hands on it before them, palms down, a forearm's length out; the right a little further, as if at his pen)
+  function deskHands(s) {
+    const F = s.F, sc = P.sc(F), fwd = P.toWorldDir(F, 0, 0, 1), side = P.toWorldDir(F, 1, 0, 0), up = new V3(0, 1, 0), ch = P.W_(F, 'chest'), y = s.c.deskY || 0.765;
+    for (const [sd, sx] of [['L', 1], ['R', -1]]) {
+      const fing = fwd.clone().addScaledVector(side, -sx * 0.35).normalize(), palm = ch.clone().addScaledVector(fwd, (sx > 0 ? 0.34 : 0.38) * sc).addScaledVector(side, sx * 0.16 * sc).setY(y + 0.03);
+      P.reach(F, sd, palm.addScaledVector(fing, -0.075 * sc), side.clone().multiplyScalar(sx).addScaledVector(up, -0.7).normalize(), up.clone().negate(), fing); F.grip(sd, 0.3, 0.05, 0.3);
+    }
+  }
   function standAt(s, at, yaw) {
     P.stand(s.F, at, yaw, { weight: s.c.weight == null ? 0.35 : s.c.weight, look: s.c.arms === 'clasp' ? 0.18 : 0.06 });
     if (s.c.arms) P.arms(s.F, s.c.arms); keep(s);
@@ -61,7 +78,7 @@ function create(o) {
   }
   const head = id => P.W_(S[id].F, 'head');
   // (a thing in the room to look at: scene.points, each from someone's place as the shots are: his plate, say)
-  const point = k => { const q = scene.points && scene.points[k]; if (!q) return null; const sp = spots[q.from], c = Math.cos(sp.yaw), n = Math.sin(sp.yaw), [x, y, z] = q.at; return new V3(sp.at.x + x * c + z * n, y, sp.at.z - x * n + z * c); };
+  const point = k => { if (k === 'letter' && LT) return LT.where(); const q = scene.points && scene.points[k]; if (!q) return null; const sp = spots[q.from], c = Math.cos(sp.yaw), n = Math.sin(sp.yaw), [x, y, z] = q.at; return new V3(sp.at.x + x * c + z * n, y, sp.at.z - x * n + z * c); };
   const yawTo = (from, to) => Math.atan2(to.x - from.x, to.z - from.z);
   const fwdOf = sp => new V3(Math.sin(sp.yaw), 0, Math.cos(sp.yaw));
   const yawOf = F => 2 * Math.atan2(F.root.quaternion.y, F.root.quaternion.w);
@@ -98,6 +115,67 @@ function create(o) {
     return new Promise(res => { s.blend = { A, B, t: 0, ms, done: res }; });
   }
 
+  // ── The letter (scene.letter): a folded packet sealed in red wax, carried in a hand or laid down; and, opened, its sheet, held up to read,
+  // its text (scene.letter.text) written out a stroke at a time ──
+  const LT = scene.letter ? makeLetter(scene.letter) : null;
+  function makeLetter(def) {
+    const paperM = new THREE.MeshStandardMaterial({ color: 0xe9dfc4, roughness: 0.92, side: THREE.DoubleSide }), sealM = new THREE.MeshStandardMaterial({ color: 0x8a1a14, roughness: 0.45 });
+    const packet = new THREE.Group(), pk = new THREE.Mesh(new THREE.BoxGeometry(0.15, 0.004, 0.1), paperM); pk.castShadow = true; packet.add(pk);
+    const seal = new THREE.Mesh(new THREE.CylinderGeometry(0.011, 0.012, 0.003, 16), sealM); seal.position.set(0.012, 0.0032, 0.004); packet.add(seal);
+    // (the sheet: its own canvas, the paper and its folds drawn once, the words over them as far as they're written)
+    const W = 1024, H = 1434, cv = document.createElement('canvas'); cv.width = W; cv.height = H; const c = cv.getContext('2d');
+    const bg = document.createElement('canvas'); bg.width = W; bg.height = H; const b = bg.getContext('2d');
+    if (b.createLinearGradient) { const g = b.createLinearGradient(0, 0, W, H); g.addColorStop(0, '#f1e8d0'); g.addColorStop(1, '#e4d6b4'); b.fillStyle = g; } else b.fillStyle = '#ece0c4';
+    b.fillRect(0, 0, W, H); for (let i = 0; i < 900; i++) { b.fillStyle = `rgba(120,96,60,${0.03 + 0.05 * Math.random()})`; b.fillRect(Math.random() * W, Math.random() * H, 2, 2); }
+    for (const y of [H / 3, 2 * H / 3]) { b.fillStyle = 'rgba(120,96,60,0.14)'; b.fillRect(0, y - 1, W, 2); b.fillStyle = 'rgba(255,255,255,0.25)'; b.fillRect(0, y + 1, W, 2); }      // (where it was folded)
+    b.strokeStyle = 'rgba(120,96,60,0.25)'; b.lineWidth = 6; b.strokeRect(3, 3, W - 6, H - 6);
+    const tex = new THREE.CanvasTexture(cv); tex.anisotropy = 8; if (THREE.sRGBEncoding) tex.encoding = THREE.sRGBEncoding;
+    const sheetM = new THREE.MeshStandardMaterial({ map: tex, emissiveMap: tex, emissive: 0xffffff, emissiveIntensity: 0.05, color: 0xd6cdb8, roughness: 0.95, side: THREE.DoubleSide });      // (lit as paper is: not glowing)
+    const sheet = new THREE.Mesh(new THREE.PlaneGeometry(0.2, 0.28), sheetM);
+    const sc3 = stage.scene; sc3.add(packet); sc3.add(sheet);
+    // (the words laid out on the sheet: each block a paragraph (p), a line to the right (right), or the name signed (sign))
+    const FONT = 'italic 35px Georgia, "Times New Roman", serif', LH = 47, M = 92, lines = [];
+    c.font = FONT; const wide = t => (c.measureText ? c.measureText(t).width : t.length * 17);
+    let y = 120;
+    for (const blk of def.text) {
+      const t = fill(blk.p || blk.right || blk.sign || '');
+      if (blk.gap) { y += blk.gap; continue; }
+      if (blk.right || blk.sign) { lines.push({ s: t, x: W - M, y, align: 'right', sign: !!blk.sign }); y += LH * (blk.sign ? 1.4 : 1); continue; }
+      const words = t.split(' '); let cur = '', first = true;
+      for (const w of words) { const next = cur ? cur + ' ' + w : w; if (wide(next) > W - 2 * M - (first && blk.indent ? 50 : 0) && cur) { lines.push({ s: cur, x: M + (first && blk.indent ? 50 : 0), y }); y += LH; cur = w; first = false; } else cur = next; }
+      if (cur) { lines.push({ s: cur, x: M + (first && blk.indent ? 50 : 0), y }); y += LH; }
+      y += blk.after == null ? LH * 0.45 : blk.after;
+    }
+    const total = lines.reduce((n, l) => n + l.s.length, 0);
+    let shown = -1;
+    function draw(n) {
+      n = Math.max(0, Math.min(total, Math.floor(n))); if (n === shown) return; shown = n;
+      c.drawImage(bg, 0, 0); c.font = FONT; c.textBaseline = 'alphabetic'; let left = n;
+      for (const l of lines) { if (left <= 0) break; const part = l.s.slice(0, left); left -= l.s.length;
+        c.fillStyle = l.sign ? '#1e120a' : '#261810'; c.font = l.sign ? 'italic 46px Georgia, serif' : FONT;
+        if (l.align === 'right') { c.textAlign = 'left'; c.fillText(part, l.x - wide(l.s), l.y); } else { c.textAlign = 'left'; c.fillText(part, l.x, l.y); } }
+      tex.needsUpdate = true;
+    }
+    const L = { packet, sheet, total, holder: null, open: false, write: null, draw, lines,
+      unwiden() { if (this.fov0 != null) { stage.camera.fov = this.fov0; stage.camera.updateProjectionMatrix(); this.fov0 = null; } },
+      reset() { this.unwiden(); const st = def.start || {}; this.open = false; this.write = null; packet.visible = true; sheet.visible = false; this.holder = st.by ? { id: st.by, side: st.side || 'R' } : null; draw(0); },
+      where() { return (this.open ? sheet : packet).getWorldPosition(new V3()); } };
+    return L;
+  }
+  const palmOf = (F, sd) => { const h = P.W_(F, 'hand' + sd), d = h.clone().sub(P.W_(F, 'foreArm' + sd)).normalize(); return h.addScaledVector(d, 0.07 * P.sc(F)); };
+  // (where it is, each frame: in the hand holding it, or, open, between the two hands holding it up, turned to the face reading it)
+  function placeLetter() {
+    const h = LT.holder; if (!h || !S[h.id]) return; const F = S[h.id].F;
+    if (LT.open) { const m = palmOf(F, 'L').lerp(palmOf(F, 'R'), 0.5); LT.sheet.position.copy(m).addScaledVector(P.toWorldDir(F, 0, 0, 1), -0.012); LT.sheet.lookAt(P.W_(F, 'head')); LT.sheet.updateMatrixWorld(true); return; }
+    LT.packet.position.copy(palmOf(F, h.side)); LT.packet.quaternion.copy(P.yawQ(yawOf(F))).multiply(new THREE.Quaternion().setFromAxisAngle(new V3(1, 0, 0), h.tilt == null ? -0.9 : h.tilt)); LT.packet.updateMatrixWorld(true);
+  }
+  // (a hand to a point: the palm on it, the fingers along `fing`, the elbow out and down)
+  function handTo(F, sd, at, fing, palmN) {
+    const sx = sd === 'L' ? 1 : -1, side = P.toWorldDir(F, 1, 0, 0), up = new V3(0, 1, 0);
+    P.reach(F, sd, at.clone().addScaledVector(fing, -0.075 * P.sc(F)), side.clone().multiplyScalar(sx).addScaledVector(up, -0.8).normalize(), palmN || up.clone().negate(), fing);
+  }
+  const lieOn = (at, yaw) => { LT.holder = null; LT.packet.position.copy(at); LT.packet.quaternion.copy(P.yawQ(yaw + 0.2)); LT.packet.updateMatrixWorld(true); };
+
   // ── The acts ──
   const ACTS = {
     // Adela, through the archway from the passage to her mark: a few steps, then still, her hands clasped, her eyes down.
@@ -121,6 +199,50 @@ function create(o) {
         F.grip('L', 0.55, 0.05, 0.5); F.grip('R', 0.55, 0.05, 0.5);
       }, b.ms || 1100, fast);
     },
+    // ── The letter: laid on something (b.at, a point) by whoever has it; taken up from where it lies; opened and held up to read; read ──
+    lay(fast, b) {
+      const s = S[b.by], F = s.F, at = point(b.at), yaw = yawOf(F), pos = F.root.position.clone().setY(0);
+      if (fast) { lieOn(at, yaw); standAt(s, pos, yaw); return null; }
+      LT.holder = { id: b.by, side: 'R', tilt: -0.15 };
+      return blendTo(s, () => { standAt(s, pos, yaw); s.F.bone.spine.rotation.x += 0.16; s.F.bone.chest.rotation.x += 0.08; F.root.updateMatrixWorld(true);
+        handTo(F, 'R', at.clone().setY(at.y + 0.01), P.toWorldDir(F, 0, -0.25, 1).normalize()); F.grip('R', 0.2, 0.05, 0.2); }, 1000)
+        .then(() => { lieOn(at, yaw); return blendTo(s, () => standAt(s, pos, yaw), 800); });
+    },
+    take(fast, b) {
+      const s = S[b.by], F = s.F, at = LT.where(), yaw = yawOf(F), pos = F.root.position.clone().setY(0);
+      const hold = () => { standAt(s, pos, yaw); handTo(F, 'R', P.W_(F, 'chest').addScaledVector(P.toWorldDir(F, 0, 0, 1), 0.3 * P.sc(F)).addScaledVector(new V3(0, 1, 0), -0.12), P.toWorldDir(F, -0.4, 0.3, 1).normalize(), P.toWorldDir(F, 0.6, 0.6, 0).normalize()); F.grip('R', 0.45, 0.05, 0.4); };
+      if (fast) { LT.holder = { id: b.by, side: 'R', tilt: -1.2 }; hold(); keep(s); return null; }
+      return blendTo(s, () => { standAt(s, pos, yaw); s.F.bone.spine.rotation.x += 0.2; s.F.bone.chest.rotation.x += 0.1; F.root.updateMatrixWorld(true);
+        handTo(F, 'R', at.clone().setY(at.y + 0.012), P.toWorldDir(F, 0, -0.25, 1).normalize()); F.grip('R', 0.25, 0.05, 0.25); }, 900)
+        .then(() => { LT.holder = { id: b.by, side: 'R', tilt: -1.2 }; return blendTo(s, hold, 800); });
+    },
+    // (the seal broken and the sheet unfolded: held up in both hands at its edges, before the chest, tipped back a little, to read)
+    open(fast, b) {
+      const s = S[b.by], F = s.F, yaw = yawOf(F), pos = F.root.position.clone().setY(0);
+      if (!fast && ui.sfx) ui.sfx('paper');
+      LT.open = true; LT.packet.visible = false; LT.sheet.visible = true; LT.holder = { id: b.by }; s.look = 'letter';
+      return blendTo(s, () => {
+        standAt(s, pos, yaw); const sc = P.sc(F), fwd = P.toWorldDir(F, 0, 0, 1), side = P.toWorldDir(F, 1, 0, 0), up = new V3(0, 1, 0);
+        const C = P.W_(F, 'chest').addScaledVector(fwd, 0.42 * sc).addScaledVector(up, 0.05);
+        // (each hand at a side edge, a little below the middle: the fingers along it, behind the page, the thumb before it)
+        for (const [sd, sx] of [['L', 1], ['R', -1]]) handTo(F, sd, C.clone().addScaledVector(side, sx * 0.07).addScaledVector(up, -0.03), fwd.clone().multiplyScalar(0.35).addScaledVector(side, -sx * 0.75).addScaledVector(up, 0.3).normalize(), side.clone().multiplyScalar(-sx).addScaledVector(fwd, -0.45).normalize());
+        F.grip('L', 0.12, 0.25, 0.3); F.grip('R', 0.12, 0.25, 0.3);
+      }, fast ? 0 : 1100, fast);
+    },
+    // (the view cut to it, close, as the one reading it sees it; and its text written out. A click or a key: all of it at once)
+    read(fast, b) {
+      if (ui.clear) ui.clear(); placeLetter();
+      // (close, between his face and the page, a little wider than the camera's usual, so the whole sheet's in view; put back after)
+      const C = LT.sheet.getWorldPosition(new V3()), n = new V3(0, 0, 1).applyQuaternion(LT.sheet.getWorldQuaternion(new THREE.Quaternion())), cam = stage.camera;
+      if (LT.fov0 == null) LT.fov0 = cam.fov; cam.fov = b.fov || 54; cam.updateProjectionMatrix();
+      stage.go(C.clone().addScaledVector(n, b.dist || 0.3), C, 0);
+      if (fast) { LT.draw(LT.total); return null; }
+      return new Promise(res => { LT.write = { n: 0, rate: b.rate || 38, done: res }; if (ui.hurry) ui.hurry(() => { if (LT.write) LT.write.n = LT.total; }); });
+    },
+    // (turned where they stand, to someone or a spot (b.toward))
+    turn(fast, b) { const s = S[b.by]; return after(s, () => { const at = s.F.root.position.clone().setY(0); return blendTo(s, () => standAt(s, at, faceYaw(at, b.toward, null, b.by)), b.ms || 800, fast); }); },
+    // (gone: off through the door, out of the scene)
+    gone(fast, b) { const s = S[b.by]; return after(s, () => { s.F.root.visible = false; }); },
     // The master nods to Silas: go on.
     nod() { S.master.nod = 1; return null; },
     // Cicely turns in her chair to Young Thornleigh, and lays her hand on his arm.
@@ -169,6 +291,7 @@ function create(o) {
   // ── Each frame ──
   function tick(dt) {
     now += dt * 1000;
+    if (LT && LT.write) { const w = LT.write; w.n = Math.min(LT.total, w.n + w.rate * dt); LT.draw(w.n); if (w.n >= LT.total) { LT.write = null; w.done(); } }
     for (const id in S) {
       const s = S[id], F = s.F; if (!F.root.visible) continue;      // (off: not there at all, cloth included, till they come on)
       if (s.walk && s.walk.gait) { const w = s.walk, r = w.gait.step(dt); w.d = r.d;
@@ -210,16 +333,19 @@ function create(o) {
       else F.exprTo.mo = s.mo0;
       F.root.updateMatrixWorld(true); F.tick(dt);
     }
+    if (LT) placeLetter();
   }
   const face = (id, f) => { const s = S[id]; if (!s || !f) return; s.F.setExpr(f); s.mo0 = s.F.exprTo.mo || 0; };
   function shotTo(name, ms) { const sh = root.Prologue.shot(scene, name, spots); if (sh) stage.go(v3(sh.cam), v3(sh.look), ms || 0); }
 
   // ── A beat ──
-  async function beat(b, fast) {
+  async function beat(b, fast, hold) {
     if (b.name) { for (const k in b.name) names[k] = fill(b.name[k]); if (ui.names) ui.names(names); }
     if (b.look) for (const id in b.look) if (S[id]) S[id].look = b.look[id] === null ? undefined : b.look[id];
     if (b.listen) for (const id in b.listen) face(id, b.listen[id]);
     let wait = null;
+    if (b.sfx && !fast && ui.sfx) ui.sfx(b.sfx);
+    if (b.clear && ui.clear) ui.clear();      // (what was last said, away: no one's speaking now)
     if (b.act && ACTS[b.act]) wait = ACTS[b.act](fast, b);
     if (b.wait === false) wait = null;      // (done while the line's said)
     if (b.shot) { shotTo(b.shot, b.glide); if (b.push && !fast) { const to = b.push, ms = b.ms || 9000; setTimeout(() => { if (!stopped) shotTo(to, ms); }, 30); } }
@@ -230,7 +356,7 @@ function create(o) {
       face(b.who, b.face);
       for (const id in S) S[id].auto = id === b.who ? (b.to || null) : (S[id].c.demure && b.to !== id ? null : b.who);
       const text = fill(b.text); speaking = b.who; talkUntil = now + text.length * TYPE_MS + 150;
-      await ui.line({ id: b.who, name: names[b.who] || b.who, text, ms: text.length * TYPE_MS });
+      await ui.line({ id: b.who, name: names[b.who] || b.who, text, ms: text.length * TYPE_MS, hold: b.hold || hold });
       speaking = null;
     }
     // (a choice: the player picks what Silas says (shown on the page: ui.choose), and its beats play; skipped past, it's the one chosen before,
@@ -242,13 +368,24 @@ function create(o) {
       const opt = C.options.find(q => q.id === id) || C.options[0];
       for (const x of opt.beats) { if (stopped) return; await beat(x, fast); }
     }
+    // (lines of inquiry: the player takes them in any order, each once, and the scene goes on only when every one's been taken; each one's last
+    // line has the choices left come up under it. Skipped past: none of it)
+    if (b.talk && !fast) {
+      const T = b.talk; let left = T.options.slice(), first = true;
+      while (left.length && !stopped) {
+        const id = await ui.choose({ id: ME, name: names[ME], prompt: first && T.prompt ? fill(T.prompt) : null, hint: first ? T.hint || '' : '', options: left.map(q => ({ id: q.id, label: fill(q.label) })) });
+        const opt = left.find(q => q.id === id) || left[0]; left = left.filter(q => q !== opt); first = false;
+        for (const [i, x] of opt.beats.entries()) { if (stopped) return; await beat(x, fast, i === opt.beats.length - 1 && left.length ? 'choices' : undefined); }
+      }
+    }
     if (b.pause && !stopped) await (ui.pause ? ui.pause(b.pause) : sleep(b.pause));
+    if (b.click && !fast && !stopped) await (ui.click ? ui.click() : sleep(2500));
     if (b.end) await ui.fade(true);
   }
   // Played from the start (or from beat `from`, everything before it done at once: who's where, what they're called, what they look like).
   async function play(from) {
     from = from || 0; stopped = false;
-    for (const id in S) place(id);
+    for (const id in S) place(id); if (LT) LT.reset();
     for (let i = 0; i < from && i < scene.beats.length; i++) await beat(scene.beats[i], true);
     if (ui.names) ui.names(names);
     for (let i = from; i < scene.beats.length; i++) { if (stopped) return false; await beat(scene.beats[i], false); }
@@ -258,10 +395,11 @@ function create(o) {
   // of sight; so when they come on, nothing's to settle, and nothing waits on it)
   function prewarm() {
     for (const id in S) { const s = S[id], c = s.c; if (!c.off || !c.enter) continue;
-      const sp = spotOf(id), from = sp.at.clone().addScaledVector(fwdOf(sp), -(c.enter.back || 1.6));
-      standAt(s, from, sp.yaw); s.F.root.visible = true; s.F.tick(1 / 30); s.F.tick(1 / 30); s.F.root.visible = false; }
+      const sp = spotOf(id), from = c.enter.from ? spots[c.enter.from].at.clone() : sp.at.clone().addScaledVector(fwdOf(sp), -(c.enter.back || 1.6));
+      standAt(s, from, c.enter.from ? spots[c.enter.from].yaw : sp.yaw); s.F.root.visible = true; s.F.tick(1 / 30); s.F.tick(1 / 30); s.F.root.visible = false; }
   }
-  return { play, tick, prewarm, place: () => { for (const id in S) place(id); if (scene.start && scene.start.door != null && room.door) room.door.set(scene.start.door); }, stop: () => { stopped = true; }, get names() { return names; }, chosen, S, spots, shotTo };
+  return { play, tick, prewarm, place: () => { for (const id in S) place(id); if (LT) LT.reset(); if (scene.start && scene.start.door != null && room.door) room.door.set(scene.start.door); },
+    dispose() { if (LT) { LT.unwiden(); stage.scene.remove(LT.packet); stage.scene.remove(LT.sheet); } }, stop: () => { stopped = true; }, get names() { return names; }, chosen, S, spots, shotTo };
 }
 
 root.Cutscene = { create, TYPE_MS };

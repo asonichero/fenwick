@@ -158,7 +158,7 @@ async function talkThrough(steps, order) {
 }
 
 test('the aftercare follows the correction, in his office; ended by the player, or by her word: a conversation for each', () => {
-  assert.deepEqual(Prologue.ORDER, ['hall', 'office', 'correction', 'aftercare']);
+  assert.deepEqual(Prologue.ORDER.slice(0, 4), ['hall', 'office', 'correction', 'aftercare']);
   assert.equal(AC.room, 'office'); assert.ok(AC.talk.done && AC.talk.word);
   const faces = new Set(['teary', 'crying', 'sad', 'wistful', 'surprised', 'soft', 'calm', 'caring', 'concerned']);
   const walk = steps => { for (const s of steps) { if (s.choose) { for (const o of s.choose) { assert.ok(o.label); walk(o.then || []); } continue; }
@@ -196,4 +196,58 @@ test('after her word, the same offer, never as consolation: he owns it went too 
   // (nothing in it that sounds like a reward for what was borne)
   const every = (await talkThrough(W, ['Ask how she is', 'Say why it mattered', 'Tell her she’s free'])).text;
   assert.ok(!/earned|deserve|reward|for what you bore|make it up/i.test(every.replace(/Nothing makes up for/, '')), 'no consolation');
+});
+
+// ── Coda: the letter: some weeks on, by day; Cicely, in the goose girl's dress, brings it; what he asks her, all of it, in any order; then he
+// reads it, alone ──
+const CO = Prologue.SCENES.coda, CODA_ACTS = ACTS.concat(['lay', 'take', 'open', 'read', 'turn', 'gone']);
+const allBeats = beats => beats.flatMap(b => [b].concat(b.talk ? b.talk.options.flatMap(o => allBeats(o.beats)) : []));
+
+test('the coda: his office by day; him at his desk, her in the goose girl’s dress, coming in from the yard; every beat something to see or hear', () => {
+  const o = Office.build(new THREE.Scene()), S = o.spots();
+  assert.equal(CO.room, 'office'); assert.equal(CO.day, true); assert.equal(typeof o.setDay, 'function'); o.setDay(true); assert.equal(o.day, true); o.setDay(false);
+  assert.deepEqual(Object.keys(CO.cast).sort(), ['cicely', 'silas']); assert.equal(CO.cast.cicely.spec[2], 'goose', 'the goose girl’s plain dress now');
+  assert.equal(CO.cast.silas.seat, 'silas', 'at his desk'); assert.ok(CO.cast.cicely.off && CO.cast.cicely.enter.from === 'outside' && S.outside, 'in from the yard');
+  assert.equal(Prologue.ORDER[Prologue.ORDER.length - 1], 'coda', 'after the aftercare'); assert.match(Prologue.SCENES.aftercare.next.title, /Coda: the letter/);
+  for (const [i, b] of allBeats(CO.beats).entries()) {
+    assert.ok(b.who || b.shot || b.act || b.pause || b.end || b.look || b.sfx || b.talk || b.click, 'beat ' + i);
+    if (b.who) { assert.ok(CO.cast[b.who], b.who); assert.ok(b.text, 'beat ' + i); assert.ok(!b.face || Figure.EXPRS[b.face], b.face); assert.ok(!b.to || CO.cast[b.to], b.to); }
+    if (b.shot) assert.ok(CO.shots[b.shot], b.shot); if (b.act) assert.ok(CODA_ACTS.includes(b.act), b.act);
+    if (b.act === 'walk') for (const k of b.path) assert.ok(S[k], 'spot ' + k);
+    if (b.toward) assert.ok(CO.cast[b.toward] || S[b.toward], b.toward);
+    if (b.look) for (const id in b.look) { const v = b.look[id]; assert.ok(v === null || v === 'down' || v === 'letter' || CO.cast[v] || CO.points[v], v); }
+  }
+  for (const name in CO.shots) { const sh = Prologue.shot(CO, name, S), [x, y, z] = sh.cam, B = o.bounds; assert.ok(x > B.minX - 0.1 && x < B.maxX + 0.1 && z > B.minZ - 0.1 && z < B.maxZ + 0.1 && y > 0.8 && y < B.ht, name); }
+  assert.ok(CO.beats[CO.beats.length - 1].end); assert.ok(CO.next && CO.next.title);
+});
+
+test('the coda in order: a knock, “Come in”; she lays the letter down; he leaves it and comes round to her; the talk; she goes; he takes it up, opens it, reads', () => {
+  const i = f => CO.beats.findIndex(f), at = (k, v) => i(b => b[k] === v);
+  const knock = at('sfx', 'knock'), come = i(b => /Come in/.test(b.text || '')), lay = at('act', 'lay'), stand = i(b => b.act === 'stand' && b.by === 'silas'), talk = i(b => b.talk);
+  const gone = at('act', 'gone'), take = at('act', 'take'), open = at('act', 'open'), read = at('act', 'read'), click = i(b => b.click);
+  for (const [n, v] of Object.entries({ knock, come, lay, stand, talk, gone, take, open, read, click })) assert.ok(v >= 0, n);
+  assert.ok(knock < come && come < lay && lay < stand && stand < talk && talk < gone && gone < take && take < open && open < read && read < click, 'in order');
+  assert.ok(CO.beats[lay].at && CO.points[CO.beats[lay].at], 'laid on the desk');
+  // (he leaves it where it lies: it'll keep)
+  assert.match(CO.beats.slice(stand, talk).map(b => b.text || '').join(' '), /keep/i);
+});
+
+test('the coda’s talk: how she’s keeping, the geese, Lady Adela, the letter; every one before it closes; and how she is matters more to him than the letter', () => {
+  const T = CO.beats.find(b => b.talk).talk;
+  assert.deepEqual(T.options.map(o => o.id), ['keeping', 'geese', 'adela', 'letter']);
+  assert.ok(T.options.every(o => !o.end && o.beats.length >= 3), 'no way out but through all of them');
+  const before = CO.beats[CO.beats.findIndex(b => b.talk) - 1]; assert.equal(before.hold, 'choices', 'the choices under her answer');
+  const his = allBeats(CO.beats).filter(b => b.who === 'silas').map(b => b.text).join('\n'), hers = allBeats(CO.beats).filter(b => b.who === 'cicely').map(b => b.text).join('\n');
+  assert.match(his, /best news I’ve had/); assert.match(his, /You’re here now/); assert.match(his, /Letter or no letter/); assert.match(his, /keep a while longer/);
+  // (and better for what was done: she sleeps, she's good at her work, she asked her mistress's pardon, she didn't steal it)
+  assert.match(hers, /I sleep/); assert.match(hers, /a way with them/); assert.match(hers, /asked her pardon/); assert.match(hers, /…I didn’t\./);
+  // (then she's back to her work, and gone)
+  const after = CO.beats.slice(CO.beats.findIndex(b => b.talk) + 1); assert.match(after[0].text, /get back/); assert.ok(after.some(b => b.act === 'walk' && b.by === 'cicely' && b.path[b.path.length - 1] === 'outside'));
+});
+
+test('the letter: a solicitor’s, the great-uncle dead, the Hall (the player’s surname) his, in the Fenwood; carried in by her; written out on the page as it’s read', () => {
+  const L = CO.letter, text = L.text.map(t => t.p || t.right || t.sign || '').join(' ');
+  assert.equal(L.start.by, 'cicely'); assert.match(text, /great-uncle/); assert.match(text, /\{hall\}/); assert.match(text, /Fenwood/); assert.match(text, /leaves to you/);
+  assert.ok(L.text.some(t => t.sign), 'signed'); assert.ok(L.text.filter(t => t.p).length >= 4);
+  assert.match(window.Player ? window.Player.fill(text) : text.replace(/\{hall\}/g, 'Fenwick Hall'), /Fenwick Hall/);
 });

@@ -61,6 +61,9 @@ body.film #view { cursor: pointer; }
 #say .hintc { font-size: 12px; color: var(--dim); margin-top: 8px; } #say .hintc:empty { display: none; }
 #say .next { display: none; position: absolute; right: 14px; bottom: 8px; font-size: 13px; color: var(--amber); animation: nudge 1.1s ease-in-out infinite; pointer-events: none; }
 @keyframes nudge { 0%, 100% { opacity: 0.35; transform: translateX(0); } 50% { opacity: 1; transform: translateX(3px); } }
+/* (the cue that waits for the player: over the letter, read) */
+#cue { position: fixed; right: calc(20px + env(safe-area-inset-right)); bottom: calc(20px + env(safe-area-inset-bottom)); z-index: 7; font: 15px var(--serif); color: var(--amber); background: rgba(26, 20, 16, 0.72); border: 1px solid var(--line); border-radius: 12px; padding: 6px 14px; opacity: 0; pointer-events: none; transition: opacity 0.6s; }
+#cue.on { opacity: 1; animation: nudge 1.1s ease-in-out infinite; }
 #skip { position: fixed; top: calc(12px + env(safe-area-inset-top)); right: calc(12px + env(safe-area-inset-right)); z-index: 7; display: none; font-size: 13px; padding: 5px 12px; background: rgba(26, 20, 16, 0.7); }
 /* letterbox bars while the scene plays */
 .bar { position: fixed; left: 0; right: 0; height: 0; background: #05070a; z-index: 3; transition: height 1.2s ease; } #barT { top: 0; } #barB { bottom: 0; }
@@ -120,6 +123,7 @@ body.corr #tut, body.corr #ctl { display: block; }
 <div id="end"><div class="k">Next</div><h2 id="endT"></h2><p id="endW"></p><div class="row"><button id="again">Play the scene again</button><button id="toTitle">To the title</button></div></div>
 <div id="dock"><div id="say" class="panel"><div class="who" id="sayWho"></div><div class="txt" id="sayTxt"></div><div class="choices" id="choices"></div><div class="hintc" id="chooseHint"></div><div class="next" id="sayNext">▸</div></div></div>
 <button id="skip">Skip scene</button>
+<div id="cue">Go on ▸</div>
 <button id="menuBtn" title="Menu (Esc)" aria-label="Menu">☰</button>
 <div id="menuVeil"></div>
 <div id="menu" class="panel" role="dialog" aria-label="Menu">
@@ -181,7 +185,9 @@ const keep = (k, v) => { try { const o = kept(); o[k] = v; localStorage.setItem(
 // ── The cast: everyone any scene lists, made once ──
 let cast = null, cs = null;
 const specOf = s => s[0] === 'man' ? Cast.manSpec(s[1]) : s[0] === 'silas' ? Cast.squireSpec() : Cast.figureSpec(s[1], 'f', s[2]);
-const castOf = S => { const o = {}; for (const id in cast) { if (S.cast[id]) o[id] = cast[id]; else cast[id].root.visible = false; } return o; };
+// (made once for each person in each outfit they wear: Cicely in Adela's gown, and weeks on in the goose girl's dress)
+const keyOf = (id, spec) => id + '|' + spec.join(',');
+const castOf = S => { const o = {}; for (const k in cast) cast[k].root.visible = false; for (const id in S.cast) o[id] = cast[keyOf(id, S.cast[id].spec)]; return o; };
 // (the bar: the models' bytes as they come in, three quarters of it; then each figure made, and the rest, a step each. Until the server's
 // said how big a file is, it's reckoned at about its size)
 const SIZES = { 'fenwick_f.glb': 11.8e6, 'fenwick_m.glb': 7.0e6, 'fenwick_hair.glb': 6.3e6 }, got = {};
@@ -191,8 +197,8 @@ const fetched = (url, n, tot) => { const k = url.split('/').pop(); got[k] = { n,
 const frame = () => new Promise(r => requestAnimationFrame(() => setTimeout(r, 0)));      // (a moment for the bar to be drawn, between the steps that hold the page)
 const ready = Promise.all([Figure.preload(undefined, fetched), Gait.load().catch(e => console.warn('no walking clips', e))]).then(async () => {
   bar(0.75, 'Dressing them…'); await frame();
-  const ids = []; for (const k of ORDER) for (const id in SCENES[k].cast) if (!ids.find(x => x[0] === id)) ids.push([id, SCENES[k].cast[id].spec]);
-  cast = {}; for (const [i, [id, spec]] of ids.entries()) { const f = Figure.make(specOf(spec)); scene.add(f.root); cast[id] = f; bar(0.75 + 0.17 * (i + 1) / ids.length); await frame(); }
+  const ids = []; for (const k of ORDER) for (const id in SCENES[k].cast || {}) { const sp = SCENES[k].cast[id].spec; if (!ids.find(x => x[0] === keyOf(id, sp))) ids.push([keyOf(id, sp), sp]); }
+  cast = {}; for (const [i, [key, spec]] of ids.entries()) { const f = Figure.make(specOf(spec)); scene.add(f.root); cast[key] = f; bar(0.75 + 0.17 * (i + 1) / ids.length); await frame(); }
   // (everyone in their places from the first, behind the title: never left standing where they were made, in the table)
   bar(0.93, 'Setting the table…'); await frame();
   cs = Cutscene.create({ stage, room, scene: SC, cast: castOf(SC), ui, fill: Player.fill });
@@ -274,11 +280,16 @@ function choose({ name, prompt, hint, options }) {
     picking = options.map(o => () => pick(o.id)); window.__choose = picking;
   });
 }
-const hideLine = () => { $('say').style.display = 'none'; $('choices').innerHTML = ''; $('chooseHint').textContent = ''; };
+const hideLine = () => { $('say').style.display = 'none'; $('choices').innerHTML = ''; $('chooseHint').textContent = ''; $('cue').classList.remove('on'); };
 // (over the picture: black, dim (the still behind the title and the cards), or clear)
 function shade(level, quick) { const b = $('black'); b.classList.toggle('quick', !!quick); b.classList.toggle('dim', level === 'dim'); b.classList.toggle('off', level === 'clear'); return new Promise(r => setTimeout(r, level === 'clear' ? 300 : quick ? 650 : 1450)); }
 const black = (on, quick) => shade(on ? 'black' : 'clear', quick);
-const ui = { line, choose, chose: keep, fade: async on => { hideLine(); await black(on, true); }, names() {}, pause: ms => new Promise(r => { if (!still) setTimeout(r, ms); }) };      // (?at: held on it)
+const ui = { line, choose, chose: keep, fade: async on => { hideLine(); await black(on, true); }, names() {}, pause: ms => new Promise(r => { if (!still) setTimeout(r, ms); }),      // (?at: held on it)
+  sfx: k => { if (still || !window.GameAudio || !GameAudio.ctx) return; if (k === 'knock') GameAudio.knock(); else if (k === 'paper') GameAudio.paper(); },
+  clear: () => hideLine(),
+  // (the player's moment: a cue in the corner, and on at a click or a key)
+  click: () => new Promise(res => { if (still) return; $('cue').classList.add('on'); advance = () => { advance = null; $('cue').classList.remove('on'); res(); }; }),
+  hurry: fn => { if (still) return; advance = () => { advance = null; fn(); }; } };
 
 // ── The cards, told over the still before the first scene ──
 function card(c) {
@@ -304,12 +315,12 @@ async function run(from, cards, start) {
   if (my !== runId) return;
   playing = true; $('skip').style.display = still ? 'none' : 'block'; document.body.classList.add('film');
   for (let i = ORDER.indexOf(start), f = from || 0; i < ORDER.length; i++, f = 0) {
-    if (cs) cs.stop();
-    stage.hold(false); SC = SCENES[ORDER[i]]; showRoom(SC.room);
+    if (cs) { cs.stop(); if (cs.dispose) cs.dispose(); }
+    stage.hold(false); SC = SCENES[ORDER[i]]; showRoom(SC.room); if (room.setDay) room.setDay(!!SC.day);      // (by day, or by night)
     if (SC.room === 'office' && !SC.phases) ROOMS.office.setChair('desk');      // (his chair at his desk again, for the scene that has it there)
     if (SC.phases) { lastHow = await correction(my); if (my !== runId) return; continue; }      // (the correction: and on, through black, to its aftercare)
     if (SC.talk) { await aftercare(my, lastHow); if (my !== runId) return; continue; }      // (the aftercare and the offer: the last there is, yet)
-    cs = Cutscene.create({ stage, room, scene: SC, cast: castOf(SC), ui, fill: Player.fill, chosen: kept() }); window.cs = cs;
+    cs = Cutscene.create({ stage, room, scene: SC, cast: castOf(SC), ui, fill: Player.fill, chosen: kept() }); window.cs = cs; cs.prewarm();
     const done = cs.play(f);
     black(false);
     await done;
@@ -321,7 +332,7 @@ async function run(from, cards, start) {
 }
 async function finish() {
   await black(true, true); hideLine();
-  $('endT').textContent = SC.next.title; $('endW').textContent = SC.next.where; $('end').classList.add('on');
+  $('endT').textContent = Player.fill(SC.next.title); $('endW').textContent = Player.fill(SC.next.where); $('end').classList.add('on');
 }
 function skip() { if (afterSkip) return afterSkip(); if (!playing || !cs || document.body.classList.contains('corr')) return; cs.stop(); if (picking) picking[0](); if (advance) advance(); if (advance) advance(); }
 
