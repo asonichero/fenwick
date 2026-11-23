@@ -241,7 +241,8 @@ function build(scene) {
     const at = (k, x, z) => new V3(x, 0, z).applyMatrix4(pieces[k].g.matrixWorld).setY(0), sy = L.settle.ry || 0;
     return { group: G, private: true, bounds, sideOf, sidesAt, spots: {
       bench: { at: new V3(L.chairOutMark.x, 0, L.chairOutMark.z), yaw: L.chairOutMark.ry || 0, turn: 0, seatY: 0.49 },
-      after: { at: at('settle', 0.3, 0.06), yaw: sy, seatY: 0.49, beside: at('settle', -0.3, 0.06) },
+      // (Silas at the settle's south end, she beside him at his left, toward the north: his left arm round her, as the engine sits them)
+      after: { at: at('settle', -0.3, 0.06), yaw: sy, seatY: 0.49, beside: at('settle', 0.3, 0.06) },
       wall: { at: at('desk', 0, DD / 2 + 0.85), yaw: (L.desk.ry || 0) + Math.PI, support: { kind: 'edge', y: DH + 0.01, d: 0.85, bend: 0.95, lines: 'writing' } },
       watch: [], corner: { at: new V3(X1 - 0.4, 0, Z1 - 0.6), yaw: Math.PI } } };
   };
