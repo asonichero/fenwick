@@ -10,6 +10,7 @@
 const THREE = root.THREE, V3 = THREE.Vector3, P = root.Poses;
 const KEYS = { w: 'f', W: 'f', ArrowUp: 'f', s: 'b', S: 'b', ArrowDown: 'b', a: 'l', A: 'l', ArrowLeft: 'l', d: 'r', D: 'r', ArrowRight: 'r' };
 const R0 = 0.24;      // (how much room he takes: a circle this wide about his feet)
+const SIDE = 0.42;      // (the view's centre, this far to his right: over his shoulder)
 
 function create(o) {
   const { stage, room, figure: F, ui } = o, things = o.things || [], cam = stage.camera, ctl = stage.controls;
@@ -36,14 +37,15 @@ function create(o) {
     pos.copy(at).setY(0); yaw = y || 0; on = true; held = false; busy = false; near = null; moving = false;
     gait = root.Gait && root.Gait.ready ? root.Gait.roam(F, { style: o.style || 'silas' }) : null;
     F.root.visible = true; place(at, y);
-    ctl.enabled = true; o.minD = ctl.minDistance; o.maxD = ctl.maxDistance; ctl.minDistance = 1.2; ctl.maxDistance = 5;
+    ctl.enabled = true; o.minD = ctl.minDistance; o.maxD = ctl.maxDistance; ctl.minDistance = 0.3; ctl.maxDistance = 5;      // (near, as a wall may bring it)
     addEventListener('keydown', onDown); addEventListener('keyup', onUp); addEventListener('blur', onBlur);
   }
-  // (set down here, facing so; the view behind him and a little above, looking at his shoulders: the player's to turn from there)
+  // (set down here, facing so; the view over his right shoulder, behind him and a little above, so he's to one side of what's ahead: the
+  // player's to turn from there)
   function place(at, y) {
     pos.copy(at).setY(0); if (y != null) yaw = y; fade = null; stand();
-    const fwd = new V3(Math.sin(yaw), 0, Math.cos(yaw)), tgt = pos.clone().add(new V3(0, 1.45, 0));
-    stage.go(tgt.clone().addScaledVector(fwd, -2.6).add(new V3(0, 0.55, 0)), tgt, 0); keepView();
+    const fwd = new V3(Math.sin(yaw), 0, Math.cos(yaw)), rt = new V3(-fwd.z, 0, fwd.x), tgt = pos.clone().add(new V3(0, 1.45, 0)).addScaledVector(rt, SIDE);
+    stage.go(tgt.clone().addScaledVector(fwd, -3.0).add(new V3(0, 0.5, 0)), tgt, 0); keepView();
   }
   // (the view kept within the rooms: drawn in along its line to him if it would be through a wall, and under the ceiling)
   const inRooms = (x, z, m) => W.areas.some(a => inRect(a, x, z, m)) || W.doorways.some(d => inRect(d, x, z, 0));
@@ -52,9 +54,11 @@ function create(o) {
     const t = ctl.target, c = cam.position;
     if (!inRooms(c.x, c.z, 0.12)) { let lo = 0, hi = 1; for (let i = 0; i < 12; i++) { const m = (lo + hi) / 2; if (inRooms(t.x + (c.x - t.x) * m, t.z + (c.z - t.z) * m, 0.12)) lo = m; else hi = m; } c.set(t.x + (c.x - t.x) * lo, t.y + (c.y - t.y) * lo, t.z + (c.z - t.z) * lo); }
     const top = ceilAt(c.x, c.z) - 0.25; if (c.y > top) c.y = top;
+    // (drawn in so close it would be inside him: he's not shown till it's back out)
+    const hx = c.x - pos.x, hz = c.z - pos.z; F.root.visible = Math.hypot(hx, hz) > 0.55 || c.y > pos.y + 2.1;
   }
   function stop() {
-    on = false; for (const k in keys) keys[k] = 0; if (ui.prompt) ui.prompt(null);
+    on = false; for (const k in keys) keys[k] = 0; if (ui.prompt) ui.prompt(null); if (F) F.root.visible = true;
     removeEventListener('keydown', onDown); removeEventListener('keyup', onUp); removeEventListener('blur', onBlur);
     if (o.minD != null) { ctl.minDistance = o.minD; ctl.maxDistance = o.maxD; } ctl.enabled = false;
   }
