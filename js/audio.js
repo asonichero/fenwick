@@ -188,6 +188,34 @@ A.paper = function (vol) {
   burst(t0, 0.03, 0.5, 'highpass', 2600, 0.8); burst(t0 + 0.012, 0.025, 0.3, 'bandpass', 1500, 1.5);      // (the seal)
   for (const [dt, len, pk] of [[0.35, 0.28, 0.16], [0.62, 0.22, 0.12], [0.86, 0.32, 0.14]]) burst(t0 + dt, len, pk, 'bandpass', 3200 + Math.random() * 1200, 0.7);      // (the folds opened out)
 };
+// A key turned in an old lock: the wards' click, a heavier clack as the bolt goes, a scrape. A door on stiff hinges: a creak, rising and
+// wavering. A locked door tried: the latch rattled. A flint struck: a sharp tick or two, and the hiss of the tinder catching.
+A.lock = function (vol) {
+  if (!A.init()) return; const ctx = A.ctx, N = A.nodes, t0 = ctx.currentTime + 0.02, out = ctx.createGain(); out.gain.value = vol == null ? 1 : vol; out.connect(N.sfx);
+  const burst = (t, len, peak, type, fq, q) => { const src = ctx.createBufferSource(); src.buffer = N.noise; const f = ctx.createBiquadFilter(); f.type = type; f.frequency.value = fq; f.Q.value = q;
+    const g = ctx.createGain(); g.gain.setValueAtTime(0.0001, t); g.gain.linearRampToValueAtTime(peak, t + 0.002); g.gain.exponentialRampToValueAtTime(0.0001, t + len); src.connect(f); f.connect(g); g.connect(out); src.start(t, Math.random() * 2); src.stop(t + len + 0.02); };
+  burst(t0, 0.03, 0.4, 'bandpass', 3200, 3); burst(t0 + 0.18, 0.04, 0.35, 'bandpass', 2600, 3);
+  burst(t0 + 0.55, 0.09, 0.7, 'bandpass', 900, 1.5); burst(t0 + 0.56, 0.05, 0.4, 'highpass', 2400, 1); burst(t0 + 0.62, 0.25, 0.08, 'bandpass', 1800, 0.8);
+};
+A.creak = function (vol, secs) {
+  if (!A.init()) return; const ctx = A.ctx, N = A.nodes, t = ctx.currentTime + 0.02, len = secs || 1.2, out = ctx.createGain(); out.gain.value = (vol == null ? 1 : vol) * 0.18; out.connect(N.sfx);
+  const o = ctx.createOscillator(); o.type = 'sawtooth'; o.frequency.setValueAtTime(95, t); o.frequency.linearRampToValueAtTime(140, t + len * 0.4); o.frequency.linearRampToValueAtTime(115, t + len);
+  const lfo = ctx.createOscillator(), lg = ctx.createGain(); lfo.frequency.value = 23; lg.gain.value = 9; lfo.connect(lg); lg.connect(o.frequency);
+  const f = ctx.createBiquadFilter(); f.type = 'bandpass'; f.frequency.value = 700; f.Q.value = 3; const g = ctx.createGain();
+  g.gain.setValueAtTime(0.0001, t); g.gain.linearRampToValueAtTime(1, t + 0.08); g.gain.setValueAtTime(1, t + len * 0.7); g.gain.exponentialRampToValueAtTime(0.0001, t + len);
+  o.connect(f); f.connect(g); g.connect(out); o.start(t); lfo.start(t); o.stop(t + len + 0.05); lfo.stop(t + len + 0.05);
+};
+A.rattle = function (vol) {
+  if (!A.init()) return; const ctx = A.ctx, N = A.nodes, t0 = ctx.currentTime + 0.02, out = ctx.createGain(); out.gain.value = vol == null ? 1 : vol; out.connect(N.sfx);
+  for (let i = 0; i < 5; i++) { const t = t0 + i * 0.07 + Math.random() * 0.02, src = ctx.createBufferSource(); src.buffer = N.noise; const f = ctx.createBiquadFilter(); f.type = 'bandpass'; f.frequency.value = 1400 + Math.random() * 600; f.Q.value = 4;
+    const g = ctx.createGain(); g.gain.setValueAtTime(0.0001, t); g.gain.linearRampToValueAtTime(0.35, t + 0.002); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.05); src.connect(f); f.connect(g); g.connect(out); src.start(t, Math.random() * 2); src.stop(t + 0.07); }
+};
+A.strike = function (vol) {
+  if (!A.init()) return; const ctx = A.ctx, N = A.nodes, t0 = ctx.currentTime + 0.02, out = ctx.createGain(); out.gain.value = vol == null ? 1 : vol; out.connect(N.sfx);
+  const burst = (t, len, peak, type, fq, q) => { const src = ctx.createBufferSource(); src.buffer = N.noise; const f = ctx.createBiquadFilter(); f.type = type; f.frequency.value = fq; f.Q.value = q;
+    const g = ctx.createGain(); g.gain.setValueAtTime(0.0001, t); g.gain.linearRampToValueAtTime(peak, t + Math.min(0.01, len * 0.2)); g.gain.exponentialRampToValueAtTime(0.0001, t + len); src.connect(f); f.connect(g); g.connect(out); src.start(t, Math.random() * 2); src.stop(t + len + 0.02); };
+  burst(t0, 0.02, 0.5, 'highpass', 4000, 1); burst(t0 + 0.25, 0.02, 0.45, 'highpass', 4200, 1); burst(t0 + 0.3, 0.7, 0.12, 'bandpass', 2500, 0.6);
+};
 // The birch: the swish of the twigs through the air (call it as the arm comes down), and the sharp crack and scatter of them on bare skin.
 A.swish = function (power, vol) {
   if (!A.init()) return; const ctx = A.ctx, N = A.nodes, t = ctx.currentTime + 0.005, k = vol == null ? 1 : vol, p = clamp(power, 0.3, 1.3);

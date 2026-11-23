@@ -11,7 +11,7 @@
 //     sfx(name) (a sound: 'knock', 'paper'), click() → Promise (a cue, and wait for the player), clear() (the dialogue box away), hurry(fn) (a
 //     click or a key, while the letter's being written: all of it, at once) }
 //   A beat can also be: talk (lines of inquiry, in any order, every one of them, before the scene goes on: { prompt, hint, options: [{ id,
-//   label, beats }] }); sfx; click (wait for the player); button (a button at the foot of the view, labelled, to go on by); clear (the last
+//   label, beats }] }); think (a line his own thought, not said); sfx; click (wait for the player); button (a button at the foot of the view, labelled, to go on by); clear (the last
 //   line away); hold: 'choices' (a line the talk's first choices come up under).
 //   A scene can have a letter (scene.letter): folded, carried in someone's hand (start: { by, side }), laid on something (act lay, at a point),
 //   taken up (take), opened (open: unfolded and held to read), read (read: the view cut to the whole page, still, its text written in) and put
@@ -79,7 +79,7 @@ function create(o) {
   }
   const head = id => P.W_(S[id].F, 'head');
   // (a thing in the room to look at: scene.points, each from someone's place as the shots are: his plate, say)
-  const point = k => { if (k === 'letter' && LT) return LT.where(); const q = scene.points && scene.points[k]; if (!q) return null; const sp = spots[q.from], c = Math.cos(sp.yaw), n = Math.sin(sp.yaw), [x, y, z] = q.at; return new V3(sp.at.x + x * c + z * n, y, sp.at.z - x * n + z * c); };
+  const point = k => { if (k === 'letter' && LT) return LT.where(); const q = scene.points && scene.points[k]; if (!q) return room.points && room.points[k] ? room.points[k].clone() : null; const sp = spots[q.from], c = Math.cos(sp.yaw), n = Math.sin(sp.yaw), [x, y, z] = q.at; return new V3(sp.at.x + x * c + z * n, y, sp.at.z - x * n + z * c); };
   const yawTo = (from, to) => Math.atan2(to.x - from.x, to.z - from.z);
   const fwdOf = sp => new V3(Math.sin(sp.yaw), 0, Math.cos(sp.yaw));
   const yawOf = F => 2 * Math.atan2(F.root.quaternion.y, F.root.quaternion.w);
@@ -207,7 +207,7 @@ function create(o) {
     walk(fast, b) { const s = S[b.by], pts = b.path.map(k => spots[k].at.clone()); s.F.root.visible = true; return walkTo(s, pts, faceYaw(pts[pts.length - 1], b.toward, pts, b.by), fast, b.speed); },
     sit(fast, b) { const s = S[b.by]; return after(s, () => blendTo(s, () => seatAt(s, spots[b.at]), b.ms || 1000, fast)); },
     stand(fast, b) { const s = S[b.by]; return after(s, () => { const at = b.at ? spots[b.at].at.clone() : s.F.root.position.clone().setY(0); return blendTo(s, () => standAt(s, at, faceYaw(at, b.toward, null, b.by)), b.ms || 1000, fast); }); },
-    door(fast, b) { return room.door ? room.door.to(b.to, fast ? 0 : (b.ms || 1000)) : null; },
+    door(fast, b) { const D = b.which && room.doors ? room.doors[b.which] : room.door; return D ? D.to(b.to, fast ? 0 : (b.ms || 1000)) : null; },
     unlace(fast, b) {
       const s = S[b.by], F = s.F;
       return blendTo(s, () => {
@@ -376,8 +376,8 @@ function create(o) {
     if (b.who) {
       face(b.who, b.face);
       for (const id in S) S[id].auto = id === b.who ? (b.to || null) : (S[id].c.demure && b.to !== id ? null : b.who);
-      const text = fill(b.text); speaking = b.who; talkUntil = now + text.length * TYPE_MS + 150;
-      await ui.line({ id: b.who, name: names[b.who] || b.who, text, ms: text.length * TYPE_MS, hold: b.hold || hold });
+      const text = fill(b.text); speaking = b.think ? null : b.who; talkUntil = now + text.length * TYPE_MS + 150;      // (a thought: his mouth still)
+      await ui.line({ id: b.who, name: names[b.who] || b.who, text, ms: text.length * TYPE_MS, hold: b.hold || hold, thought: !!b.think });
       speaking = null;
     }
     // (a choice: the player picks what Silas says (shown on the page: ui.choose), and its beats play; skipped past, it's the one chosen before,

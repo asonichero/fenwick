@@ -150,5 +150,22 @@ function walker(F, len, o) {
   return { step, plan: P, get mode() { return 'walk'; } };
 }
 
-root.Gait = { load, walker, plan, planned, pose, rig, STYLES, get ready() { return !!D; }, ORDER };
+// ── Walking where the player steers: the stride kept going for as long as they walk, its pace eased up from standing and back down to it
+// (the caller stands the figure once it's stopped). step(dt, on) → { d: how far it went this frame, moving, v: its pace, 0–1 of its own } ──
+function roam(F, o) {
+  o = o || {}; const st = o.style || 'plain', S = styleOf(st), M = mixOf(S), fps = D.fps;
+  const T = M.reduce((t, { c, w }) => t + w * c.cyc / fps, 0) / (S.pace || 1) / (o.rate || 1);
+  let ph = 0, v = 0;
+  return {
+    step(dt, on) {
+      v += ((on ? 1 : 0) - v) * (1 - Math.exp(-dt * (on ? 4.5 : 6)));
+      if (!on && v < 0.06) { v = 0; return { d: 0, moving: false, v: 0 }; }
+      const dph = dt / T * Math.max(0.15, v), d = gone(F, st, ph, dph); ph = (ph + dph) % 1; pose(F, st, ph);
+      return { d, moving: true, v };
+    },
+    get v() { return v; }, get phase() { return ph; },
+  };
+}
+
+root.Gait = { load, walker, roam, plan, planned, pose, rig, STYLES, get ready() { return !!D; }, ORDER };
 })(typeof window !== 'undefined' ? window : globalThis);

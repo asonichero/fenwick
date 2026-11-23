@@ -66,6 +66,11 @@ body.film #view { cursor: pointer; }
 /* (the cue that waits for the player: over the letter, read) */
 #cue { position: fixed; right: calc(20px + env(safe-area-inset-right)); bottom: calc(20px + env(safe-area-inset-bottom)); z-index: 7; font: 15px var(--serif); color: var(--amber); background: rgba(26, 20, 16, 0.72); border: 1px solid var(--line); border-radius: 12px; padding: 6px 14px; opacity: 0; pointer-events: none; transition: opacity 0.6s; }
 #cue.on { opacity: 1; animation: nudge 1.1s ease-in-out infinite; }
+/* (walking: what's before him, to look at or do, at the foot of the view; how to walk, the first time) */
+#hint { position: fixed; left: 50%; bottom: calc(18px + env(safe-area-inset-bottom)); transform: translateX(-50%); z-index: 7; font: 16px var(--serif); padding: 8px 18px; background: rgba(26, 20, 16, 0.8); border-color: var(--line); color: var(--ink); display: none; align-items: center; gap: 10px; }
+#hint.on { display: flex; } #hint kbd, #roamHelp kbd { font: 12px ui-monospace, monospace; color: #1a1410; background: var(--amber); border-radius: 5px; padding: 1px 7px; }
+#roamHelp { position: fixed; left: 50%; top: calc(16px + env(safe-area-inset-top)); transform: translateX(-50%); z-index: 7; font-size: 13px; color: var(--dim); background: rgba(26, 20, 16, 0.72); border: 1px solid var(--line); border-radius: 12px; padding: 6px 14px; display: none; white-space: nowrap; }
+#roamHelp.on { display: block; } body.roam #dock { bottom: calc(70px + env(safe-area-inset-bottom)); }
 /* (something for the player to do, at the foot of the view: put the letter down) */
 #actBtn { position: fixed; left: 50%; bottom: calc(18px + env(safe-area-inset-bottom)); transform: translateX(-50%); z-index: 7; font: 16px var(--serif); padding: 9px 22px; background: rgba(26, 20, 16, 0.86); border-color: var(--amber); color: #ffe2b0; display: none; }
 #actBtn.on { display: block; }
@@ -124,6 +129,8 @@ body.corr #ctl { display: block; }
 <button id="skip">Skip scene</button>
 <div id="cue">Go on ▸</div>
 <button id="actBtn"></button>
+<button id="hint"><kbd>E</kbd><span></span></button>
+<div id="roamHelp"><kbd>W A S D</kbd> or the arrow keys to walk · drag to look round · <kbd>E</kbd> to use what’s before you</div>
 <button id="menuBtn" title="Menu (Esc)" aria-label="Menu">☰</button>
 <div id="menuVeil"></div>
 <div id="menu" class="panel" role="dialog" aria-label="Menu">
@@ -150,9 +157,9 @@ body.corr #ctl { display: block; }
 </div>
 
 <script src="vendor/three.min.js"></script><script src="vendor/OrbitControls.js"></script><script src="vendor/postprocessing.js"></script><script src="vendor/GLTFLoader.js"></script>
-<script src="js/cast.js"></script><script src="js/figure.js"></script><script src="js/poses.js"></script><script src="js/stage.js"></script><script src="js/kit.js"></script><script src="js/hall.js"></script><script src="js/office.js"></script>
+<script src="js/cast.js"></script><script src="js/figure.js"></script><script src="js/poses.js"></script><script src="js/stage.js"></script><script src="js/kit.js"></script><script src="js/hall.js"></script><script src="js/office.js"></script><script src="js/fenwickhall.js"></script>
 <script src="js/pain.js"></script><script src="js/lines.js"></script><script src="js/session.js"></script><script src="js/tutorial.js"></script><script src="js/talk.js"></script>
-<script src="js/audio.js"></script><script src="js/player.js"></script><script src="js/prologue.js"></script><script src="js/gait.js"></script><script src="js/cutscene.js"></script>
+<script src="js/audio.js"></script><script src="js/player.js"></script><script src="js/prologue.js"></script><script src="js/gait.js"></script><script src="js/cutscene.js"></script><script src="js/roam.js"></script><script src="js/chapter1.js"></script>
 <script>
 'use strict';
 // The game: the title, then the prologue's scenes in order (js/prologue.js: the hall, then his office), each played by js/cutscene.js in its
@@ -170,10 +177,13 @@ camera.far = 120; camera.updateProjectionMatrix();
 stage.fade = fn => { if (still) return fn(); const b = $('black'); b.classList.add('quick'); b.classList.remove('off', 'dim'); setTimeout(() => { fn(); b.classList.add('off'); }, 650); };
 const fillL = new THREE.PointLight(0xffe0bc, 1.3, 5, 2); fillL.position.set(0, 0.25, 0.9); camera.add(fillL); scene.add(camera);
 // (the rooms, both built, one shown at a time)
-const ROOMS = { hall: Hall.build(scene), office: Office.build(scene) }; for (const k in ROOMS) ROOMS[k].showMarks(false);
-const SCENES = Prologue.SCENES, ORDER = Prologue.ORDER, first = SCENES[q.get('scene')] ? q.get('scene') : ORDER[0];
+const ROOMS = { hall: Hall.build(scene), office: Office.build(scene), fenwick: FenwickHall.build(scene) }; for (const k in ROOMS) if (ROOMS[k].showMarks) ROOMS[k].showMarks(false);
+// (the prologue's scenes, then Chapter 1's)
+const SCENES = Object.assign({}, Prologue.SCENES, Chapter1.SCENES), ORDER = Prologue.ORDER.concat(Chapter1.ORDER), first = SCENES[q.get('scene')] ? q.get('scene') : ORDER[0];
 let room = ROOMS.hall, SC = SCENES.hall;
-const showRoom = k => { for (const j in ROOMS) ROOMS[j].group.visible = j === k; room = ROOMS[k]; };
+// (a room's own air, where it has one: the Hall's light midday haze; else the evening's)
+const AIR0 = { color: scene.fog.color.clone(), density: scene.fog.density };
+const showRoom = k => { for (const j in ROOMS) ROOMS[j].group.visible = j === k; room = ROOMS[k]; const a = room.air; scene.fog.color.copy(a ? a.fog : AIR0.color); scene.fog.density = a ? a.density : AIR0.density; };
 showRoom('hall');
 const at0 = q.get('at') != null ? Math.max(0, +q.get('at') || 0) : null, still = at0 != null;
 // (the prologue's choices, kept)
@@ -244,6 +254,7 @@ let menuOpen = false, heldBefore = false;
 function menu(on) {
   on = on == null ? !menuOpen : !!on; if (on === menuOpen) return; menuOpen = on;
   $('menu').classList.toggle('on', on); $('menuVeil').classList.toggle('on', on);
+  if (roamer) roamer.held = on;      // (walking: still while the menu's open)
   if (on) { heldBefore = stage.held; stage.hold(true); const inScene = playing || document.body.classList.contains('corr'), atTitle = $('title').style.display !== 'none' && !inScene;
     $('mSkip').disabled = !inScene; $('mAgain').disabled = !inScene; $('mTitle').disabled = atTitle; $('menuH').textContent = atTitle ? 'Settings' : 'Paused'; $('mResume').firstChild.textContent = atTitle ? 'Back ' : 'Go on '; }
   else if (!heldBefore) stage.hold(false);
@@ -251,15 +262,15 @@ function menu(on) {
 $('menuBtn').onclick = () => menu(true); $('settings').onclick = () => menu(true); $('mResume').onclick = () => menu(false); $('menuVeil').onclick = () => menu(false);
 $('mSkip').onclick = () => { menu(false); if (document.body.classList.contains('corr')) { if (corrDone) corrDone(); } else skip(); };      // (the aftercare's too: skip())
 $('mAgain').onclick = () => { menu(false); const k = SC && SC.id; run(0, false, k); };
-$('mTitle').onclick = () => { menu(false); runId++; if (cs) cs.stop(); dropCorrection(); playing = false; advance = null; picking = null; afterSkip = null; document.body.classList.remove('film', 'corr', 'after'); hideLine(); $('skip').style.display = 'none'; $('end').classList.remove('on'); $('card').classList.remove('on', 'ask'); showTitle(true); opening(); };
+$('mTitle').onclick = () => { menu(false); runId++; if (cs) cs.stop(); dropCorrection(); dropRoam(); playing = false; advance = null; picking = null; afterSkip = null; document.body.classList.remove('film', 'corr', 'after'); hideLine(); $('skip').style.display = 'none'; $('end').classList.remove('on'); $('card').classList.remove('on', 'ask'); showTitle(true); opening(); };
 
 // ── The dialogue box: the line types out in the speaker's voice; a click (or space) shows it whole, then goes on (or, hold 'choices', the
 // choices come up under it as soon as it's whole) ──
 let advance = null, typer = null, picking = null;
-function line({ id, name, text, ms, hold }) {
+function line({ id, name, text, ms, hold, thought }) {
   return new Promise(res => {
-    const box = $('say'), el = $('sayTxt'); box.style.display = 'block'; box.classList.remove('thought'); $('sayWho').textContent = name; $('sayWho').className = 'who' + (id === 'silas' ? ' silas' : ''); $('sayNext').style.display = 'none';
-    if (window.GameAudio && GameAudio.ctx) GameAudio.speak(id, text, Math.min(3.2, text.length * 0.035), { pitch: Cast.pitch(id) });
+    const box = $('say'), el = $('sayTxt'); box.style.display = 'block'; box.classList.toggle('thought', !!thought); $('sayWho').textContent = name; $('sayWho').className = 'who' + (id === 'silas' ? ' silas' : ''); $('sayNext').style.display = 'none';
+    if (!thought && window.GameAudio && GameAudio.ctx) GameAudio.speak(id, text, Math.min(3.2, text.length * 0.035), { pitch: Cast.pitch(id) });
     let i = 0; clearInterval(typer); el.textContent = ''; $('choices').innerHTML = ''; $('chooseHint').textContent = ''; picking = null;
     const whole = () => { clearInterval(typer); el.textContent = text; if (hold === 'choices') { advance = null; res(); return; } $('sayNext').style.display = 'block'; advance = () => { advance = null; $('sayNext').style.display = 'none'; res(); }; };
     if (still) { whole(); advance = null; return; }
@@ -285,7 +296,7 @@ const hideLine = () => { $('say').style.display = 'none'; $('say').classList.rem
 function shade(level, quick) { const b = $('black'); b.classList.toggle('quick', !!quick); b.classList.toggle('dim', level === 'dim'); b.classList.toggle('off', level === 'clear'); return new Promise(r => setTimeout(r, level === 'clear' ? 300 : quick ? 650 : 1450)); }
 const black = (on, quick) => shade(on ? 'black' : 'clear', quick);
 const ui = { line, choose, chose: keep, fade: async on => { hideLine(); await black(on, true); }, names() {}, pause: ms => new Promise(r => { if (!still) setTimeout(r, ms); }),      // (?at: held on it)
-  sfx: k => { if (still || !window.GameAudio || !GameAudio.ctx) return; if (k === 'knock') GameAudio.knock(); else if (k === 'paper') GameAudio.paper(); },
+  sfx: k => { if (still || !window.GameAudio || !GameAudio.ctx) return; const f = { knock: 'knock', paper: 'paper', lock: 'lock', creak: 'creak', rattle: 'rattle', strike: 'strike' }[k]; if (f && GameAudio[f]) GameAudio[f](); },
   clear: () => hideLine(),
   // (the player's moment: a cue in the corner, and on at a click or a key)
   click: () => new Promise(res => { if (still) return; $('cue').classList.add('on'); advance = () => { advance = null; $('cue').classList.remove('on'); res(); }; }),
@@ -312,23 +323,27 @@ function card(c) {
 // ── Playing it: from a scene (the first, unless asked), each in turn, to the end; a scene skipped goes on to the next ──
 let playing = false, runId = 0;
 async function run(from, cards, start) {
-  const my = ++runId; start = SCENES[start] ? start : first; dropCorrection(); document.body.classList.remove('corr');
+  const my = ++runId; start = SCENES[start] ? start : first; dropCorrection(); dropRoam(); document.body.classList.remove('corr');
   $('end').classList.remove('on'); showTitle(false);
   if (cards) { for (const c of SCENES[ORDER[0]].cards) await card(c); }      // (over the opening shot, held still and dimmed)
   if (my !== runId) return;
   playing = true; $('skip').style.display = still ? 'none' : 'block'; document.body.classList.add('film');
-  for (let i = ORDER.indexOf(start), f = from || 0; i < ORDER.length; i++, f = 0) {
+  let played = null;      // (the scene played just before, in this run: the walked Hall goes on from the arrival only if it was)
+  for (let i = ORDER.indexOf(start), f = from || 0; i < ORDER.length; i++, f = 0, played = SC.id) {
     if (cs) { cs.stop(); if (cs.dispose) cs.dispose(); }
     stage.hold(false); SC = SCENES[ORDER[i]]; showRoom(SC.room); if (room.setDay) room.setDay(!!SC.day);      // (by day, or by night)
     if (SC.room === 'office' && !SC.phases) ROOMS.office.setChair('desk');      // (his chair at his desk again, for the scene that has it there)
     if (SC.phases) { lastHow = await correction(my); if (my !== runId) return; continue; }      // (the correction: and on, through black, to its aftercare)
-    if (SC.talk) { await aftercare(my, lastHow); if (my !== runId) return; continue; }      // (the aftercare and the offer: the last there is, yet)
+    if (SC.talk) { await aftercare(my, lastHow); if (my !== runId) return; continue; }      // (the aftercare and the offer)
+    if (SC.roam) { await roamScene(my, played); if (my !== runId) return; hideLine(); await black(true, true); continue; }      // (walked: Silas the player's to steer)
+    if (SC.id === 'arrival' && room.reset) room.reset();      // (the Hall as he finds it)
     if (SC.card && !still && !f) { hideLine(); await black(true, true); await card(SC.card); if (my !== runId) return; }      // (a card first, on black, clicked through: time passing)
     cs = Cutscene.create({ stage, room, scene: SC, cast: castOf(SC), ui, fill: Player.fill, chosen: kept() }); window.cs = cs; cs.prewarm();
     const done = cs.play(f);
     black(false);
     await done;
     if (my !== runId || still) return;
+    if (SC.seamless) continue;      // (on into the next without a cut: the arrival, into the Hall walked)
     hideLine(); await black(true, true);      // (between scenes, black; a scene skipped is cut to it)
   }
   playing = false; $('skip').style.display = 'none'; document.body.classList.remove('film', 'corr'); $('dock').style.bottom = '';
@@ -338,7 +353,7 @@ async function finish() {
   await black(true, true); hideLine();
   $('endT').textContent = Player.fill(SC.next.title); $('endW').textContent = Player.fill(SC.next.where); $('end').classList.add('on');
 }
-function skip() { if (afterSkip) return afterSkip(); if (!playing || !cs || document.body.classList.contains('corr')) return; cs.stop(); if (picking) picking[0](); if (advance) advance(); if (advance) advance(); }
+function skip() { if (afterSkip) return afterSkip(); if (roamSkip) return roamSkip(); if (!playing || !cs || document.body.classList.contains('corr')) return; cs.stop(); if (picking) picking[0](); if (advance) advance(); if (advance) advance(); }
 
 // ── The correction (the prologue's tutorial: js/tutorial.js over js/session.js): his chair out from the desk, the two of them made as the
 // correction makes them (her in her shift and drawers), the tutorial directing; the controls along the foot, the prompt at the top, what's
@@ -470,6 +485,57 @@ async function handChoice(n) {
   if (ses && ses.covering && (id === 'take' ? ses.takeHand(o.text) : ses.tell(o.text))) did(id);
   if (!flashing) nextFlash();      // (his answer's on show already: what's queued waits for it)
 }
+// ── A scene walked (js/roam.js; js/chapter1.js's roam): Silas the player's to steer about the room; the things there are to look at and do,
+// offered at the foot of the view (E, or a click on it); each thing's steps played in turn (his thoughts, the room's state, a door, a fade);
+// on once what ends it is done ──
+let roamer = null, roamSkip = null;
+function dropRoam() { if (roamer) { roamer.stop(); roamer = null; } roamSkip = null; document.body.classList.remove('roam'); $('hint').classList.remove('on'); $('roamHelp').classList.remove('on'); }
+function roamScene(my, before) {
+  return new Promise(async res => {
+    const S = SC.roam, rm = room, castO = castOf(SC), F = castO.silas, flags = new Set(), done = new Set();
+    if (cs) { cs.stop(); if (cs.dispose) cs.dispose(); } cs = null;
+    // (begun here, not walked on into from the arrival: the Hall as he'd have it by now, the front door open behind him)
+    if (before !== 'arrival' && rm.reset) { rm.reset(); if (rm.doors && rm.doors.front) rm.doors.front.set(1); }
+    for (const k in castO) castO[k].root.visible = k === 'silas';
+    const sp = rm.spots()[S.from], yawOf = Q => 2 * Math.atan2(Q.y, Q.w), here = before === 'arrival' && F.root.visible;
+    const think = t => flash('silas', Player.get().first, filled(t), { thought: true });
+    const cond = w => { if (!w) return true; for (const k in w) { const v = w[k];
+      if (k === 'flag') { if (!flags.has(v)) return false; } else if (k === 'not') { if (flags.has(v)) return false; }
+      else if (k === 'door') { if ((rm.doors[v[0]].k > 0.5) !== (v[1] === 'open')) return false; }
+      else if (k === 'shutter') { if (!!rm.state.shutters[v[0]] !== v[1]) return false; }
+      else if (rm.state[k] !== v) return false; } return true; };
+    const steps = async list => { for (const st of list || []) {
+      if (my !== runId) return;
+      if (st.once) { if (flags.has('once:' + st.once)) continue; flags.add('once:' + st.once); }
+      if (st.sfx) ui.sfx(st.sfx);
+      if (st.set) rm.set(st.set[0], st.set[1]);
+      if (st.door) rm.doors[st.door[0]].to(st.door[1], st.door[2] || 1000);      // (not waited on: he can walk on while it swings; the doorway's open once it's open enough)
+      if (st.fade) { roamer.held = true; await black(true, true); await steps(st.fade); await wait(300); black(false); await wait(450); roamer.held = false; }
+      if (st.sound && window.GameAudio && GameAudio.ctx) GameAudio.hearth(st.sound);
+      if (st.think) think(st.think);
+      if (st.flag) flags.add(st.flag);
+      if (st.wait) await wait(st.wait);
+    } };
+    let over = false; const end = async skipped => { if (over) return; over = true; roamer.held = true; $('hint').classList.remove('on');
+      if (!skipped) await steps(S.last); if (!skipped) await saidOut(); dropRoam(); res(); };
+    roamSkip = () => end(true);
+    const things = S.things.map(t => ({ id: t.id, label: t.label, reach: t.reach, at: rm.points[t.at], when: () => cond(t.when) && !(t.once && done.has(t.id)),
+      act: async () => { await steps(t.steps); if (t.once) done.add(t.id); if (S.done && flags.has(S.done)) end(); } }));
+    roamer = Roam.create({ stage, room: rm, figure: F, things, style: (SC.cast.silas && SC.cast.silas.gait) || 'silas',
+      ui: { prompt: t => { const h = $('hint'); if (t) { h.querySelector('span').textContent = t; h.classList.add('on'); } else h.classList.remove('on'); } } });
+    window.roamer = roamer;
+    document.body.classList.remove('film'); document.body.classList.add('roam'); $('skip').style.display = still ? 'none' : 'block';
+    const fy = S.face && rm.spots()[S.face] ? (d => Math.atan2(d.x, d.z))(rm.spots()[S.face].at.clone().sub(sp.at)) : sp.yaw;      // (begun here: turned the way on)
+    roamer.start(here ? F.root.position : sp.at, here ? yawOf(F.root.quaternion) : fy);
+    if (S.sound && window.GameAudio && GameAudio.ctx) GameAudio.hearth(S.sound);
+    black(false);
+    // (how to walk, the first time: till he's walked a little)
+    $('roamHelp').classList.add('on'); const from = roamer.pos.clone(), helpT = setInterval(() => { if (!roamer || roamer.pos.distanceTo(from) > 1.5) { $('roamHelp').classList.remove('on'); clearInterval(helpT); } }, 300);
+    await steps(S.intro);
+  });
+}
+$('hint').onclick = () => { if (roamer) roamer.use(); };
+
 // (the controls: each tells the tutorial what the player did; each closed to the player till the tutorial's taught it)
 const ok = a => !tut || (!tut.locked && tut.taught(a) && !waitingFor.has(actOf(a)));      // (and nothing at all while she tells it truly)
 const P0 = { pace: [0.5, 2], strength: [0.5, 1.5] }, times = v => (Number.isInteger(v) ? v.toFixed(0) : String(v)) + '×';
@@ -537,6 +603,7 @@ addEventListener('keydown', e => {
     if (k === '[') { bump('pace', -0.25); return; } if (k === ']') { bump('pace', 0.25); return; } if (k === '-') { bump('strength', -0.25); return; } if (k === '=' || k === '+') { bump('strength', 0.25); return; }
     return;
   }
+  if (roamer && document.body.classList.contains('roam')) { if (e.key === 'e' || e.key === 'E' || e.key === 'Enter') { roamer.use(); e.preventDefault(); } return; }
   if (picking && /^[1-9]$/.test(e.key) && picking[+e.key - 1]) { picking[+e.key - 1](); e.preventDefault(); return; }
   if (e.key === ' ' || e.key === 'Enter') { if (advance) { advance(); e.preventDefault(); } }
 });
@@ -548,11 +615,12 @@ stage.start(dt => {
   room.tick(dt); if (cs) cs.tick(dt);
   if (ses && document.body.classList.contains('corr')) { ses.update(dt); tut.update(dt); meter(); if ((frameN = (frameN + 1) % 6) === 0) refreshCorr(); }
   else if (ses && document.body.classList.contains('after')) ses.update(dt);      // (the end of it held, and the aftercare)
+  if (roamer && document.body.classList.contains('roam')) roamer.tick(dt);      // (walked)
 });
 let frameN = 0;
 if (still) ready.then(() => { showTitle(false); run(at0, false, first).catch(e => console.error(e)); setTimeout(() => { window.ready = true; }, 2500); });
 else ready.then(() => { window.ready = true; });
-window.__game = { stage, rooms: ROOMS, get room() { return room; }, get scene() { return SC; }, get cs() { return cs; }, get cast() { return cast; }, run: (from, cards, start) => run(from, cards, start || first) };
+window.__game = { stage, rooms: ROOMS, get room() { return room; }, get scene() { return SC; }, get cs() { return cs; }, get cast() { return cast; }, get roamer() { return roamer; }, run: (from, cards, start) => run(from, cards, start || first) };
 </script>
 </body>
 </html>
