@@ -51,10 +51,13 @@ body.film #view { cursor: pointer; }
 #say .who.silas { color: var(--teal); }
 #say .txt { font: 18px/1.45 var(--serif); }
 /* a choice: what Silas says, one button each, numbered */
-#say .choices { display: flex; flex-direction: column; gap: 7px; margin-top: 10px; } #say .choices:empty { display: none; }
-#say .choices button { text-align: left; display: flex; gap: 10px; align-items: baseline; padding: 8px 12px; border-radius: 12px; font: 16px/1.35 var(--serif); }
+/* (the choices side by side, in a row under the line, so the box stays low; wrapping onto a second row where there isn't the width. Each:
+   its number and label, and under them what he'd say) */
+#say .choices { display: flex; flex-direction: row; flex-wrap: wrap; gap: 7px; margin-top: 10px; } #say .choices:empty { display: none; }
+#say .choices button { flex: 1 1 0; min-width: 150px; text-align: left; display: flex; flex-wrap: wrap; column-gap: 8px; row-gap: 2px; align-items: baseline; align-content: flex-start; padding: 8px 12px; border-radius: 12px; font: 16px/1.35 var(--serif); }
+#say .choices button > span:last-child:not(.n) { flex-basis: 100%; font-size: 15px; }
 #say .choices .n { font: 11px ui-monospace, monospace; color: var(--amber); min-width: 10px; } #say .choices b { font: 600 12px system-ui, sans-serif; letter-spacing: 0.08em; text-transform: uppercase; color: var(--teal); min-width: 54px; }
-#say .choices button.only b { font: 16px/1.35 var(--serif); letter-spacing: 0; text-transform: none; color: var(--ink); }
+#say .choices button.only { flex-wrap: nowrap; } #say .choices button.only b { font: 16px/1.35 var(--serif); letter-spacing: 0; text-transform: none; color: var(--ink); min-width: 0; }
 #say .hintc { font-size: 12px; color: var(--dim); margin-top: 8px; } #say .hintc:empty { display: none; }
 #say .next { display: none; position: absolute; right: 14px; bottom: 8px; font-size: 13px; color: var(--amber); animation: nudge 1.1s ease-in-out infinite; pointer-events: none; }
 @keyframes nudge { 0%, 100% { opacity: 0.35; transform: translateX(0); } 50% { opacity: 1; transform: translateX(3px); } }

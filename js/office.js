@@ -242,7 +242,10 @@ function build(scene) {
     return { group: G, private: true, bounds, sideOf, sidesAt, spots: {
       bench: { at: new V3(L.chairOutMark.x, 0, L.chairOutMark.z), yaw: L.chairOutMark.ry || 0, turn: 0, seatY: 0.49 },
       // (Silas at the settle's south end, she beside him at his left, toward the north: his left arm round her, as the engine sits them)
-      after: { at: at('settle', -0.3, 0.06), yaw: sy, seatY: 0.49, beside: at('settle', 0.3, 0.06) },
+      // (its views, the heads clear of the dialogue box: the two of them; and close, nearer her. In the seat's frame: from Silas's place, x to
+      // his left (her), z ahead)
+      after: { at: at('settle', -0.3, 0.06), yaw: sy, seatY: 0.49, beside: at('settle', 0.3, 0.06),
+        cams: [['Two-shot', [0.3, 1.2, 1.95], [0.3, 1.06, 0]], ['Close', [0.5, 1.22, 1.15], [0.42, 1.13, 0]]] },
       wall: { at: at('desk', 0, DD / 2 + 0.85), yaw: (L.desk.ry || 0) + Math.PI, support: { kind: 'edge', y: DH + 0.01, d: 0.85, bend: 0.95, lines: 'writing' } },
       watch: [], corner: { at: new V3(X1 - 0.4, 0, Z1 - 0.6), yaw: Math.PI } } };
   };

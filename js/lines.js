@@ -9,7 +9,14 @@
 //   Lines.after(id, outcome, mood) → the aftercare conversation as steps · Lines.terms(id) → the terms conversation as steps
 (function (root) {
 'use strict';
-const pick = a => (Array.isArray(a) ? a[Math.floor(Math.random() * a.length)] : a);
+// (each list dealt like a shuffled pack: no line again till all of its others have been said, and never the same twice running)
+const packs = new WeakMap();
+const pick = a => {
+  if (!Array.isArray(a)) return a; if (a.length < 2) return a[0];
+  let P = packs.get(a); if (!P) packs.set(a, (P = { left: [], last: -1 }));
+  if (!P.left.length) { P.left = a.map((_, i) => i).filter(i => i !== P.last); for (let i = P.left.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [P.left[i], P.left[j]] = [P.left[j], P.left[i]]; } }
+  P.last = P.left.pop(); return a[P.last];
+};
 
 // Silas placing her, by position. Standing, by what she holds (a room's support names its lines): wall, a rail (a footboard, a bannister);
 // flat, a bare wall; edge, a counter or a board's edge; writing, the guest room's writing table; desk, the study's desk; table, chest down over
