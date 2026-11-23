@@ -10,11 +10,13 @@
 //   const ses = Session.create(stage, room, { captain: squire, queue: [{ id, sex, outfit }], witnesses: [...], position: 'otk' | 'wall' | 'table' | 'otk:<seat>', between: 'corner' | 'aside' })
 //   ses.run(on) · ses.set({ pace, strength, side, area, soothe }) · ses.dress({ top, bottoms, under }) · ses.endTurn() · ses.camera(i)
 //   ses.on(fn): 'say' { who, id, text }, 'hit' {…}, 'state', 'turn' { i, id }, 'word' { id }, 'turnEnd' { id, outcome, stats }, 'done' { results }
-//   ses.update(dt) each frame; ses.aftercare(id) poses the two of them on the aftercare seat for the conversation. ses.defiance() · ses.gains()
-//   opts.director (the prologue's tutorial, js/tutorial.js): { allow(kind, P), hold(kind, P), floor(P) }: whether she comes up or covers of her own
-//   accord (kind 'up' | 'cover' | 'glance'), whether either waits for the player (ses.putBack(), ses.handDown(): the second time, he pins the
-//   wrist), and how low her defiance may go yet (till it's let go, and breaks). ses.pushUp(), ses.cover(): either, now. ses.breakNow(): the break.
-//   ses.tell() (keep your position: down, or the hand away) · ses.takeHand() (the wrist, held from then on) · ses.receptive
+//   ses.update(dt) each frame; ses.aftercare(id) poses the two of them on the aftercare seat for the conversation (and dresses them).
+//   ses.defiance() · ses.gains() · opts.dressAtEnd: false, to leave them as they are at the end (the game dresses them in the fade to aftercare)
+//   opts.director (the prologue's tutorial, js/tutorial.js): { allow(kind, P), hold(kind, P), floor(P) }: whether she covers or looks back of her
+//   own accord (kind 'cover' | 'glance'), whether her hand waits for the player (and stops the run till then), and how low her defiance may go
+//   yet (till it's let go, and breaks). ses.cover(): her hand back, now. ses.breakNow(): the break. Her hand, the player's two ways with it:
+//   ses.tell() (moved out of the way) · ses.takeHand() (the wrist, held from then on); ses.handDown() as Meridian had it · ses.receptive
+//   (They never come up out of position: Fenwick has no use for it.)
 // (Internally the corrector is still `captain` and the room `bay`: Meridian's names, kept so the engine stays diffable against it.)
 (function (root) {
 'use strict';
@@ -87,8 +89,8 @@ const AREAS = ['cheek', 'sitspot', 'thighs'];
 const SOOTHE = ['cheekL', 'cheekR', 'sitspotR', 'sitspotL', 'thighsL', 'thighsR'];
 const UP = new V3(0, 1, 0);
 const sm = (a, b, x) => { const t = Math.max(0, Math.min(1, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
-const freshReact = () => ({ fight: 1, ff: 1, A: 0, bout: 0, cad: 2.6, stepPh: 0, stepAmp: 0, step: 0, ph: [0, 1, 2, 3, 4].map(() => Math.random() * 20), n: { kicks: 0, bucks: 0, bouts: 0, stamps: 0, reaches: 0, covers: 0, ups: 0, glances: 0 },
-  pride: 0, cover: null, coverK: 0, pinOn: false, pinK: 0, up: null, upK: 0, glance: 0, glanceK: 0, cool: 0, broke: 0, afterStill: 0 });
+const freshReact = () => ({ fight: 1, ff: 1, A: 0, bout: 0, cad: 2.6, stepPh: 0, stepAmp: 0, step: 0, ph: [0, 1, 2, 3, 4].map(() => Math.random() * 20), n: { kicks: 0, bucks: 0, bouts: 0, stamps: 0, reaches: 0, covers: 0, glances: 0 },
+  pride: 0, cover: null, coverK: 0, pinOn: false, pinK: 0, glance: 0, glanceK: 0, cool: 0, broke: 0, afterStill: 0 });
 const yawQ = yaw => new Q().setFromAxisAngle(UP, yaw);
 
 function create(stage, bay, opts) {
@@ -222,12 +224,9 @@ function create(stage, bay, opts) {
     const P = cur, R = P.rx, dfy = P.def, otk = st.position === 'otk', sub = P.rel.submission, ease_ = (x, to, k) => x + (to - x) * (1 - Math.exp(-dt * k));
     R.pride = dfy * (1 - sm(0.7, 1.05, D));
     R.cool -= dt; R.broke -= dt;
-    const free = !st.ending && !st.act && st.phase === 'turn' && !st.word && R.ff > 0.4 && R.cool <= 0 && !R.cover && !R.up;
+    const free = !st.ending && !st.act && st.phase === 'turn' && !st.word && R.ff > 0.4 && R.cool <= 0 && !R.cover;
     const w = dfy * (1 - 0.6 * sub);
-    if (free && dfy > 0.25 && D > 0.3) {
-      if (otk && !R.pinOn && (R.braceK || 0) < 0.3 && Math.random() < dt * 0.1 * w && allows('cover', P)) startCover(P);
-      else if (Math.random() < dt * 0.045 * w && allows('up', P)) startUp(P);
-    }
+    if (free && dfy > 0.25 && D > 0.3 && otk && !R.pinOn && (R.braceK || 0) < 0.3 && Math.random() < dt * 0.1 * w && allows('cover', P)) startCover(P);
     if (R.glance <= 0 && dfy > 0.2 && R.ff > 0.4 && !st.ending && Math.random() < dt * 0.18 * dfy && allows('glance', P)) { R.glance = 0.9 + 0.8 * Math.random(); R.n.glances++; }
     if (R.glance > 0) R.glance -= dt;
     // a hand over the seat: told once; the second time, held
@@ -236,30 +235,23 @@ function create(stage, bay, opts) {
       if (!c.said && !c.held && c.t > 0.5) { c.said = true; say('captain', V.captain(R.n.covers >= 2 ? 'pin' : 'hands', P.id)); }
       if (!c.held && c.t >= c.dur) { R.cover = null; R.cool = 2.5; if (c.take || (!DIR && R.n.covers >= 2)) R.pinOn = true; }      // (with a director, held only when the player takes it)
     }
-    // up out of position, till they're put back (as they're placed, the defiant are slow to settle: up from the start)
-    if (R.up) {
-      const u = R.up; u.t += dt;
-      if (!u.said && !u.held && u.t > (u.start ? u.dur - 0.5 : 0.45)) { u.said = true; say('captain', V.captain(otk ? 'down' : st.position === 'table' ? 'table' : sup.kind === 'rail' ? 'rail' : lineKind, P.id)); }
-      if (!u.held && u.t >= u.dur) { R.up = null; R.cool = 2.5; }
-    }
     if (st.ending || st.phase !== 'turn') R.pinOn = false;      // (let go once it's over)
-    R.coverK = ease_(R.coverK, R.cover ? 1 : 0, R.cover ? 5 : 3); R.upK = ease_(R.upK, R.up && R.up.t >= 0 ? 1 : 0, R.up ? 4 : 2.5);
+    R.coverK = ease_(R.coverK, R.cover ? 1 : 0, R.cover ? 5 : 3);
     R.pinK = ease_(R.pinK, R.pinOn ? 1 : 0, 3); R.glanceK = ease_(R.glanceK, R.glance > 0 ? 1 : 0, 4);
     // (Fenwick: braced, holding the chair and his leg, as the distress rises in one whose way it is and who's given in to it)
     const brace = otk && P.r && P.r.braces && !R.pinOn && !st.ending && st.phase === 'turn' ? sm(0.55, 0.85, D) * sm(0.5, 0.8, sub) : 0;
     R.braceK = ease_(R.braceK || 0, brace, 2.5);
   }
-  // (coming up out of position, or a hand back over the seat: of their own accord, or as the director has it; held, if it waits for the player)
-  function startCover(P) { const R = P.rx; R.cover = { t: 0, dur: 1.3 + 0.6 * Math.random(), said: false, held: holds('cover', P) }; R.n.covers++; emit('cover', { id: P.id, n: R.n.covers }); }
-  function startUp(P) { const R = P.rx; R.up = { t: 0, dur: 1.2 + 0.8 * Math.random(), said: false, held: holds('up', P) }; R.n.ups++; emit('up', { id: P.id, n: R.n.ups }); }
-  // (the player puts them back: he says so, and down they go; moves the hand: told, the first time; the second, the wrist taken and held)
-  function putBack() { const R = cur && cur.rx, u = R && R.up; if (!u || u.done) return false; u.done = true; u.held = false; if (!u.said) { u.said = true; say('captain', V.captain(st.position === 'otk' ? 'down' : st.position === 'table' ? 'table' : sup.kind === 'rail' ? 'rail' : lineKind, cur.id)); } u.dur = Math.max(0, u.t) + 0.5; emit('state'); return true; }
+  // (a hand back over the seat: of their own accord, or as the director has it. If it waits for the player, the run stops with it: it's
+  // dealt with, and then the player starts again)
+  function startCover(P) { const R = P.rx, held = holds('cover', P); R.cover = { t: 0, dur: 1.3 + 0.6 * Math.random(), said: false, held }; R.n.covers++; if (held) st.running = false; emit('cover', { id: P.id, n: R.n.covers, held }); }
+  // (moves the hand: told, the first time; the second, the wrist taken and held)
   function handDown() { const R = cur && cur.rx, c = R && R.cover; if (!c || c.done) return false; c.done = true; c.held = false; if (!c.said) { c.said = true; say('captain', V.captain(R.n.covers >= 2 ? 'pin' : 'hands', cur.id)); } c.dur = c.t + 0.6; emit('state'); return true; }
-  // (or the player's two ways with it: tell her to keep her position (down, if she's up; the hand away, if it's back), or take her hand and
-  // hold it at the small of her back, from then on)
-  function tell() { const R = cur && cur.rx; if (!R) return false; if (R.up) return putBack() && 'down'; const c = R.cover; if (!c || c.done) return false; c.done = true; c.held = false; c.said = true; say('captain', V.captain('hands', cur.id)); c.dur = c.t + 0.6; emit('state'); return 'hand'; }
-  function takeHand() { const R = cur && cur.rx, c = R && R.cover; if (!c || c.done) return false; c.done = true; c.held = false;      // (once: it's dealt with)
-    c.said = true; say('captain', V.captain('take', cur.id) || V.captain('pin', cur.id)); c.dur = c.t + 0.6; c.take = true; emit('state'); return true; }
+  // (or the player's two ways with it: move it out of the way, or take her hand and hold it at the small of her back, from then on)
+  // (what he says: his usual, or the line given: the one the player chose)
+  function tell(line) { const R = cur && cur.rx; if (!R) return false; const c = R.cover; if (!c || c.done) return false; c.done = true; c.held = false; c.said = true; say('captain', line || V.captain('hands', cur.id)); c.dur = c.t + 0.6; emit('state'); return 'hand'; }
+  function takeHand(line) { const R = cur && cur.rx, c = R && R.cover; if (!c || c.done) return false; c.done = true; c.held = false;      // (once: it's dealt with)
+    c.said = true; say('captain', line || V.captain('take', cur.id) || V.captain('pin', cur.id)); c.dur = c.t + 0.6; c.take = true; emit('state'); return true; }
   // What a smack takes out of their defiance, and what that becomes. It can't fall further than how much it hurts lets it (gone by about the
   // edge; sooner the more submissive, later the more there was); each smack takes a share of what's left above that. Drained inside the edge,
   // it becomes Compliance; drained by going well past it, or by main force (full strength), Resentment. And smacks run on long after they've stilled, with nothing left to
@@ -480,9 +472,9 @@ function create(stage, bay, opts) {
       // hips, so what he strikes is in front of him rather than behind; feet planted wide, knees a little bent, leaning in. His left hand on their
       // waist, which leaves his shoulders free to come down and in. How far back, how low, how far over and how close: fitted to them and the
       // area, the least of each that brings both its spots (left and right) within his arm's reach, and eased to as it changes.
-      // (and as a defiant one comes up off the rail, or stands taller to it, he straightens to give them room)
+      // (and as a defiant one stands taller to the rail, he straightens to give them room)
       // (Fenwick: over the table, standing as placed in the pose editor (TUNE.table.silas), bent lower only as far as he needs to reach)
-      const up_ = Math.max(cur.rx.upK, 0.6 * cur.def), k = 1 - Math.exp(-dt * 3);
+      const up_ = 0.6 * cur.def, k = 1 - Math.exp(-dt * 3);
       if (st.position === 'table') { const want = tableDownFor(); tDown.k += (want - tDown.k) * (tDown.who === cur ? k : 1); tDown.who = cur; placeTable(up_, rz, tDown.k); }
       else {
         const want = capFitFor();
@@ -566,8 +558,8 @@ function create(stage, bay, opts) {
     // (the more submissive: the head bowed rather than turned to the room, and at the end they stay down till they're told; the less, they
     // start to come up as soon as it's over)
     const sub = P.rel.submission, rise = (st.ending || st.phase === 'closing') ? sm(0, 1, (st.ending ? st.ending.t : 3) / 1.5) * (1 - sub) : 0;
-    // (defiance: the head up; a look back at Silas now and then; up out of position till they're put back)
-    const dfy = P.def * (R.broke > 0 ? 0 : 1), gK = R.glanceK, uK = R.upK;
+    // (defiance: the head up; a look back at Silas now and then)
+    const dfy = P.def * (R.broke > 0 ? 0 : 1), gK = R.glanceK;
     F.resetPose(); F.tuck = otk;      // (face down across the lap: his tucked forward into it)
     if (otk) {
       placeOTK(P, fl);
@@ -576,10 +568,10 @@ function create(stage, bay, opts) {
       F.bone.hips.position.z -= 0.035 * Math.max(0, bk) * s * legs; F.bone.hips.position.x += 0.022 * (wrig + aw) * s * legs;      // (her skirt down: turning only, not shifting)
       F.bone.hips.rotation.set(0.04 - 0.05 * ar - 0.16 * bk, 0.26 * wrig + 0.14 * shift + 0.3 * aw, 0.07 * wrig + 0.09 * shift + 0.04 * fl * (J.side === 'L' ? 1 : -1));
       F.bone.spine.rotation.set(0.04 - 0.08 * ar + 0.12 * bk, -0.1 * wrig + 0.1 * twist - 0.12 * aw, 0.03 * wrig + 0.05 * twist);
-      F.bone.chest.rotation.set(0.85 - 0.14 * ar + 0.06 * bk + 0.12 * spent * dd - 0.42 * uK, 0.04 * twist + 0.14 * gK, 0);
-      F.bone.spine.rotation.x -= 0.1 * uK; F.bone.spine.rotation.y += 0.1 * gK;
+      F.bone.chest.rotation.set(0.85 - 0.14 * ar + 0.06 * bk + 0.12 * spent * dd, 0.04 * twist + 0.14 * gK, 0);
+      F.bone.spine.rotation.y += 0.1 * gK;
       // (the head: turned out to the room, or, glancing back, round and up over the near shoulder to Silas)
-      F.bone.neck.rotation.set(-0.7 + 0.4 * sub - 0.25 * dfy - 0.4 * hd - 0.2 * ar - 0.15 * bk - 0.35 * rise - 0.15 * gK - 0.15 * uK,
+      F.bone.neck.rotation.set(-0.7 + 0.4 * sub - 0.25 * dfy - 0.4 * hd - 0.2 * ar - 0.15 * bk - 0.35 * rise - 0.15 * gK,
         lerp(-0.7 * (1 - 0.75 * sub), 0.75, gK) + (0.1 * dd * R.ff + 0.12 * sq) * Math.sin(t * 1.7 + ph[1]), -0.1 + 0.15 * gK);
       F.bone.chest.rotation.x -= 0.2 * rise;
       if (R.braceK > 0.001) { const TB = TUNE.otk.brace, k = R.braceK * Math.PI / 180; for (const [b, e] of [['chest', TB.chest], ['neck', TB.neck]]) { const r = F.bone[b].rotation; r.set(r.x + e[0] * k, r.y + e[1] * k, r.z + e[2] * k); } }
@@ -673,7 +665,7 @@ function create(stage, bay, opts) {
       // (bent as far as it takes for the chest to lie on the top: past level for the tall, short of it for the short)
       const Lt = (F.bone.spine.position.length() + F.bone.chest.position.length() + F.bone.neck.position.length() * 0.4) * s;
       const tTop = topFor(F), lie = Math.PI / 2 + Math.asin(clamp((hipY - (tTop + 0.12 * s)) / Lt, -0.6, 0.95));
-      const up = 0.15 * ar + 0.6 * uK + 0.45 * rise + 0.1 * dfy;
+      const up = 0.15 * ar + 0.45 * rise + 0.1 * dfy;
       const TB = TUNE.table.her, dg = Math.PI / 180, TD = TB.defiant, TS = TB.submissive;
       F.bone.hips.rotation.set(lie - up + TB.hips[0] * dg, 0.03 * Math.sin(t * 1.1 + ph[2]) * dd * R.ff + TB.hips[1] * dg, TB.hips[2] * dg);
       F.bone.spine.rotation.set(0.03 - 0.04 * ar + TB.spine[0] * dg + TD.spine * dfy + TS.spine * sub, 0.06 * gK + TB.spine[1] * dg, TB.spine[2] * dg); F.bone.chest.rotation.set(0.02 - 0.05 * ar + TB.chest[0] * dg + TD.chest * dfy + TS.chest * sub, 0.1 * gK + TB.chest[1] * dg, TB.chest[2] * dg);
@@ -715,11 +707,10 @@ function create(stage, bay, opts) {
       setRoot(F, wall.at, wall.yaw);
       const toe = sp.toe.to(0, dt), fwd = Math.max(0, fl);
       F.bone.hips.position.set(0, H(F).hips - 0.05 + 0.04 * toe, -0.1 + 0.07 * fwd);
-      // (defiant, they stand a little taller to it, the head up; coming up, they straighten off the rail till they're put back; a glance goes
-      // back over the left shoulder to Silas)
-      F.bone.hips.rotation.set((sup.bend || 0.72) - 0.35 * fwd - 0.15 * ar - 0.14 * dfy - 0.42 * uK, 0, 0);
-      F.bone.spine.rotation.set(0.12 - 0.06 * ar - 0.08 * uK, 0.1 * gK, 0); F.bone.chest.rotation.set(0.06 - 0.08 * ar + 0.06 * spent * dd - 0.06 * uK, 0.12 * gK, 0);
-      F.bone.neck.rotation.set(0.25 + 0.25 * sub - 0.3 * dfy - 0.7 * hd - 0.15 * ar - 0.4 * rise - 0.2 * gK - 0.2 * uK, 0.06 * Math.sin(t * 1.3 + ph[0]) * dd * R.ff + 0.75 * gK, 0.12 * gK);
+      // (defiant, they stand a little taller to it, the head up; a glance goes back over the left shoulder to Silas)
+      F.bone.hips.rotation.set((sup.bend || 0.72) - 0.35 * fwd - 0.15 * ar - 0.14 * dfy, 0, 0);
+      F.bone.spine.rotation.set(0.12 - 0.06 * ar, 0.1 * gK, 0); F.bone.chest.rotation.set(0.06 - 0.08 * ar + 0.06 * spent * dd, 0.12 * gK, 0);
+      F.bone.neck.rotation.set(0.25 + 0.25 * sub - 0.3 * dfy - 0.7 * hd - 0.15 * ar - 0.4 * rise - 0.2 * gK, 0.06 * Math.sin(t * 1.3 + ph[0]) * dd * R.ff + 0.75 * gK, 0.12 * gK);
       F.bone.hips.rotation.x -= 0.25 * rise;
       F.root.updateMatrixWorld(true);
       // (a step in, if their arms won't reach what they're to hold from where they stand: the short and the long-bodied alike keep their
@@ -892,9 +883,10 @@ function create(stage, bay, opts) {
   }
 
   // ── Smacks ──
-  const canRun = () => cur && st.phase === 'turn' && !st.word && !cur.pain.tooHarsh && !st.act && !st.actQ.length && !st.ending;
-  // (and not while a hand's over the seat, or they're up out of position: the run waits for them to be put back)
-  const canStrike = () => canRun() && !cur.rx.cover && !cur.rx.up;
+  // (nor while a hand's over the seat that waits for the player: it's dealt with first, and then the run's begun again)
+  const canRun = () => cur && st.phase === 'turn' && !st.word && !cur.pain.tooHarsh && !st.act && !st.actQ.length && !st.ending && !(cur.rx.cover && cur.rx.cover.held);
+  // (and no smack while a hand's over the seat: the run waits for it to be moved)
+  const canStrike = () => canRun() && !cur.rx.cover;
   function pickSide() { const s = st.side === 'alt' ? st.nextSide : st.side; if (st.side === 'alt') st.nextSide = st.nextSide === 'R' ? 'L' : 'R'; return s; }
   function startSwing() { if (!canStrike() || st.swing) return false; st.swing = { phase: 'lift', t: 0, side: pickSide(), waited: 0 }; return true; }
   // (Fenwick: a figure in period dress says what its layers take off, by area (Figure: cushionOf): a skirt down, leggings, drawers or smalls)
@@ -984,8 +976,7 @@ function create(stage, bay, opts) {
     st.turn = i; cur = queue[i]; st.word = false; st.swing = null; st.running = false; st.soothe = false; st.phase = 'turn';
     J.kick = 0; J.stamp = 0; for (const k in sp) { sp[k].x = 0; sp[k].v = 0; }
     cur.rx = freshReact(); cur.def = cur.def0; cur.gain = { compliance: 0, resentment: 0 };
-    // (the defiant are slow to settle as they're placed: up off the knee, or upright at the rail, looking back, till he puts them down)
-    if (cur.def0 > 0.4 && allows('up', cur)) { cur.rx.up = { t: -0.2, dur: 2.6 + 1.6 * cur.def0, said: false, start: true, held: holds('up', cur) }; cur.rx.glance = 1.6; cur.rx.n.ups++; emit('up', { id: cur.id, n: cur.rx.n.ups, start: true }); }
+    if (cur.def0 > 0.4 && allows('glance', cur)) cur.rx.glance = 1.6;      // (the defiant look back at him as they're placed)
     cur.f.setClothes({ top: 'down', bottoms: 'up', under: 'up' }); cur.f.setExpr(cur.r.base || 'calm'); drapes();
     emit('turn', { i, id: cur.id }); emit('state');
     setTimeout(() => { say('captain', V.place(cur.id, placeKey())); setTimeout(() => say('subject', V.react(cur.id, cur.def0 > 0.5 && !/defiant|stern/.test(cur.r.base) ? 'defy' : 'start'), cur), 1600); }, 300);      // (their own way in, unless they're far more defiant than they usually are)
@@ -1000,7 +991,9 @@ function create(stage, bay, opts) {
   }
   function ending(dt) {
     const E = st.ending; E.t += dt;
-    if (E.stage === 'soothe' && E.t > 2.8 && !st.swing) { st.soothe = false; E.stage = 'dress'; dressTo({ under: 'up', bottoms: 'up', top: 'down' }); emit('state'); }
+    // (opts.dressAtEnd false: left as they are, through what's said at the end, and dressed in the fade to the aftercare: the game's way)
+    if (E.stage === 'soothe' && E.t > 2.8 && !st.swing && opts.dressAtEnd === false) { st.soothe = false; st.ending = null; finishTurn('done'); }
+    else if (E.stage === 'soothe' && E.t > 2.8 && !st.swing) { st.soothe = false; E.stage = 'dress'; dressTo({ under: 'up', bottoms: 'up', top: 'down' }); emit('state'); }
     else if (E.stage === 'dress' && !st.act && !st.actQ.length) { st.ending = null; finishTurn('done'); }
   }
   function finishTurn(outcome) {
@@ -1017,7 +1010,7 @@ function create(stage, bay, opts) {
   }
   // on to the next in the queue, or, all done, to the aftercare (for those not yet cared for)
   function next() {
-    if (cur && st.phase !== 'after') cur.f.setClothes({ top: 'down', bottoms: 'up', under: 'up' });
+    if (cur && st.phase !== 'after' && opts.dressAtEnd !== false) cur.f.setClothes({ top: 'down', bottoms: 'up', under: 'up' });
     const n = queue.findIndex(x => !x.done);
     if (n >= 0) beginTurn(n); else { st.phase = 'closing'; emit('done', { results: st.results.filter(r => !r.cared) }); emit('state'); }      // (held where they are till the cut)
   }
@@ -1318,8 +1311,8 @@ function create(stage, bay, opts) {
     defiance: () => (cur ? cur.def : 0), gains: () => (cur ? Object.assign({}, cur.gain) : null),
     // (the break, now, as a smack past the edge would bring it: the defiance out of her at once, a sob, the head down, and her saying so)
     breakNow() { const P = cur; if (!P || P.said.yield || st.phase !== 'turn') return false; P.def = Math.min(P.def, 0.12); P.said.yield = 1; P.rx.broke = 2.4; kickSp('head', -5); scripted(); return true; },
-    putBack, handDown, tell, takeHand, pushUp() { if (cur && !cur.rx.up && st.phase === 'turn' && !st.ending) startUp(cur); }, cover() { if (cur && !cur.rx.cover && !cur.rx.pinOn && st.position === 'otk' && st.phase === 'turn' && !st.ending) startCover(cur); },
-    get up() { return !!(cur && cur.rx.up && !cur.rx.up.done); }, get receptive() { return !!(cur && cur.def < 0.2); },      // (receptive: their defiance gone (or never there): what's done reaches them now)
+    handDown, tell, takeHand, cover() { if (cur && !cur.rx.cover && !cur.rx.pinOn && st.position === 'otk' && st.phase === 'turn' && !st.ending) startCover(cur); },
+    get receptive() { return !!(cur && cur.def < 0.2); },      // (receptive: their defiance gone (or never there): what's done reaches them now)
     get covering() { return !!(cur && cur.rx.cover && !cur.rx.cover.done); }, get pinned() { return !!(cur && cur.rx.pinOn); },
   };
   return api;

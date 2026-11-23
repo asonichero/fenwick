@@ -201,27 +201,32 @@ const OFFICE = {
 };
 
 // ── The correction: the tutorial (docs/gdd.md, "The correction: the tutorial"). Across his knee on his chair, pulled out from the desk; she's
-// in her own shift and drawers. The correction plays as it always does (js/session.js); a phase controller (js/tutorial.js) drives her
-// defiance, pride and submission through five phases, and a prompt teaches each control as it first matters. It can't be failed. Once
-// she's receptive it runs on as the player has it: ended when they judge it's enough, or on to too harsh, and her word. ──
+// in her own shift and drawers, and across his knee from the first. The correction plays as it always does (js/session.js); a phase
+// controller (js/tutorial.js) drives her defiance, pride and submission through five phases, and a prompt teaches each control as it first
+// matters: till then, it's closed to the player. Her hand, when it comes back, stops the run, and what's done with it is a choice in the
+// dialogue: moved out of the way, or taken; then the run's begun again. It can't be failed. Once she's receptive it runs on as the player has
+// it: ended when they judge it's enough, or on to too harsh, and her word. ──
 const CORRECTION = {
   id: 'correction', room: 'office', title: 'The correction',
   // (how defiant she comes to it, from how he answered her plea: stung by dryness most; disarmed a little by gentleness)
   tone: { firm: 0.78, dry: 0.9, gentle: 0.66 },
   rel: { submission: 0.1, comfort: 0.1, desire: 0 },
   word: 'Her word is Falada. If she says it, it’s over at once, as you promised.',
+  // (her hand back over her seat: the choice, in the dialogue box)
+  // (what Silas says, either way: js/lines.js's, CAPTAIN.hands and CAPTAIN.take)
+  hand: { prompt: 'Her hand’s come back to cover herself.', options: [{ id: 'tell', label: 'Move it out of the way', line: 'hands' }, { id: 'take', label: 'Take her hand', line: 'take' }] },
   phases: [
     { id: 'ready', name: 'Before you begin', prompts: [
-      { key: 'up', when: 'up', again: true, text: 'She’s not down yet. Tell her to keep her position: across your knee.', control: 'P', act: 'tell' },
       { key: 'shift', when: 'shiftDown', text: 'Her shift first: raise it, and roll it at her back.', control: 'T', act: 'top' },
       { key: 'run', text: 'Start a run. Smacks keep coming, at the pace and strength set, until you stop it.', control: 'Space', act: 'run' } ] },
-    { id: 'defiance', name: 'Defiance', floor: 0.5, allow: ['up', 'glance'], hold: ['up'], forceUp: 9, out: { hits: 14, distress: 0.45, most: 24 }, prompts: [
-      { key: 'up', when: 'up', again: true, text: 'She’s pushed up off your knee. Tell her to keep her position.', control: 'P', act: 'tell' },
+    { id: 'defiance', name: 'Defiance', floor: 0.5, allow: ['glance'], out: { hits: 14, distress: 0.45, most: 24 }, prompts: [
       { key: 'pace', after: 4, text: 'Pace: slower, or faster. A steady pace is easier to bear than a quick one.', control: '[ ]', act: 'pace' },
       { key: 'strength', after: 9, text: 'Strength: lighter, or harder. Harder brings her on sooner; too hard, and it’s more than she can bear.', control: '− =', act: 'strength' } ] },
-    // (her hand back over her seat: two ways with it, either time: tell her to keep her position, or take her hand and hold it, from then on)
+    // (her hand back over her seat: the run stops, and the player chooses, in the dialogue, either time: move it out of the way, or take it and
+    // hold it, from then on. Then the run's theirs to begin again)
     { id: 'covering', name: 'Covering', floor: 0.5, allow: ['cover', 'glance'], hold: ['cover'], forceCover: [2, 6], out: { covers: 2, after: 4 }, prompts: [
-      { key: 'hand', when: 'covering', again: true, text: 'Her hand’s come back over her seat. Tell her to keep her position, or take her hand and hold it at the small of her back.', control: 'P  or  H', acts: ['tell', 'take'] } ] },
+      { key: 'hand', when: 'covering', again: true, text: 'Her hand’s come back over her seat, and the run’s stopped. Choose what you do with it: move it out of the way, or take it and hold it at the small of her back.', acts: ['tell', 'take'] },
+      { key: 'again', when: 'stopped', again: true, text: 'Start the run again.', control: 'Space', act: 'run' } ] },
     { id: 'pride', name: 'Pride', floor: 0.55, allow: ['glance'], out: { distress: 0.95, hits: 8, most: 34 }, prompts: [
       { key: 'drawers', when: 'drawersUp', text: 'Her drawers: lower them.', control: 'U', act: 'under' },
       { key: 'meter', text: 'She’s holding in what she feels: her face shows little of it. Read the meter, not her face.', look: 'meter' } ] },
@@ -242,11 +247,74 @@ const CORRECTION = {
     'So I envied her. That’s all it ever was. And I’d have kept her down with the geese to keep what I took.',
     'I’m sorry. Not for being found out. For her.',
   ],
-  next: { title: 'Aftercare and the offer', where: 'In your office, seated together (being built)' },
-  wordNext: { title: 'She said her word', where: 'It’s over, as you promised. She goes on her way, without the offer; the geese are Kit’s alone.' },
+  next: { title: 'Aftercare and the offer', where: 'In your office, seated together' },      // (if the game stops before it)
 };
 
-const SCENES = { hall: HALL, office: OFFICE, correction: CORRECTION };
+// ── The aftercare and the offer (docs/gdd.md, "Aftercare and the offer"): the two of them on the settle in his office, as every correction ends
+// (the correction's own aftercare: js/session.js seats them). A conversation (js/talk.js's: lines, and lines of inquiry the player works
+// through in any order, then how it ends). Then the offer: the place she made her mistress take. Played one of two ways:
+//   done: the player ended it. How she is, why it mattered, that it's over; then he believes she's truly sorry, and there may be a place for her
+//   here, if the master agrees. She takes it.
+//   word: she said her word. He owns that it went too far, before anything else, and tells her she's free, as he promised; the offer comes as
+//   what he'd have said either way, set apart from the rest of the night, not amends for it; and she needn't answer tonight. ──
+const AFTERCARE = {
+  id: 'aftercare', room: 'office', title: 'Aftercare and the offer',
+  talk: {
+    done: [
+      { who: 'subject', expr: 'teary', text: '…I thought you’d be cruel. You weren’t. That’s worse, somehow.' },
+      { explore: true, choose: [
+        { label: 'Ask how she is', then: [
+          { who: 'captain', expr: 'caring', text: 'Breathe first. Then tell me how you are.' },
+          { who: 'subject', expr: 'wistful', text: 'Sore. Ashamed. …Lighter, somehow. I don’t understand that.' },
+          { who: 'captain', expr: 'soft', text: 'You will.' } ] },
+        { label: 'Say why it mattered', then: [
+          { who: 'captain', expr: 'calm', text: 'You made a lady tend geese and swear herself silent, and you’d have seen her turned out with nothing. Better you feel the weight of it once, from me, than carry it lightly the rest of your life.' },
+          { who: 'subject', expr: 'sad', text: 'I know. I watched her be given everything, all my life. I wanted one thing to be mine, and I took all of it.' } ] },
+        { label: 'Tell her it’s over', then: [
+          { who: 'captain', expr: 'soft', text: 'It’s done. What you did is paid for, here, tonight, and it stays paid.' },
+          { who: 'subject', expr: 'teary', text: '…You’re not turning me out?' },
+          { who: 'captain', expr: 'calm', text: 'That isn’t mine to say. Not yet.' } ] },
+        { label: 'Tell her what you think', after: 'Tell her what you think', end: true, then: [
+          { who: 'captain', expr: 'caring', text: 'I believe you’re sorry. Truly sorry, and for her, not for being found out.' },
+          { who: 'captain', expr: 'calm', text: 'The master’s sentence turns you out with nothing. But there may be a place for you here, if he agrees: the one you made her take. The geese, with Kit, under my eye.' },
+          { who: 'subject', expr: 'surprised', text: '…The geese.' },
+          { who: 'captain', expr: 'soft', text: 'It’s offered, not ordered. You may go instead, and no one will stop you.' },
+          { who: 'subject', expr: 'teary', text: '…No. I’ll stay, if he’ll have me. I’ll keep them better than she was let to.' },
+          { who: 'captain', expr: 'caring', text: 'Then I’ll ask him in the morning.' },
+          { who: 'subject', expr: 'soft', text: '…Thank you, Mr {last}.' } ] },
+      ] },
+    ],
+    word: [
+      { who: 'subject', expr: 'crying', text: 'I said it. Her name. I’m sorry— I couldn’t. I’ll go.' },
+      // (his, first, and not the player's to leave out: it went too far, and that's his)
+      { who: 'captain', expr: 'concerned', text: 'Don’t be sorry for that. You said it, and you were right to. That went further than it should have, and that’s mine to answer for, not yours.' },
+      { explore: true, choose: [
+        { label: 'Ask how she is', then: [
+          { who: 'captain', expr: 'concerned', text: 'How are you? Truly.' },
+          { who: 'subject', expr: 'sad', text: '…It hurt more than I could hold. I’m all right now. Mostly.' },
+          { who: 'captain', expr: 'soft', text: 'Sit as long as you need.' } ] },
+        { label: 'Say why it mattered', then: [
+          { who: 'captain', expr: 'calm', text: 'What you did to her mattered. What I did just now went past it. Both are true.' },
+          { who: 'subject', expr: 'sad', text: 'I know what I did to her. I didn’t need it beaten into me to know it.' },
+          { who: 'captain', expr: 'soft', text: 'No. You didn’t.' } ] },
+        { label: 'Tell her she’s free', then: [
+          { who: 'captain', expr: 'calm', text: 'You’re free to go, as I promised. Tonight, if you want it, and with the character I said this house would give you. Saying your word costs you nothing.' },
+          { who: 'subject', expr: 'surprised', text: '…Nothing?' },
+          { who: 'captain', expr: 'soft', text: 'Nothing. That’s what it’s for.' } ] },
+        { label: 'Tell her what you think', end: true, then: [
+          { who: 'captain', expr: 'calm', text: 'There’s something I’d have said either way. Hear it as that, not as amends. Nothing makes up for the last of tonight, and I won’t pretend this does.' },
+          { who: 'captain', expr: 'caring', text: 'I believe you’re sorry. I heard it before ever it went too far.' },
+          { who: 'captain', expr: 'calm', text: 'There may be a place for you here, if the master agrees: the geese, with Kit. Or go, as I promised, and no one will think the less of you for it.' },
+          { who: 'captain', expr: 'soft', text: 'You needn’t answer me tonight.' },
+          { who: 'subject', expr: 'wistful', text: '…I’d stay. Not because of tonight. Because of what I owe her.' },
+          { who: 'captain', expr: 'soft', text: 'Then I’ll ask him in the morning. And if you think better of it by then, say so, and go with my blessing.' } ] },
+      ] },
+    ],
+  },
+  next: { title: 'Coda: the letter', where: 'Some weeks on: the goose yard, and a rider with a letter (being built)' },
+};
+
+const SCENES = { hall: HALL, office: OFFICE, correction: CORRECTION, aftercare: AFTERCARE };
 
 // A shot, in the room: its camera and the point it looks at ([x, y, z] each), from the spots (the hall's spots(): { id: { at, yaw } }).
 function shot(scene, name, spots) {
@@ -260,5 +328,5 @@ function shot(scene, name, spots) {
 const flat = beats => beats.flatMap(b => [b].concat(b.choose ? b.choose.options.flatMap(o => flat(o.beats)) : []));
 const speakers = scene => [...new Set(flat(scene.beats).filter(b => b.who).map(b => b.who))];
 
-root.Prologue = { SCENES, ORDER: ['hall', 'office', 'correction'], shot, speakers };
+root.Prologue = { SCENES, ORDER: ['hall', 'office', 'correction', 'aftercare'], shot, speakers };
 })(typeof window !== 'undefined' ? window : globalThis);

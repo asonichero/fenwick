@@ -1,6 +1,7 @@
 // The prologue's opening scene (js/prologue.js): its script holds together: everyone in it made from a real spec, every line said by someone
 // in it with a face they have, every shot and act it names defined, the story's beats in the GDD's order, the names kept back till the reveal;
-// and its shots, from the hall as built, inside the hall and looking at who they're meant to.
+// and its shots, from the hall as built, inside the hall and looking at who they're meant to. Then the aftercare's two ways, as the correction
+// ended: the offer, and after her word, the same offer set apart from the night, never as consolation.
 const test = require('node:test'), assert = require('node:assert/strict');
 globalThis.window = globalThis;
 const ctx = new Proxy({}, { get: (t, k) => (k === 'createRadialGradient' || k === 'createLinearGradient' ? () => ({ addColorStop() {} }) : () => {}), set: () => true });
@@ -140,4 +141,59 @@ test('the one choice: how he answers her plea, firm, dry or gentle; each a line 
   assert.deepEqual(C.options.map(o => o.id), ['firm', 'dry', 'gentle']);
   for (const o of C.options) { assert.equal(o.beats[0].who, 'silas'); assert.equal(o.beats[1].who, 'cicely'); assert.ok(o.label && o.text); }
   assert.equal(OF.beats.filter(b => b.choose).length, 1);
+});
+
+// ── The aftercare and the offer: two ways it plays, as the correction ended ──
+require('../js/talk.js');
+const AC = Prologue.SCENES.aftercare, Talk = window.Talk;
+// (the conversation played through by a player taking the choices in the order given (the first, each time, otherwise); everything said, in order)
+async function talkThrough(steps, order) {
+  const said = [], took = []; let k = 0;
+  await Talk.play(steps, {
+    line: s => { said.push(s); return Promise.resolve(); },
+    choose: options => { const want = order && order[k++], o = options.find(x => x.label === want) || options[0]; return Promise.resolve(o); },
+    took: o => took.push(o.label),
+  });
+  return { said, took, text: said.map(s => s.text).join('\n') };
+}
+
+test('the aftercare follows the correction, in his office; ended by the player, or by her word: a conversation for each', () => {
+  assert.deepEqual(Prologue.ORDER, ['hall', 'office', 'correction', 'aftercare']);
+  assert.equal(AC.room, 'office'); assert.ok(AC.talk.done && AC.talk.word);
+  const faces = new Set(['teary', 'crying', 'sad', 'wistful', 'surprised', 'soft', 'calm', 'caring', 'concerned']);
+  const walk = steps => { for (const s of steps) { if (s.choose) { for (const o of s.choose) { assert.ok(o.label); walk(o.then || []); } continue; }
+    assert.ok(s.who === 'captain' || s.who === 'subject', s.text); assert.ok(s.text && s.text.length > 2); assert.ok(!s.expr || faces.has(s.expr), s.expr); } };
+  walk(AC.talk.done); walk(AC.talk.word);
+  assert.equal(Prologue.SCENES.correction.next.title, AC.title); assert.ok(!Prologue.SCENES.correction.wordNext, 'no end of its own after her word: on to the aftercare');
+  assert.match(AC.next.title, /Coda/);
+});
+
+test('ended by the player: how she is, why it mattered, that it’s over, in any order; then he believes she’s sorry, and the place, if the master agrees', async () => {
+  const ex = AC.talk.done.find(s => s.explore), labels = ex.choose.map(o => o.label).join(' | ');
+  assert.match(labels, /how she is/i); assert.match(labels, /why it mattered/i); assert.match(labels, /over/i);
+  const ends = ex.choose.filter(o => o.end); assert.equal(ends.length, 1);
+  const all = await talkThrough(AC.talk.done, ['Say why it mattered', 'Tell her it’s over', 'Ask how she is']);
+  assert.deepEqual(all.took.slice(0, 3), ['Say why it mattered', 'Tell her it’s over', 'Ask how she is'], 'in the order the player takes them');
+  assert.match(all.text, /believe you’re sorry/i); assert.match(all.text, /if he agrees|if the master agrees/i); assert.match(all.text, /geese/);
+  assert.ok(all.text.indexOf('believe you’re sorry') > all.text.indexOf('Sore. Ashamed.'), 'the offer last');
+  assert.match(all.text, /offered, not ordered/i, 'offered, not imposed'); assert.match(all.said[all.said.length - 1].text, /Thank you/);
+  // (or straight to it: the offer whenever he chooses to say it)
+  const quick = await talkThrough(AC.talk.done, ['Tell her what you think']); assert.match(quick.text, /place for you here/);
+});
+
+test('after her word, the same offer, never as consolation: he owns it went too far first; she’s free, at no cost; the offer set apart, not amends; no answer wanted tonight', async () => {
+  const W = AC.talk.word, first = W.findIndex(s => s.choose), before = W.slice(0, first).map(s => s.text).join('\n');
+  assert.match(before, /went further than it should have/); assert.match(before, /mine to answer for/i, 'his, before the player chooses anything');
+  for (const order of [['Tell her what you think'], ['Tell her she’s free', 'Ask how she is', 'Say why it mattered']]) {
+    const r = await talkThrough(W, order), t = r.text;
+    assert.match(t, /not as amends/i); assert.match(t, /Nothing makes up for/i); assert.match(t, /needn’t answer me tonight/i);
+    assert.match(t, /if the master agrees/i); assert.match(t, /Or go, as I promised/i);
+    assert.ok(t.indexOf('not as amends') < t.indexOf('place for you here'), 'set apart before it’s made');
+    assert.match(t, /Not because of tonight/, 'if she stays, it’s for her own reasons');
+    assert.ok(!/believe you’re sorry\. Truly sorry/.test(t), 'not the same words as the other way');
+  }
+  const free = await talkThrough(W, ['Tell her she’s free']); assert.match(free.text, /costs you nothing/i, 'her word costs her nothing');
+  // (nothing in it that sounds like a reward for what was borne)
+  const every = (await talkThrough(W, ['Ask how she is', 'Say why it mattered', 'Tell her she’s free'])).text;
+  assert.ok(!/earned|deserve|reward|for what you bore|make it up/i.test(every.replace(/Nothing makes up for/, '')), 'no consolation');
 });

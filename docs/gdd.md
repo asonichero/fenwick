@@ -523,17 +523,20 @@ Within each phase the correction plays as it always does: her reactions,
 lines, kicks and distress all come from the simulation, and an on-screen
 prompt teaches each control as it first matters. The player can't fail
 it. Pace and strength change what she says and how quickly each phase
-gives way to the next, within bounds.
+gives way to the next, within bounds. Every control starts greyed out
+and closed, End included, and each opens when the prompt that explains
+it first appears.
 
 - **1. Defiance.** She submitted to the terms, but her pride fights the
-  correction itself. She argues it's unjust, looks back at him over her
-  shoulder and pushes up out of position, and he puts her back. Teaches
-  pace, strength and putting her back in place.
+  correction itself. She argues it's unjust and looks back at him over
+  her shoulder, but she stays across his knee: no one comes up out of
+  position, here or in any correction. Teaches pace and strength.
 
-- **2. Covering.** Her hand comes back over her seat, twice. Either time
-  there are two ways with it: tell her to keep her position, as when she
-  comes up off his knee, or take her hand and hold it at the small of
-  her back, from then on. Teaches both.
+- **2. Covering.** Her hand comes back over her seat, twice. Each time
+  the run stops, and what Silas does about it is a choice in the
+  dialogue: move her hand out of the way, or take it and hold it at the
+  small of her back, from then on. Then the player starts the run again.
+  Teaches both, and that a run is the player's to begin.
 
 - **3. Pride.** She holds in what she feels: her distress climbs while
   she shows little of it. Teaches reading the distress meter rather than
@@ -554,18 +557,29 @@ gives way to the next, within bounds.
 
 **Her word.** She can say Falada at any point, and the first prompt
 reminds the player of it. The script never needs it. If she says it,
-it's over at once, as he promised: she goes on her way, turned out as
-she named, without the offer, and the coda finds the geese in Kit's care
-alone.
+it's over at once, as he promised, and the scene goes to the aftercare.
+There Silas says first, before anything else, that it went further than
+it should have and that this is his to answer for, not hers. She is free
+to go, with the character he promised; saying her word costs her
+nothing. He makes the same offer, but only as something he'd have said
+either way: set apart from the night, and plainly not amends for it. She
+needn't answer that night. If she stays, it's for what she owes Adela,
+not because of what happened in the office.
 
 ### Aftercare and the offer
 
-Seated together in his office, as every correction ends. She is
-forgiven. Then Silas uses the one discretion that is his: the master's
-sentence turns her out with nothing, but Silas offers her the place she
-made her mistress take, tending Thornleigh's geese with Kit, under his
-eye. It is offered, not imposed, and she takes it. She leaves the office
-in the goose girl's plain dress; Adela's gown stays behind.
+Seated together on the settle in his office, as every correction ends.
+She stays as the correction left her until what's said at its end has
+been said; then the scene goes through black to the two of them seated,
+her shift down. If the player ended it, they choose what Silas speaks
+to, in any order: how she is, why it mattered, that it's over. Then he
+tells her he believes she's truly sorry, for Adela and not for being
+found out, and uses the one discretion that is his. The master's
+sentence turns her out with nothing, but there may be a place for her
+here, if the master agrees: the place she made her mistress take,
+tending Thornleigh's geese with Kit, under his eye. It is offered, not
+imposed, and she takes it. She leaves the office in the goose girl's
+plain dress; Adela's gown stays behind.
 
 ### Coda: the letter
 
