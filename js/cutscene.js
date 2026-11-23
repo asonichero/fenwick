@@ -78,7 +78,7 @@ function create(o) {
   }
   const head = id => P.W_(S[id].F, 'head');
   // (a thing in the room to look at: scene.points, each from someone's place as the shots are: his plate, say)
-  const point = k => { if (k === 'letter' && LT) return LT.reading ? LT.where().lerp(LT.readAt(), 0.3) : LT.where(); const q = scene.points && scene.points[k]; if (!q) return null; const sp = spots[q.from], c = Math.cos(sp.yaw), n = Math.sin(sp.yaw), [x, y, z] = q.at; return new V3(sp.at.x + x * c + z * n, y, sp.at.z - x * n + z * c); };
+  const point = k => { if (k === 'letter' && LT) return LT.reading && LT.write ? LT.where().lerp(LT.readAt(), 0.3) : LT.where(); const q = scene.points && scene.points[k]; if (!q) return null; const sp = spots[q.from], c = Math.cos(sp.yaw), n = Math.sin(sp.yaw), [x, y, z] = q.at; return new V3(sp.at.x + x * c + z * n, y, sp.at.z - x * n + z * c); };
   const yawTo = (from, to) => Math.atan2(to.x - from.x, to.z - from.z);
   const fwdOf = sp => new V3(Math.sin(sp.yaw), 0, Math.cos(sp.yaw));
   const yawOf = F => 2 * Math.atan2(F.root.quaternion.y, F.root.quaternion.w);
@@ -196,8 +196,10 @@ function create(o) {
     holdOpen(F, LT.cursor(), R.t); placeLetter();
     const C = LT.sheet.getWorldPosition(new V3()), n = new V3(0, 0, 1).applyQuaternion(LT.sheet.getWorldQuaternion(new THREE.Quaternion())), up = new V3(0, 1, 0);
     const eye = P.W_(F, 'head').addScaledVector(P.toWorldDir(F, 0, 0, 1), 0.09 * P.sc(F)).addScaledVector(up, 0.035);
-    const dir = eye.sub(C).normalize().lerp(n, 0.55).normalize(), look = LT.readAt().lerp(C, 0.6);
-    stage.go(C.addScaledVector(dir, R.dist), look, 0);
+    // (and once it's all written, eased back to the whole page, a little further off, to take it in)
+    const fin = R.doneAt == null ? 0 : sm(Math.min(1, (R.t - R.doneAt) / 1.6));
+    const dir = eye.sub(C).normalize().lerp(n, 0.55).normalize(), look = LT.readAt().lerp(C, 0.6 + 0.4 * fin);
+    stage.go(C.addScaledVector(dir, R.dist + 0.05 * fin), look, 0);
   }
   const lieOn = (at, yaw) => { LT.holder = null; LT.packet.position.copy(at); LT.packet.quaternion.copy(P.yawQ(yaw + 0.2)); LT.packet.updateMatrixWorld(true); };
 
@@ -311,7 +313,7 @@ function create(o) {
   // ── Each frame ──
   function tick(dt) {
     now += dt * 1000;
-    if (LT && LT.write) { const w = LT.write; w.n = Math.min(LT.total, w.n + w.rate * dt); LT.draw(w.n); if (w.n >= LT.total) { LT.write = null; w.done(); } }
+    if (LT && LT.write) { const w = LT.write; w.n = Math.min(LT.total, w.n + w.rate * dt); LT.draw(w.n); if (w.n >= LT.total) { LT.write = null; if (LT.reading) LT.reading.doneAt = LT.reading.t; w.done(); } }
     for (const id in S) {
       const s = S[id], F = s.F; if (!F.root.visible) continue;      // (off: not there at all, cloth included, till they come on)
       if (s.walk && s.walk.gait) { const w = s.walk, r = w.gait.step(dt); w.d = r.d;
