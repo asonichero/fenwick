@@ -22,7 +22,7 @@ const ARRIVAL = {
     houseIn: { at: true, cam: [1.6, 1.65, 15.2], look: [0.7, 3.4, 2.0] },
     approach: { at: true, cam: [-3.0, 1.5, 7.4], look: [0.3, 1.3, 3.4] },          // (side on, as he walks up to it)
     porch: { at: true, cam: [1.7, 1.75, 5.6], look: [0, 1.6, 3.0] },               // (behind him, at the door)
-    doorIn: { at: true, cam: [-0.9, 1.7, -0.4], look: [0.1, 1.5, 2.8] },           // (from within: the door opening, the day behind him)
+    doorIn: { at: true, cam: [-1.7, 1.65, -1.15], look: [0.1, 1.4, 2.5] },           // (from within: the door opening, the day behind him)
     inside: { at: true, cam: [2.4, 1.7, -0.7], look: [0.4, 1.45, 1.2] },           // (him, a few steps in, looking about him, the day in the door behind)
   },
   beats: [

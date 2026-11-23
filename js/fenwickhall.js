@@ -29,6 +29,8 @@ function build(scene) {
   const plasterM = std({ map: K.plasterTex('#b8ad96', [1.5, 1]), roughness: 0.95 }), boardsM = std({ map: K.boardsTex('#5a4230', [3, 3]), roughness: 0.85 });
   const flagsM = std({ map: tex(K.stoneTex, [3, 3]), roughness: 0.95, color: srgb('#a89c8a') }), stoneM = std({ map: tex(K.stoneTex, [1, 1]), roughness: 0.92 });
   const facadeM = std({ map: tex(K.stoneTex, [0.55, 0.55]), roughness: 0.95, color: srgb('#cfc8b8') });      // (the walls' UVs are in metres: a stone's size)
+  // (a door's leaf: its boards upright, the grain running up them)
+  const doorM = std({ map: (t => { t.center.set(0.5, 0.5); t.rotation = Math.PI / 2; t.repeat.set(1, 4); return t; })(K.grain('#3a2513', [1, 1])), roughness: 0.78 });
   const oak = std({ map: K.grain('#5e3e26', [1, 1]), roughness: 0.6 }), oakDark = std({ map: K.grain('#36220f', [1, 1]), roughness: 0.6 }), beamM = std({ map: K.grain('#2e1e12', [1, 1]), roughness: 0.7 });
   const iron = std({ color: srgb('#24211e'), roughness: 0.5, metalness: 0.6 }), pewter = std({ color: srgb('#8a8a86'), roughness: 0.45, metalness: 0.6 });
   const sheetM = std({ map: K.dustSheetTex, roughness: 1, side: THREE.DoubleSide }), webM = new THREE.MeshBasicMaterial({ map: K.cobwebTex, transparent: true, depthWrite: false, side: THREE.DoubleSide, opacity: 0.7 });
@@ -79,7 +81,7 @@ function build(scene) {
   function makeDoor(name, w, h, hinge, place, swing) {
     const D = { k: 0, from: 0, target: 0, t: 0, ms: 0, done: null, name };
     const leaf = new THREE.Group(); place(leaf);
-    const lw = w - 0.04; box(lw, h - 0.02, 0.06, oakDark, -lw / 2 * hinge, (h - 0.02) / 2, 0, leaf);
+    const lw = w - 0.04; box(lw, h - 0.02, 0.06, doorM, -lw / 2 * hinge, (h - 0.02) / 2, 0, leaf);
     for (const y of [0.4, h * 0.5, h - 0.4]) box(lw - 0.08, 0.1, 0.03, oak, -lw / 2 * hinge, y, -0.045, leaf);
     box(0.16, 0.03, 0.02, iron, -(lw - 0.12) * hinge, h * 0.42, -0.07, leaf); cyl(0.022, 0.022, 0.05, iron, -(lw - 0.08) * hinge, h * 0.42, -0.09, leaf, { rot: [Math.PI / 2, 0, 0] });
     const base = leaf.rotation.y, set = k => { D.k = k; leaf.rotation.y = base + swing * k; leaf.updateMatrixWorld(true); };

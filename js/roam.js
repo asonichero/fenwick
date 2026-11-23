@@ -10,12 +10,13 @@
 const THREE = root.THREE, V3 = THREE.Vector3, P = root.Poses;
 const KEYS = { w: 'f', W: 'f', ArrowUp: 'f', s: 'b', S: 'b', ArrowDown: 'b', a: 'l', A: 'l', ArrowLeft: 'l', d: 'r', D: 'r', ArrowRight: 'r' };
 const R0 = 0.24;      // (how much room he takes: a circle this wide about his feet)
-const SIDE = 0.42;      // (the view's centre, this far to his right: over his shoulder)
+const SIDE = 0.42, ARM = 3.0;      // (the view's centre, this far to his right: over his shoulder; and the view this far back from it)
 
 function create(o) {
   const { stage, room, figure: F, ui } = o, things = o.things || [], cam = stage.camera, ctl = stage.controls;
   const keys = { f: 0, b: 0, l: 0, r: 0 };
   let on = false, held = false, busy = false, pos = new V3(), yaw = 0, gait = null, fade = null, near = null, moving = false, headY = 0;
+  let arm = ARM, cur = ARM, lastD = null;      // (the view's distance: as the player would have it, as it is, as it was last set)
   const onDown = e => { const k = KEYS[e.key]; if (!on || !k || (e.target.closest && e.target.closest('input, textarea'))) return; keys[k] = 1; e.preventDefault(); };
   const onUp = e => { const k = KEYS[e.key]; if (k) keys[k] = 0; };
   const onBlur = () => { for (const k in keys) keys[k] = 0; };
@@ -44,18 +45,26 @@ function create(o) {
   // player's to turn from there)
   function place(at, y) {
     pos.copy(at).setY(0); if (y != null) yaw = y; fade = null; stand();
-    const fwd = new V3(Math.sin(yaw), 0, Math.cos(yaw)), rt = new V3(-fwd.z, 0, fwd.x), tgt = pos.clone().add(new V3(0, 1.45, 0)).addScaledVector(rt, SIDE);
-    stage.go(tgt.clone().addScaledVector(fwd, -3.0).add(new V3(0, 0.5, 0)), tgt, 0); keepView();
+    const fwd = new V3(Math.sin(yaw), 0, Math.cos(yaw)), head = pos.clone().add(new V3(0, 1.45, 0));
+    stage.go(head.clone().addScaledVector(fwd, -ARM).add(new V3(0, 0.5, 0)), head, 0); arm = cur = ARM; lastD = null; follow(0, true);
   }
-  // (the view kept within the rooms: drawn in along its line to him if it would be through a wall, and under the ceiling)
+  // ── The view: wherever the player's turned it, it follows him, its centre a little to the right of him on screen; kept within the rooms
+  // (drawn in along its line to him if it would be through a wall, and eased back out once it can be) and under the ceiling ──
   const inRooms = (x, z, m) => W.areas.some(a => inRect(a, x, z, m)) || W.doorways.some(d => inRect(d, x, z, 0));
   const ceilAt = (x, z) => { const a = W.areas.find(a => inRect(a, x, z, 0)); return a && a.ht ? a.ht : 9; };
-  function keepView() {
-    const t = ctl.target, c = cam.position;
-    if (!inRooms(c.x, c.z, 0.12)) { let lo = 0, hi = 1; for (let i = 0; i < 12; i++) { const m = (lo + hi) / 2; if (inRooms(t.x + (c.x - t.x) * m, t.z + (c.z - t.z) * m, 0.12)) lo = m; else hi = m; } c.set(t.x + (c.x - t.x) * lo, t.y + (c.y - t.y) * lo, t.z + (c.z - t.z) * lo); }
-    const top = ceilAt(c.x, c.z) - 0.25; if (c.y > top) c.y = top;
+  function follow(dt, snapTo) {
+    const off = cam.position.clone().sub(ctl.target), d = off.length() || 1, dir = off.divideScalar(d);
+    if (lastD != null && Math.abs(d - lastD) > 0.03) arm = cur = Math.max(0.8, Math.min(5, d));      // (the player's drawn it in or out)
+    const rt = new V3(dir.z, 0, -dir.x).normalize(), tgt = pos.clone().add(new V3(0, 1.45, 0)).addScaledVector(rt, SIDE * Math.max(0, Math.min(1, (cur - 0.8) / 1.6)));
+    // (how far back it can be, along its line, before it's through a wall)
+    const at = m => inRooms(tgt.x + dir.x * m, tgt.z + dir.z * m, 0.12);
+    let room = arm; if (!at(arm)) { let lo = 0, hi = arm; for (let i = 0; i < 12; i++) { const m = (lo + hi) / 2; if (at(m)) lo = m; else hi = m; } room = lo; }
+    cur = snapTo || room < cur ? room : cur + (room - cur) * (1 - Math.exp(-dt * 3));
+    ctl.target.copy(tgt); cam.position.copy(tgt).addScaledVector(dir, cur);
+    const top = ceilAt(cam.position.x, cam.position.z) - 0.25; if (cam.position.y > top) cam.position.y = top;
+    lastD = cam.position.distanceTo(tgt);
     // (drawn in so close it would be inside him: he's not shown till it's back out)
-    const hx = c.x - pos.x, hz = c.z - pos.z; F.root.visible = Math.hypot(hx, hz) > 0.55 || c.y > pos.y + 2.1;
+    F.root.visible = Math.hypot(cam.position.x - pos.x, cam.position.z - pos.z) > 0.5 || cam.position.y > pos.y + 2.1;
   }
   function stop() {
     on = false; for (const k in keys) keys[k] = 0; if (ui.prompt) ui.prompt(null); if (F) F.root.visible = true;
@@ -88,9 +97,8 @@ function create(o) {
     const was = moving, pre = want && !moving ? snap() : null; let d = 0;      // (setting off: his standing pose, to ease out of)
     if (gait) { const r = gait.step(dt, !!want); moving = r.moving; d = r.d; } else { moving = !!want; d = moving ? 1.1 * dt : 0; }
     if (moving) {
-      const fwd = new V3(Math.sin(yaw), 0, Math.cos(yaw)), nx = pos.x + fwd.x * d, nz = pos.z + fwd.z * d, from = pos.clone();
+      const fwd = new V3(Math.sin(yaw), 0, Math.cos(yaw)), nx = pos.x + fwd.x * d, nz = pos.z + fwd.z * d;
       if (free(nx, nz)) pos.set(nx, 0, nz); else if (free(nx, pos.z)) pos.x = nx; else if (free(pos.x, nz)) pos.z = nz;
-      const moved = pos.clone().sub(from); cam.position.add(moved); ctl.target.add(moved);
       if (!gait) stand(); else { F.root.position.copy(pos); F.root.quaternion.copy(P.yawQ(yaw)); F.root.updateMatrixWorld(true); }
       if (!was && pre) fade = { S: pre, t: 0, ms: 260 };
     } else { if (was) fade = { S: snap(), t: 0, ms: 320 }; stand(); }
@@ -102,9 +110,7 @@ function create(o) {
     headY += (hy - headY) * (1 - Math.exp(-dt * 4)); F.bone.neck.rotation.y += 0.7 * headY; F.bone.chest.rotation.y += 0.2 * headY; F.root.updateMatrixWorld(true);
     if (ui.prompt) ui.prompt(near ? (typeof near.label === 'function' ? near.label() : near.label) : null);
     F.tick(dt);
-    // (the view kept at his shoulders' height)
-    ctl.target.y += (pos.y + 1.45 - ctl.target.y) * (1 - Math.exp(-dt * 6));
-    keepView();
+    follow(dt);
   }
   return { start, stop, tick, use, place, get pos() { return pos; }, get yaw() { return yaw; }, set yaw(v) { yaw = v; }, get busy() { return busy; }, get held() { return held; }, set held(v) { held = !!v; }, get near() { return near; }, things, free };
 }
