@@ -18,17 +18,17 @@ const WIN = { z: -0.5, w: 0.9, sill: 0.95, h: 1.15 };      // in the east wall, 
 const FIRE = { z: 0.55, w: 1.3, open: 0.72, openH: 0.7 };      // the fireplace in the west wall
 
 const LAYOUT = {
-  desk: { x: 0, z: -1.2, ry: 0 },
-  chair: { x: 0, z: -1.95, ry: 0 },
+  desk: { x: 0.75, z: -1.2, ry: 0 },
+  chair: { x: 0.75, z: -1.95, ry: 0 },
   shelves: { x: -1.45, z: -2.42, ry: 0 },
-  chest: { x: 1.7, z: -2.25, ry: 0 },
+  chest: { x: 0.25, z: 1.95, ry: -Math.PI },
   sideChair: { x: -2.1, z: 1.55, ry: Math.PI / 2 },
-  rug: { x: 0, z: -0.3, ry: 0 },
+  rug: { x: 0.75, z: -0.25, ry: 0 },
   settle: { x: -2.17, z: -1.2, ry: Math.PI / 2 },
-  cicelyMark: { x: 0, z: -0.25, ry: Math.PI },
+  cicelyMark: { x: 0.75, z: -0.25, ry: Math.PI },
   doorMark: { x: 1.2, z: 1.6, ry: 0 },
-  nearMark: { x: 0.5, z: -0.55, ry: -1.03 },
-  chairOutMark: { x: 0.3, z: 0.5, ry: Math.PI / 2 },
+  nearMark: { x: 1.3, z: -0.5, ry: -1.03 },
+  chairOutMark: { x: -0.7, z: 0.25, ry: Math.PI / 2 },
 };
 const LABELS = { desk: 'His desk (and the ledgers on it)', chair: 'His chair, behind it', shelves: 'The shelves of ledgers', chest: 'The strongbox', sideChair: 'A chair by the fire',
   rug: 'The rag rug', settle: 'The settle (the aftercare’s seat)', chairOutMark: 'Where his chair goes for the correction (a mark)', cicelyMark: 'Where Cicely stands before the desk (a mark)', doorMark: 'Where Silas shuts the door (a mark)', nearMark: 'Where Silas stands before her (a mark)' };
