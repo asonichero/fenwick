@@ -1655,14 +1655,28 @@ function tickFace(F, dt) {
 // the hems, cuffs, waist and the rest fall). A figure made from them is posed exactly as a built one, and keeps the toon head, face and hair.
 // Figure.preload() loads them (make() builds figures in code until it has); Figure.adopt(meta, sex, arrayBuffer) takes one already in hand.
 const GLB = { meta: null, sex: {}, hair: null, ready: null };
-function preload(base) {
+// (a file fetched whole, telling `prog` (url, bytes so far, bytes in all, if the server says) as it comes)
+function fetchBuf(url, prog) {
+  return fetch(url).then(r => {
+    const tot = +r.headers.get('content-length') || 0;
+    if (!prog || !r.body || !r.body.getReader) return r.arrayBuffer().then(b => { if (prog) prog(url, b.byteLength, b.byteLength); return b; });
+    const rd = r.body.getReader(), parts = []; let got = 0;
+    const pump = () => rd.read().then(({ done, value }) => {
+      if (done) { const out = new Uint8Array(got); let o = 0; for (const q of parts) { out.set(q, o); o += q.length; } prog(url, got, Math.max(tot, got)); return out.buffer; }
+      parts.push(value); got += value.length; prog(url, got, tot); return pump();
+    });
+    return pump();
+  });
+}
+// (onProgress (url, loaded, total): the models as they come in, for a loading bar)
+function preload(base, onProgress) {
   if (GLB.ready) return GLB.ready;
   base = base == null ? 'models/' : base;
   if (!THREE.GLTFLoader || typeof fetch === 'undefined') return (GLB.ready = Promise.resolve(false));
   // (Fenwick: the hair too, built in Blender to fit the head: tools/blender/build_hair.py. Without it, the hair is built in code, as before.)
-  const hair = fetch(base + 'fenwick_hair.glb').then(r => r.arrayBuffer()).then(adoptHair).catch(e => { console.warn('Figure: no Blender-built hair; building it in code.', e); });
+  const hair = fetchBuf(base + 'fenwick_hair.glb', onProgress).then(adoptHair).catch(e => { console.warn('Figure: no Blender-built hair; building it in code.', e); });
   GLB.ready = fetch(base + 'fenwick_meta.json').then(r => r.json())
-    .then(meta => Promise.all(['f', 'm'].map(sx => fetch(base + 'fenwick_' + sx + '.glb').then(r => r.arrayBuffer()).then(buf => adopt(meta, sx, buf)))))
+    .then(meta => Promise.all(['f', 'm'].map(sx => fetchBuf(base + 'fenwick_' + sx + '.glb', onProgress).then(buf => adopt(meta, sx, buf)))))
     .then(() => hair).then(() => true).catch(e => { console.warn('Figure: the Blender-built models did not load; building the figures in code.', e); GLB.sex = {}; return false; });
   return GLB.ready;
 }

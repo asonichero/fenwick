@@ -91,7 +91,7 @@ test('the shots, from the hall as built: each camera inside the hall (or the pas
 });
 
 test('told in the second person, and the player names themselves on it; the scene calls them by their first name', () => {
-  assert.equal(SC.cards.length, 2); assert.match(SC.cards[1].text, /^You manage Thornleigh’s lands and people/); assert.equal(SC.cards[1].ask, 'name');
+  assert.equal(SC.cards.length, 1, 'straight from the title to the name'); assert.match(SC.cards[0].text, /^You manage Thornleigh’s lands and people/); assert.equal(SC.cards[0].ask, 'name');
   assert.ok(!SC.cards.some(c => /Fenwick|Silas/.test((c.big || '') + (c.small || '') + (c.text || ''))), 'no name given before they give it');
   assert.equal(SC.names.silas, '{first}');
   assert.ok(!SC.beats.some(b => /\bSilas\b/.test(b.text || '')), 'never “Silas” outright: {first}');

@@ -25,9 +25,8 @@
 
 const HALL = {
   id: 'hall', room: 'hall', title: 'The false bride’s sentence',
-  // (told over black, before it; the second asks the player's name: {first} and {last} in the script are theirs)
+  // (told over the opening shot, before it: who the player is, and their name asked: {first} and {last} in the script are theirs)
   cards: [
-    { big: 'Thornleigh', small: 'Some years before Redmere' },
     { text: 'You manage Thornleigh’s lands and people for its master. You are trusted for your judgement, but the final say is your master’s.', ask: 'name' },
   ],
   // (seat: the chair at the hall's spot of that name; mark: standing on it; off: out of sight till an act brings them on; arms: how they're held)

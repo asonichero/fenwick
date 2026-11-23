@@ -62,7 +62,7 @@ material it says so.
 
 **Archetype.** The practical woodsman and reluctant lord, in his 30s to
 40s. He is now Silas Fenwick, Squire of Fenwick Hall. The player names
-him on the prologue's second card (Silas Fenwick unless they choose
+him on the prologue's first card (Silas Fenwick unless they choose
 otherwise); the game calls him by that first name, and the Hall takes
 the surname.
 
@@ -400,12 +400,12 @@ subject whose parting from him costs neither of them anything.
 
 ### The situation (told, not played)
 
-Told on two cards over the opening shot, held still and dimmed:
-Thornleigh, some years before Redmere; then, in the second person, that
-the player manages Thornleigh's lands and people for its master, is
-trusted for their judgement, and that the final say is their master's.
-The second card asks the player's name, first and surname. What follows
-is the background, for the scenes to draw on.
+Told on one card over the opening shot, held still and dimmed, straight
+from the title: in the second person, that the player manages
+Thornleigh's lands and people for its master, is trusted for their
+judgement, and that the final say is their master's. The card asks the
+player's name, first and surname. What follows is the background, for
+the scenes to draw on.
 
 **Thornleigh.** Silas is estate manager at Thornleigh, a larger estate
 some way from the Fenwood, answerable to its master. He runs its land

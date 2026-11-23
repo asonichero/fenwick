@@ -17,8 +17,13 @@ a { color: var(--amber); }
 #black.off { opacity: 0; } #black.dim { opacity: 0.7; } #black.quick { transition: opacity 0.6s ease; }      /* (dim: the opening shot, still, behind the title and the cards) */
 #title, #card, #end { position: fixed; inset: 0; z-index: 6; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; padding: 24px; box-sizing: border-box; }
 #title h1 { font: 400 clamp(34px, 7vw, 64px)/1.05 var(--serif); letter-spacing: 0.06em; margin: 0 0 34px; color: #f3e6cc; }
-#begin { font: 400 17px var(--serif); padding: 10px 26px; border-radius: 22px; }
-#title .note { margin-top: 14px; font-size: 12px; color: var(--dim); min-height: 1.4em; }
+/* the title: while it loads, a bar and what it's doing; then Begin, and Settings under it (the menu's button not shown here: this is it) */
+#title .btns { display: none; flex-direction: column; align-items: center; gap: 10px; } #title.loaded .btns { display: flex; }
+#begin { font: 400 17px var(--serif); padding: 10px 26px; border-radius: 22px; min-width: 150px; } #settings { font: 400 15px var(--serif); padding: 7px 20px; border-radius: 18px; min-width: 150px; color: var(--dim); }
+#title .load { width: min(320px, 70vw); display: flex; flex-direction: column; align-items: center; gap: 8px; } #title.loaded .load { display: none; }
+#title .lbar { width: 100%; height: 4px; border-radius: 3px; background: rgba(255, 255, 255, 0.08); overflow: hidden; } #title .lfill { height: 100%; width: 0; background: var(--amber); transition: width 0.35s ease; }
+#title .note { font-size: 12px; color: var(--dim); min-height: 1.4em; }
+body.attitle #menuBtn { display: none; }
 #title .more { position: fixed; bottom: calc(14px + env(safe-area-inset-bottom)); font-size: 12px; color: var(--dim); } #title .more a { margin: 0 6px; }
 #card { display: none; cursor: pointer; max-width: 680px; margin: 0 auto; } #card.on { display: flex; }
 #card .big { font: 400 clamp(30px, 6vw, 52px)/1.1 var(--serif); letter-spacing: 0.08em; color: #f3e6cc; }
@@ -94,14 +99,14 @@ body.corr #tut, body.corr #ctl { display: block; }
 @media (max-width: 760px) { #ctl button { padding: 6px 8px; font-size: 12px; } #tut .tx { font-size: 14px; } }
 </style>
 </head>
-<body>
+<body class="attitle">
 <div id="view"></div>
 <div class="bar" id="barT"></div><div class="bar" id="barB"></div>
 <div id="black"></div>
 <div id="title">
   <h1>The Squire of Redmere</h1>
-  <button id="begin" disabled>Begin</button>
-  <div class="note" id="loading">Lighting the hall…</div>
+  <div class="load"><div class="lbar"><div class="lfill" id="lfill"></div></div><div class="note" id="loading">Lighting the hall…</div></div>
+  <div class="btns"><button id="begin">Begin</button><button id="settings">Settings</button></div>
   <div class="more"><a href="session.html">The correction (test)</a>·<a href="rooms.html">Rooms</a>·<a href="figures.html">Figures</a>·<a href="household.html?set=prologue">The prologue’s cast</a></div>
 </div>
 <div id="card"><div class="big"></div><div class="small"></div><div class="text"></div>
@@ -113,7 +118,7 @@ body.corr #tut, body.corr #ctl { display: block; }
 <button id="menuBtn" title="Menu (Esc)" aria-label="Menu">☰</button>
 <div id="menuVeil"></div>
 <div id="menu" class="panel" role="dialog" aria-label="Menu">
-  <h2>Paused</h2>
+  <h2 id="menuH">Paused</h2>
   <div class="acts"><button id="mResume">Go on <kbd>Esc</kbd></button><button id="mSkip">Skip this scene</button><button id="mAgain">Begin this scene again</button><button id="mTitle">To the title</button></div>
   <h3>Sound</h3>
   <div id="mVols"></div>
@@ -172,13 +177,23 @@ const keep = (k, v) => { try { const o = kept(); o[k] = v; localStorage.setItem(
 let cast = null, cs = null;
 const specOf = s => s[0] === 'man' ? Cast.manSpec(s[1]) : s[0] === 'silas' ? Cast.squireSpec() : Cast.figureSpec(s[1], 'f', s[2]);
 const castOf = S => { const o = {}; for (const id in cast) { if (S.cast[id]) o[id] = cast[id]; else cast[id].root.visible = false; } return o; };
-const ready = Promise.all([Figure.preload(), Gait.load().catch(e => console.warn('no walking clips', e))]).then(() => {
-  cast = {}; for (const k of ORDER) for (const id in SCENES[k].cast) if (!cast[id]) { const f = Figure.make(specOf(SCENES[k].cast[id].spec)); scene.add(f.root); cast[id] = f; }
+// (the bar: the models' bytes as they come in, three quarters of it; then each figure made, and the rest, a step each. Until the server's
+// said how big a file is, it's reckoned at about its size)
+const SIZES = { 'fenwick_f.glb': 11.8e6, 'fenwick_m.glb': 7.0e6, 'fenwick_hair.glb': 6.3e6 }, got = {};
+let barTo = 0;
+const bar = (v, what) => { barTo = Math.max(barTo, Math.min(1, v)); $('lfill').style.width = (barTo * 100).toFixed(1) + '%'; if (what) $('loading').textContent = what; };
+const fetched = (url, n, tot) => { const k = url.split('/').pop(); got[k] = { n, tot: tot || SIZES[k] || n }; let a = 0, b = 0; for (const f in SIZES) { const g = got[f]; a += g ? g.n : 0; b += g ? g.tot : SIZES[f]; } bar(0.75 * a / b, 'Bringing in the household…'); };
+const frame = () => new Promise(r => requestAnimationFrame(() => setTimeout(r, 0)));      // (a moment for the bar to be drawn, between the steps that hold the page)
+const ready = Promise.all([Figure.preload(undefined, fetched), Gait.load().catch(e => console.warn('no walking clips', e))]).then(async () => {
+  bar(0.75, 'Dressing them…'); await frame();
+  const ids = []; for (const k of ORDER) for (const id in SCENES[k].cast) if (!ids.find(x => x[0] === id)) ids.push([id, SCENES[k].cast[id].spec]);
+  cast = {}; for (const [i, [id, spec]] of ids.entries()) { const f = Figure.make(specOf(spec)); scene.add(f.root); cast[id] = f; bar(0.75 + 0.17 * (i + 1) / ids.length); await frame(); }
   // (everyone in their places from the first, behind the title: never left standing where they were made, in the table)
+  bar(0.93, 'Setting the table…'); await frame();
   cs = Cutscene.create({ stage, room, scene: SC, cast: castOf(SC), ui, fill: Player.fill });
-  cs.place(); cs.prewarm(); warm();
+  cs.place(); cs.prewarm(); bar(0.97); await frame(); warm();
   if (!still) opening(); else cs.place();
-  $('begin').disabled = false; $('loading').textContent = '';
+  bar(1, ''); setTimeout(() => $('title').classList.add('loaded'), 300);
 });
 // (everything drawn once, behind the title: every figure and both rooms, so whatever the graphics card makes ready the first time it draws
 // something is made ready now, not at a cut in the middle of a scene)
@@ -211,18 +226,21 @@ for (const [id, k] of [['sSpeed', 'speed'], ['sPrompts', 'prompts'], ['sLow', 'l
     r.value = Math.round(((window.GameAudio && GameAudio.vols[k]) != null ? GameAudio.vols[k] : 0.8) * 100); show(); r.oninput = () => { show(); if (window.GameAudio) GameAudio.setVol(k, r.value / 100); };
     row.append(l, r, pc); V.append(row); } }
 applySettings();
-// ── The menu: the scene paused (held as it is) while it's open ──
+// (the title, shown or not: on it, Settings takes the menu's place)
+function showTitle(on) { $('title').style.display = on ? 'flex' : 'none'; document.body.classList.toggle('attitle', !!on); }
+// ── The menu: the scene paused (held as it is) while it's open; from the title, only its settings ──
 let menuOpen = false, heldBefore = false;
 function menu(on) {
   on = on == null ? !menuOpen : !!on; if (on === menuOpen) return; menuOpen = on;
   $('menu').classList.toggle('on', on); $('menuVeil').classList.toggle('on', on);
-  if (on) { heldBefore = stage.held; stage.hold(true); const inScene = playing || document.body.classList.contains('corr'); $('mSkip').disabled = !inScene; $('mAgain').disabled = !inScene; $('mTitle').disabled = $('title').style.display !== 'none' && !inScene; }
+  if (on) { heldBefore = stage.held; stage.hold(true); const inScene = playing || document.body.classList.contains('corr'), atTitle = $('title').style.display !== 'none' && !inScene;
+    $('mSkip').disabled = !inScene; $('mAgain').disabled = !inScene; $('mTitle').disabled = atTitle; $('menuH').textContent = atTitle ? 'Settings' : 'Paused'; $('mResume').firstChild.textContent = atTitle ? 'Back ' : 'Go on '; }
   else if (!heldBefore) stage.hold(false);
 }
-$('menuBtn').onclick = () => menu(true); $('mResume').onclick = () => menu(false); $('menuVeil').onclick = () => menu(false);
+$('menuBtn').onclick = () => menu(true); $('settings').onclick = () => menu(true); $('mResume').onclick = () => menu(false); $('menuVeil').onclick = () => menu(false);
 $('mSkip').onclick = () => { menu(false); if (document.body.classList.contains('corr')) { if (corrDone) corrDone(); } else skip(); };
 $('mAgain').onclick = () => { menu(false); const k = SC && SC.id; run(0, false, k); };
-$('mTitle').onclick = () => { menu(false); runId++; if (cs) cs.stop(); dropCorrection(); playing = false; document.body.classList.remove('film', 'corr'); hideLine(); $('skip').style.display = 'none'; $('end').classList.remove('on'); $('card').classList.remove('on', 'ask'); $('title').style.display = 'flex'; opening(); };
+$('mTitle').onclick = () => { menu(false); runId++; if (cs) cs.stop(); dropCorrection(); playing = false; document.body.classList.remove('film', 'corr'); hideLine(); $('skip').style.display = 'none'; $('end').classList.remove('on'); $('card').classList.remove('on', 'ask'); showTitle(true); opening(); };
 
 // ── The dialogue box: the line types out in the speaker's voice; a click (or space) shows it whole, then goes on ──
 let advance = null, typer = null, picking = null;
@@ -274,7 +292,7 @@ function card(c) {
 let playing = false, runId = 0;
 async function run(from, cards, start) {
   const my = ++runId; start = SCENES[start] ? start : first; dropCorrection(); document.body.classList.remove('corr');
-  $('end').classList.remove('on'); $('title').style.display = 'none';
+  $('end').classList.remove('on'); showTitle(false);
   if (cards) { for (const c of SCENES[ORDER[0]].cards) await card(c); }      // (over the opening shot, held still and dimmed)
   if (my !== runId) return;
   playing = true; $('skip').style.display = still ? 'none' : 'block'; document.body.classList.add('film');
@@ -393,7 +411,7 @@ function audioOn() { if (window.GameAudio && GameAudio.init()) GameAudio.hearth(
 
 $('begin').onclick = () => { audioOn(); ready.then(() => run(0, true, ORDER[0])); };
 $('again').onclick = () => run(0, false, ORDER[0]);
-$('toTitle').onclick = () => { $('end').classList.remove('on'); $('title').style.display = 'flex'; opening(); };
+$('toTitle').onclick = () => { $('end').classList.remove('on'); showTitle(true); opening(); };
 $('skip').onclick = skip;
 // (a click anywhere goes on, but on a button or a link)
 addEventListener('click', e => { if (menuOpen || e.target.closest('button, a, input, label, form, #menu')) return; if (advance) advance(); });
@@ -420,7 +438,7 @@ stage.start(dt => {
   if (ses && document.body.classList.contains('corr')) { ses.update(dt); tut.update(dt); meter(); if ((frameN = (frameN + 1) % 6) === 0) refreshCorr(); }
 });
 let frameN = 0;
-if (still) ready.then(() => { $('title').style.display = 'none'; run(at0, false, first).catch(e => console.error(e)); setTimeout(() => { window.ready = true; }, 2500); });
+if (still) ready.then(() => { showTitle(false); run(at0, false, first).catch(e => console.error(e)); setTimeout(() => { window.ready = true; }, 2500); });
 else ready.then(() => { window.ready = true; });
 window.__game = { stage, rooms: ROOMS, get room() { return room; }, get scene() { return SC; }, get cs() { return cs; }, get cast() { return cast; }, run: (from, cards, start) => run(from, cards, start || first) };
 </script>
