@@ -18,7 +18,7 @@ python3 -m venv .blender && .blender/bin/pip install "bpy==5.1.*" scikit-image
 .blender/bin/python tools/blender/build_figures.py -- f m      # the bodies (hers from the measured reference, his derived), their rig and keys, and the clothes (about 5 minutes each)
 node tools/export-head.js                                     # the head the game builds in code, for the hair to fit (tools/blender/head.json)
 .blender/bin/python tools/blender/build_hair.py                # the hair styles and Silas's beard (seconds)
-.blender/bin/python tools/blender/export_anims.py             # the walking clips (models/*.fbx, from Mixamo) as data for the figures: models/walk.json
+.blender/bin/python tools/blender/export_anims.py             # the walking loops (models/*.fbx, from Mixamo) as data for the figures' own walks: models/walk.json
 ```
 
 `poses.html` is the pose editor (the figures page with `?edit=1`), after the one in fairy-shoe. Set up a moment of a correction (the pose, her clothes, his right hand as it goes, raised or on her), then **Edit pose** freezes it.
@@ -75,7 +75,7 @@ A heroine and Silas together in a plain space, as Meridian's figures page has th
 | `tools/blender/build_figures.py`, `tools/blender/build_hair.py`, `tools/export-head.js` | Building the bodies and clothes, and the hair, in Blender |
 | `js/pain.js`, `js/discipline.js`, `js/talk.js`, `js/audio.js`, `js/stage.js` | Ported from Meridian: the pain model, the scripted correction, conversations, synthesised sound (plus a hearth ambience), the renderer |
 | `session.html`, `figures.html`, `household.html`, `model.html` | The correction test; a heroine and Silas, posed or in a looping correction; the household line-up; the models' turnaround |
-| `game.html`, `js/prologue.js`, `js/cutscene.js`, `js/tutorial.js`, `js/gait.js`, `js/player.js` | The game: the title and the prologue's opening scene; its script; the cutscene player; the correction's tutorial; walking (the Mixamo clips, retargeted); the player's name |
+| `game.html`, `js/prologue.js`, `js/cutscene.js`, `js/tutorial.js`, `js/gait.js`, `js/player.js` | The game: the title and the prologue's opening scene; its script; the cutscene player; the correction's tutorial; walking (each figure's own, blended from the Mixamo loops); the player's name |
 | `rooms.html`, `js/hall.js`, `js/office.js` | The room editor; Thornleigh's great hall (the prologue's opening scene) and Silas's office there (the confrontation, and the correction to come) |
 | `docs/gdd.md`, `docs/The_Manor_in_the_Woods_GDD.docx` | The design document |
 | `docs/alpha-plan.md` | The plan: stated, ported, drafted, open |

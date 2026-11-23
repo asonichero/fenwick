@@ -76,8 +76,9 @@ function create(o) {
     const last = pts[pts.length - 1];
     if (fast || pts.length < 2) { s.walk = null; s.walkP = null; standAt(s, last, yaw); return null; }
     let len = 0; const segs = []; for (let i = 1; i < pts.length; i++) { const d = pts[i].distanceTo(pts[i - 1]); segs.push({ a: pts[i - 1], b: pts[i], d, at: len }); len += d; }
-    // (the walk itself: the Mixamo clips (js/gait.js), carried along the way as far as their steps take it; else a few small steps of our own)
-    const gait = root.Gait && root.Gait.ready ? root.Gait.walker(s.F, len, { rate: s.c.gaitRate || 1 }) : null;
+    // (the walk itself: their own walk, blended from the Mixamo loops (js/gait.js: s.c.gait, a style), carried along the way as far as its steps
+    // take it; else a few small steps of our own)
+    const gait = root.Gait && root.Gait.ready ? root.Gait.walker(s.F, len, { style: s.c.gait || 'plain', rate: s.c.gaitRate || 1 }) : null;
     s.walkP = new Promise(res => { s.walk = { segs, len, d: 0, gait, speed: speed || 0.7, yaw: yawTo(pts[0], pts[1]), done: () => { s.walk = null; s.walkP = null; const b = blendTo(s, () => standAt(s, last, yaw), 450); (b || Promise.resolve()).then(res); } }; });
     return s.walkP;
   }
@@ -101,7 +102,7 @@ function create(o) {
   const ACTS = {
     // Adela, through the archway from the passage to her mark: a few steps, then still, her hands clasped, her eyes down.
     adelaIn(fast) {
-      const s = S.adela, sp = spotOf('adela'), from = sp.at.clone().addScaledVector(fwdOf(sp), -1.6);
+      const s = S.adela, sp = spotOf('adela'), from = sp.at.clone().addScaledVector(fwdOf(sp), -((s.c.enter && s.c.enter.back) || 1.6));
       s.F.root.visible = true;
       return walkTo(s, [from, sp.at.clone()], sp.yaw, fast, 0.62);
     },
@@ -253,7 +254,14 @@ function create(o) {
     for (let i = from; i < scene.beats.length; i++) { if (stopped) return false; await beat(scene.beats[i], false); }
     return !stopped;
   }
-  return { play, tick, place: () => { for (const id in S) place(id); if (scene.start && scene.start.door != null && room.door) room.door.set(scene.start.door); }, stop: () => { stopped = true; }, get names() { return names; }, chosen, S, spots, shotTo };
+  // (before the scene, behind the title: anyone who comes on walking stood where they'll start from, and the cloth they wear settled there, out
+  // of sight; so when they come on, nothing's to settle, and nothing waits on it)
+  function prewarm() {
+    for (const id in S) { const s = S[id], c = s.c; if (!c.off || !c.enter) continue;
+      const sp = spotOf(id), from = sp.at.clone().addScaledVector(fwdOf(sp), -(c.enter.back || 1.6));
+      standAt(s, from, sp.yaw); s.F.root.visible = true; s.F.tick(1 / 30); s.F.tick(1 / 30); s.F.root.visible = false; }
+  }
+  return { play, tick, prewarm, place: () => { for (const id in S) place(id); if (scene.start && scene.start.door != null && room.door) room.door.set(scene.start.door); }, stop: () => { stopped = true; }, get names() { return names; }, chosen, S, spots, shotTo };
 }
 
 root.Cutscene = { create, TYPE_MS };

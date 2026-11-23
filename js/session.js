@@ -253,12 +253,13 @@ function create(stage, bay, opts) {
   function startCover(P) { const R = P.rx; R.cover = { t: 0, dur: 1.3 + 0.6 * Math.random(), said: false, held: holds('cover', P) }; R.n.covers++; emit('cover', { id: P.id, n: R.n.covers }); }
   function startUp(P) { const R = P.rx; R.up = { t: 0, dur: 1.2 + 0.8 * Math.random(), said: false, held: holds('up', P) }; R.n.ups++; emit('up', { id: P.id, n: R.n.ups }); }
   // (the player puts them back: he says so, and down they go; moves the hand: told, the first time; the second, the wrist taken and held)
-  function putBack() { const R = cur && cur.rx, u = R && R.up; if (!u) return false; u.held = false; if (!u.said) { u.said = true; say('captain', V.captain(st.position === 'otk' ? 'down' : st.position === 'table' ? 'table' : sup.kind === 'rail' ? 'rail' : lineKind, cur.id)); } u.dur = Math.max(0, u.t) + 0.5; emit('state'); return true; }
-  function handDown() { const R = cur && cur.rx, c = R && R.cover; if (!c) return false; c.held = false; if (!c.said) { c.said = true; say('captain', V.captain(R.n.covers >= 2 ? 'pin' : 'hands', cur.id)); } c.dur = c.t + 0.6; emit('state'); return true; }
+  function putBack() { const R = cur && cur.rx, u = R && R.up; if (!u || u.done) return false; u.done = true; u.held = false; if (!u.said) { u.said = true; say('captain', V.captain(st.position === 'otk' ? 'down' : st.position === 'table' ? 'table' : sup.kind === 'rail' ? 'rail' : lineKind, cur.id)); } u.dur = Math.max(0, u.t) + 0.5; emit('state'); return true; }
+  function handDown() { const R = cur && cur.rx, c = R && R.cover; if (!c || c.done) return false; c.done = true; c.held = false; if (!c.said) { c.said = true; say('captain', V.captain(R.n.covers >= 2 ? 'pin' : 'hands', cur.id)); } c.dur = c.t + 0.6; emit('state'); return true; }
   // (or the player's two ways with it: tell her to keep her position (down, if she's up; the hand away, if it's back), or take her hand and
   // hold it at the small of her back, from then on)
-  function tell() { const R = cur && cur.rx; if (!R) return false; if (R.up) return putBack() && 'down'; const c = R.cover; if (!c) return false; c.held = false; c.said = true; say('captain', V.captain('hands', cur.id)); c.dur = c.t + 0.6; emit('state'); return 'hand'; }
-  function takeHand() { const R = cur && cur.rx, c = R && R.cover; if (!c) return false; c.held = false; c.said = true; say('captain', V.captain('take', cur.id) || V.captain('pin', cur.id)); c.dur = c.t + 0.6; c.take = true; emit('state'); return true; }
+  function tell() { const R = cur && cur.rx; if (!R) return false; if (R.up) return putBack() && 'down'; const c = R.cover; if (!c || c.done) return false; c.done = true; c.held = false; c.said = true; say('captain', V.captain('hands', cur.id)); c.dur = c.t + 0.6; emit('state'); return 'hand'; }
+  function takeHand() { const R = cur && cur.rx, c = R && R.cover; if (!c || c.done) return false; c.done = true; c.held = false;      // (once: it's dealt with)
+    c.said = true; say('captain', V.captain('take', cur.id) || V.captain('pin', cur.id)); c.dur = c.t + 0.6; c.take = true; emit('state'); return true; }
   // What a smack takes out of their defiance, and what that becomes. It can't fall further than how much it hurts lets it (gone by about the
   // edge; sooner the more submissive, later the more there was); each smack takes a share of what's left above that. Drained inside the edge,
   // it becomes Compliance; drained by going well past it, or by main force (full strength), Resentment. And smacks run on long after they've stilled, with nothing left to
@@ -1318,8 +1319,8 @@ function create(stage, bay, opts) {
     // (the break, now, as a smack past the edge would bring it: the defiance out of her at once, a sob, the head down, and her saying so)
     breakNow() { const P = cur; if (!P || P.said.yield || st.phase !== 'turn') return false; P.def = Math.min(P.def, 0.12); P.said.yield = 1; P.rx.broke = 2.4; kickSp('head', -5); scripted(); return true; },
     putBack, handDown, tell, takeHand, pushUp() { if (cur && !cur.rx.up && st.phase === 'turn' && !st.ending) startUp(cur); }, cover() { if (cur && !cur.rx.cover && !cur.rx.pinOn && st.position === 'otk' && st.phase === 'turn' && !st.ending) startCover(cur); },
-    get up() { return !!(cur && cur.rx.up); }, get receptive() { return !!(cur && cur.def < 0.2); },      // (receptive: their defiance gone (or never there): what's done reaches them now)
-    get covering() { return !!(cur && cur.rx.cover); }, get pinned() { return !!(cur && cur.rx.pinOn); },
+    get up() { return !!(cur && cur.rx.up && !cur.rx.up.done); }, get receptive() { return !!(cur && cur.def < 0.2); },      // (receptive: their defiance gone (or never there): what's done reaches them now)
+    get covering() { return !!(cur && cur.rx.cover && !cur.rx.cover.done); }, get pinned() { return !!(cur && cur.rx.pinOn); },
   };
   return api;
 }

@@ -1,5 +1,5 @@
-// Walking (js/gait.js, from the Mixamo clips in models/walk.json): every walk planned comes out at the length asked, on its own feet: the
-// start only where there's room, the stop on whichever foot follows on, the steps lengthened by little or nothing.
+// Walking (js/gait.js, from the Mixamo loops in models/walk.json): each figure's walk a blend of the loops, lined up step for step; every walk
+// planned comes out at the length asked, ending on a heel strike, its steps lengthened by a hair if at all.
 const test = require('node:test'), assert = require('node:assert/strict'), fs = require('fs');
 globalThis.window = globalThis; globalThis.THREE = require('../vendor/three.min.js');
 globalThis.fetch = async u => ({ json: async () => JSON.parse(fs.readFileSync(require('path').join(__dirname, '..', u), 'utf8')) });
@@ -7,22 +7,32 @@ require('../js/gait.js');
 const { Gait } = window, META = require('../models/fenwick_meta.json');
 const fig = (sex, s) => { const rest = {}; for (const k in META[sex].joints) rest[k] = new THREE.Vector3(...META[sex].joints[k]).multiplyScalar(s); return { rest, root: { scale: { x: s } } }; };
 
-test('the clips: the walk, the start, the stop and the stop mirrored; where they join', async () => {
+test('the loops: the standard walk, the female walk and the sad walk, each with its own rest, lined up from the left heel’s strike', async () => {
   const D = await Gait.load('models/walk.json');
-  for (const k of ['walk', 'start', 'stop', 'stopM']) { assert.ok(D.clips[k], k); for (const b of Gait.ORDER) assert.equal(D.clips[k].Q[b].length, D.clips[k].n, k + ' ' + b); }
-  const J = D.join; assert.ok(J.cycle > 20 && J.startToWalk < J.cycle && J.walkToStop < J.cycle && J.startFirst >= 0);
-  const W = D.clips.walk; assert.ok(W.z[J.cycle] - W.z[0] > 1, 'the walk goes forward, +z');
+  for (const k of ['walk', 'female', 'sad']) {
+    const c = D.clips[k]; assert.ok(c && c.loop, k); assert.ok(c.per > 1, k + ' goes forward, +z');
+    assert.ok(c.off >= 0 && c.off < c.cyc, k); for (const b of Gait.ORDER) { assert.equal(c.Q[b].length, c.n, k + ' ' + b); assert.ok(c.avg[b], k + ' ' + b); }
+    assert.ok(D.rests[k] && D.rests[k].hips, k + '’s own rest');
+  }
+  assert.ok(D.rests.female.hips.pos[1] < D.rests.walk.hips.pos[1] - 0.1, 'her character’s smaller: its own legs, its own scale');
 });
 
-test('every walk planned comes out at the length asked, its steps lengthened by at most 12%', async () => {
+test('the styles: Silas’s and Adela’s own walks, blended from the loops, quieter than the standard walk', () => {
+  const S = Gait.STYLES;
+  for (const k of ['silas', 'adela', 'plain']) { const m = S[k].mix; assert.ok(Object.keys(m).every(c => ['walk', 'female', 'sad'].includes(c)), k); assert.ok(S[k].arms > 0 && S[k].arms <= 1, k); }
+  assert.ok(S.silas.mix.sad > 0 && S.silas.arms < 1, 'Silas: sobered, his arms easier');
+  assert.ok(S.adela.mix.female > 0 && S.adela.head > S.silas.head && S.adela.arms < S.silas.arms, 'Adela: her head bowed, her hands still');
+});
+
+test('every walk planned comes out at the length asked, ending on a heel strike, its steps lengthened by under 3%', async () => {
   await Gait.load('models/walk.json');
-  for (const [sex, s] of [['f', 0.98], ['m', 1.1]]) {
-    const F = fig(sex, s), k = Gait.rig(F).k; assert.ok(k > 0.6 && k < 1.1, 'our legs against theirs: ' + k);
+  for (const [sex, s, style] of [['f', 0.98, 'adela'], ['m', 1.1, 'silas'], ['f', 0.98, 'plain']]) {
+    const F = fig(sex, s);
     for (let len = 0.3; len <= 8; len += 0.17) {
-      const P = Gait.plan(F, len, {}); assert.ok(Math.abs(Gait.planned(F, P) - len) < 0.01, `${sex} ${len.toFixed(2)}: ${Gait.planned(F, P).toFixed(3)}`);
-      assert.ok(Math.abs(P.sg - 1) <= 0.12 || P.seq.length === 1, `${sex} ${len.toFixed(2)} σ ${P.sg}`);
-      assert.ok(/^stop/.test(P.seq[P.seq.length - 1].clip), 'it ends in the stop');
-      if (P.seq[0].clip === 'start') assert.ok(len > 2.5, 'the start only with room for it');
+      const P = Gait.plan(F, len, { style }), end = (((P.ph0 + P.span) % 0.5) + 0.5) % 0.5;
+      assert.ok(Math.abs(Gait.planned(F, P) - len) < 0.005, `${style} ${len.toFixed(2)}: ${Gait.planned(F, P).toFixed(3)}`);
+      assert.ok(Math.min(end, 0.5 - end) < 1e-6, `${style} ${len.toFixed(2)}: ends on a heel strike (${end})`);
+      assert.ok(Math.abs(P.sg - 1) < 0.03, `${style} ${len.toFixed(2)} σ ${P.sg}`);
     }
   }
 });

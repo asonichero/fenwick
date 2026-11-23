@@ -11,7 +11,8 @@ import bpy, json, math, os
 from mathutils import Matrix, Quaternion, Vector
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..'))
-CLIPS = {'walk': 'Standard Walk', 'start': 'Start Walking', 'stop': 'Stop Walking'}
+CLIPS = {'walk': 'Standard Walk', 'female': 'Female walking', 'sad': 'Sad Walk', 'start': 'Start Walking', 'stop': 'Stop Walking'}
+LOOPS = ('walk', 'female', 'sad')      # (walks that loop: the bases a figure's own walk is blended from)
 # ours ← Mixamo's; and, for each, the bone its direction runs to (the next joint), in theirs
 MAP = {'hips': 'Hips', 'spine': 'Spine', 'chest': 'Spine2', 'neck': 'Neck', 'head': 'Head'}
 for s, S in (('L', 'Left'), ('R', 'Right')):
@@ -35,18 +36,22 @@ def load(name):
     pre = arm.data.bones[0].name.split(':')[0] + ':'
     return arm, pre
 
-out = {'fps': 30, 'map': MAP, 'rest': {}, 'clips': {}}
+out = {'fps': 30, 'map': MAP, 'rest': {}, 'rests': {}, 'clips': {}}
 for key, name in CLIPS.items():
     arm, pre = load(name); W = arm.matrix_world; sc = bpy.context.scene
     act = arm.animation_data.action; f0, f1 = int(act.frame_range[0]), int(act.frame_range[1])
     rest = {}
     for ours, theirs in MAP.items():
-        b = arm.data.bones[pre + theirs]; M0 = W @ b.matrix_local; head = M0.translation
+        b = arm.data.bones.get(pre + theirs)
+        if b is None: raise SystemExit(f'{name}: no {theirs}')
+        M0 = W @ b.matrix_local; head = M0.translation
         to = arm.data.bones.get(pre + TO[theirs]); tail = (W @ to.matrix_local).translation if to else W @ b.tail_local
         d = (tail - head).normalized()
         rest[ours] = {'pos': [r4(x) for x in v3(head)], 'dir': [r4(x) for x in v3(d)], 'q0': q3(M0.to_3x3().normalized())}
-    if key == 'walk': out['rest'] = {k: {'pos': v['pos'], 'dir': v['dir']} for k, v in rest.items()}
-    clip = {'n': f1 - f0 + 1, 'hips': [], 'q': {k: [] for k in MAP}}
+    # (each clip's own rest: their characters aren't the same size or shape)
+    out['rests'][key] = {k: {'pos': v['pos'], 'dir': v['dir']} for k, v in rest.items()}
+    if key == 'walk': out['rest'] = out['rests'][key]
+    clip = {'n': f1 - f0 + 1, 'loop': key in LOOPS, 'hips': [], 'q': {k: [] for k in MAP}}
     for f in range(f0, f1 + 1):
         sc.frame_set(f)
         for ours, theirs in MAP.items():

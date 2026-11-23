@@ -176,9 +176,18 @@ const ready = Promise.all([Figure.preload(), Gait.load().catch(e => console.warn
   cast = {}; for (const k of ORDER) for (const id in SCENES[k].cast) if (!cast[id]) { const f = Figure.make(specOf(SCENES[k].cast[id].spec)); scene.add(f.root); cast[id] = f; }
   // (everyone in their places from the first, behind the title: never left standing where they were made, in the table)
   cs = Cutscene.create({ stage, room, scene: SC, cast: castOf(SC), ui, fill: Player.fill });
+  cs.place(); cs.prewarm(); warm();
   if (!still) opening(); else cs.place();
   $('begin').disabled = false; $('loading').textContent = '';
 });
+// (everything drawn once, behind the title: every figure and both rooms, so whatever the graphics card makes ready the first time it draws
+// something is made ready now, not at a cut in the middle of a scene)
+function warm() {
+  const was = []; for (const id in cast) { was.push([cast[id].root, cast[id].root.visible]); cast[id].root.visible = true; }
+  for (const k in ROOMS) { was.push([ROOMS[k].group, ROOMS[k].group.visible]); ROOMS[k].group.visible = true; }
+  try { stage.renderer.compile(scene, camera); stage.draw(); } catch (e) { console.warn(e); }
+  for (const [o, v] of was) o.visible = v;
+}
 // (the opening shot, before it moves: everyone in their places, a moment for the skirts to hang, then held still, and dimmed, behind the title)
 async function opening() {
   stage.hold(false); ROOMS.office.setChair('desk'); showRoom('hall'); SC = SCENES.hall; cs = Cutscene.create({ stage, room, scene: SC, cast: castOf(SC), ui, fill: Player.fill }); cs.place();
