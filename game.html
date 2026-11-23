@@ -216,6 +216,7 @@ function warm() {
 }
 // (the opening shot, before it moves: everyone in their places, a moment for the skirts to hang, then held still, and dimmed, behind the title)
 async function opening() {
+  if (cs && cs.dispose) cs.dispose();      // (the scene before put away: a letter, and the camera as the reading of it had it)
   stage.hold(false); ROOMS.office.setChair('desk'); showRoom('hall'); SC = SCENES.hall; cs = Cutscene.create({ stage, room, scene: SC, cast: castOf(SC), ui, fill: Player.fill }); cs.place();
   const v = Prologue.shot(SC, 'foot', cs.spots); stage.go(new V3(...v.cam), new V3(...v.look), 0);
   await new Promise(r => setTimeout(r, 1400)); if (playing) return; stage.hold(true); shade('dim');

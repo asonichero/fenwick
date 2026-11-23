@@ -324,7 +324,7 @@ const CODA = {
   start: { door: 0 },
   cast: {
     silas: { spec: ['silas'], seat: 'silas', arms: 'desk', face: 'calm', gait: 'silas', look: 'down' },      // (at his ledger)
-    cicely: { spec: ['her', 'cicely', 'goose'], mark: 'front', face: 'smile', arms: 'clasp', off: true, enter: { from: 'outside' },
+    cicely: { spec: ['her', 'cicely', 'goose'], mark: 'outside', face: 'smile', arms: 'clasp',      // (behind the door from the first, ready to come in)
       gait: { mix: { female: 0.55, walk: 0.3, sad: 0.15 }, arms: 0.5, sway: 0.5, head: 0.06, slump: 0, pace: 1.0 } },      // (a working woman's walk now: steady, unhurried)
   },
   names: { silas: '{first}', cicely: 'Cicely' },
@@ -359,8 +359,8 @@ const CODA = {
     { shot: 'day', push: 'dayIn', ms: 7000, pause: 2400 },
     { sfx: 'knock', pause: 500 }, { look: { silas: 'door' }, pause: 700 },
     { shot: 'him', who: 'silas', face: 'calm', text: 'Come in.' },
-    { shot: 'doorway', act: 'door', to: 1, ms: 1100, pause: 150 },
-    { act: 'walk', by: 'cicely', path: ['outside', 'door', 'front'], toward: 'silas', look: { silas: 'cicely' } },
+    { shot: 'doorway', act: 'door', to: 1, ms: 1000 },
+    { act: 'walk', by: 'cicely', path: ['outside', 'door', 'front'], toward: 'silas', look: { silas: 'cicely' } },      // (in as soon as it's open)
     { shot: 'her', who: 'cicely', to: 'silas', face: 'smile', text: 'Beg pardon, Mr {last}. A rider left this at the yard gate for you. He’d come no further: the grey gander saw him off.' },
     { shot: 'lay', act: 'lay', by: 'cicely', at: 'letterAt', look: { cicely: 'letter' } },
     { look: { cicely: 'silas', silas: 'letter' }, pause: 900 },

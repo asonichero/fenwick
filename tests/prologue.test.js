@@ -207,7 +207,8 @@ test('the coda: his office by day; him at his desk, her in the goose girl’s dr
   const o = Office.build(new THREE.Scene()), S = o.spots();
   assert.equal(CO.room, 'office'); assert.equal(CO.day, true); assert.equal(typeof o.setDay, 'function'); o.setDay(true); assert.equal(o.day, true); o.setDay(false);
   assert.deepEqual(Object.keys(CO.cast).sort(), ['cicely', 'silas']); assert.equal(CO.cast.cicely.spec[2], 'goose', 'the goose girl’s plain dress now');
-  assert.equal(CO.cast.silas.seat, 'silas', 'at his desk'); assert.ok(CO.cast.cicely.off && CO.cast.cicely.enter.from === 'outside' && S.outside, 'in from the yard');
+  assert.equal(CO.cast.silas.seat, 'silas', 'at his desk'); assert.ok(!CO.cast.cicely.off && CO.cast.cicely.mark === 'outside' && S.outside, 'behind the door from the first, ready to come in from the yard');
+  const door = CO.beats.findIndex(b => b.act === 'door'); assert.ok(!CO.beats[door].pause && CO.beats[door + 1].act === 'walk' && CO.beats[door + 1].by === 'cicely', 'in as soon as it’s open');
   assert.equal(Prologue.ORDER[Prologue.ORDER.length - 1], 'coda', 'after the aftercare'); assert.match(Prologue.SCENES.aftercare.next.title, /Coda: the letter/);
   for (const [i, b] of allBeats(CO.beats).entries()) {
     assert.ok(b.who || b.shot || b.act || b.pause || b.end || b.look || b.sfx || b.talk || b.click, 'beat ' + i);
