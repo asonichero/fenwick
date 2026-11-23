@@ -183,3 +183,14 @@ test('she tells it truly, everything held meanwhile; then he says he believes he
   assert.ok(judgedAt > believedAt, 'then the thought'); const q = SC.phases.find(p => p.id === 'receptive').prompts.find(x => x.key === 'receptive');
   assert.match(q.think, /judge/); assert.match(q.think, /end it herself/); assert.equal(q.act, 'end');
 });
+
+test('pace and strength needn’t be touched: left alone, each gives way after a few smacks, and both are introduced before defiance is over', () => {
+  const F = fake(), T = Tutorial.director(SC); T.attach(F.ses, {}); let t = 0, phases = [];
+  for (; t < 400 && T.phase.id !== 'pride'; t += 0.1) {
+    F.tick(T.director, 0.1); T.update(0.1); if (!phases.includes(T.phase.id)) phases.push(T.phase.id);
+    const pr = T.prompt, a = pr && (pr.act || (pr.acts && pr.acts[1]));
+    if (T.phase.id === 'defiance' && (a === 'pace' || a === 'strength')) { F.ses.st.running = true; continue; }      // (ignored)
+    if (a === 'top') { F.P.f.state.top = 'up'; T.did('top'); } else if (a === 'take') { F.ses.takeHand(); T.did('take'); } else if (a === 'run' || !a) { F.ses.st.running = true; if (a) T.did('run'); } else if (a) T.did(a);
+  }
+  assert.ok(phases.includes('covering'), phases.join()); assert.ok(T.taught('pace') && T.taught('strength'), 'both introduced');
+});

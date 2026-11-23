@@ -21,7 +21,7 @@ const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 
 function director(script) {
   const S = { i: 0, ses: null, ui: null, t: 0, hits0: 0, did: {}, pdone: {}, shown: {}, wordSeen: false, done: false, broken: false, soothedT: 0, told: 0, tellT: 0, covers: 0, coversDone: 0, pinnedAt: null, word: false,
-    taught: new Set(), stopped: false };
+    taught: new Set(), stopped: false, since: {} };
   const ph = () => script.phases[S.i] || script.phases[script.phases.length - 1];
   const P = () => S.ses && S.ses.current;
   // ── What the correction asks of the director ──
@@ -51,7 +51,7 @@ function director(script) {
     const p = ph(), o = p.out || {}, n = inPhase();
     switch (p.id) {
       case 'ready': return hits() >= 1;
-      case 'defiance': return (n >= o.hits && D() >= o.distress) || n >= o.most;
+      case 'defiance': return ((n >= o.hits && D() >= o.distress) || n >= o.most) && (p.prompts || []).every(q => !q.act || S.taught.has(q.act));      // (and everything it teaches, introduced)
       // (her hand twice, or once and held from then on; and a few smacks after)
       case 'covering': return !S.ses.covering && (S.coversDone >= (o.covers || 2) || S.ses.pinned) && S.coverDoneAt != null && n - S.coverDoneAt >= o.after;
       case 'pride': return P() && P().f.state.under === 'down' && ((D() >= o.distress && n >= o.hits) || n >= o.most);
@@ -88,6 +88,8 @@ function director(script) {
     { const q = prompt(), ck = q && q.cycle ? keyOf(q) : null;
       if (ck !== (S.cyc && S.cyc.k)) S.cyc = ck ? { k: ck, t: q.firstAfter || 5, i: 0 } : null;
       else if (S.cyc) { S.cyc.t -= dt; if (S.cyc.t <= 0) { if (S.ui.say) S.ui.say(q.cycle[S.cyc.i++ % q.cycle.length], 'cicely'); S.cyc.t = q.every || 5; } } }
+    // (a prompt for something the player needn't do (optional: pace, strength): after a few smacks left alone, it gives way to the next)
+    { const q = prompt(); if (q && q.optional) { const k = keyOf(q); if (S.since[k] == null) S.since[k] = hits(); if (hits() - S.since[k] >= (q.grace || 8)) S.pdone[k] = true; } }
     // (a prompt that teaches nothing to do, only something to see: a few seconds, then on)
     const pr = prompt(); if (pr && !pr.act && !pr.acts && !pr.when) { const k = keyOf(pr); S.shown[k] = (S.shown[k] || 0) + dt; if (S.shown[k] > 8) S.pdone[k] = true; }
     if (out()) advance();

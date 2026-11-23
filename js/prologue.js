@@ -223,8 +223,8 @@ const CORRECTION = {
       { key: 'shift', when: 'shiftDown', think: 'She won’t feel it through the shift. I should raise it.', control: 'T', act: 'top' },
       { key: 'run', think: 'Now I’m ready to begin.', control: 'Space', act: 'run' } ] },
     { id: 'defiance', name: 'Defiance', floor: 0.5, allow: ['glance'], out: { hits: 14, distress: 0.45, most: 24 }, prompts: [
-      { key: 'pace', after: 4, think: 'A steady pace is easier to bear than a quick one.', control: '[ ]', act: 'pace' },
-      { key: 'strength', after: 9, think: 'Harder brings her to it sooner. Too hard, and it’s more than she can bear.', control: '− =', act: 'strength' } ] },
+      { key: 'pace', after: 4, optional: true, think: 'A steady pace is easier to bear than a quick one.', control: '[ ]', act: 'pace' },
+      { key: 'strength', after: 9, optional: true, think: 'Harder brings her to it sooner. Too hard, and it’s more than she can bear.', control: '− =', act: 'strength' } ] },      // (optional: left alone, each gives way after a few smacks)
     // (her hand back over her seat: the run stops, and the player chooses, in the dialogue, either time: move it out of the way, or take it and
     // hold it, from then on. Then the run's theirs to begin again. After the first time, she takes a good deal more before it comes again)
     { id: 'covering', name: 'Covering', floor: 0.5, allow: ['cover', 'glance'], hold: ['cover'], forceCover: [2, 12], out: { covers: 2, after: 4 }, prompts: [
