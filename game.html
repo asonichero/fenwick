@@ -65,6 +65,19 @@ kbd { font: 11px ui-monospace, monospace; color: var(--dim); }
 #tut .ph { font-size: 10px; letter-spacing: 0.2em; text-transform: uppercase; color: var(--amber); } #tut .tx { font: 16px/1.4 var(--serif); margin-top: 3px; }
 #tut .tx kbd { font: 12px ui-monospace, monospace; color: #1a1410; background: var(--amber); border-radius: 5px; padding: 1px 6px; margin-left: 8px; white-space: nowrap; }
 #tut .wd { font-size: 12px; color: #ffd8cc; margin-top: 6px; } #tut .wd:empty { display: none; }
+body.noprompts #tut { display: none !important; }
+/* the menu: its button at the top left, always; the panel over a paused scene: go on, skip, begin again, to the title; and the settings */
+#menuBtn { position: fixed; top: calc(12px + env(safe-area-inset-top)); left: calc(12px + env(safe-area-inset-left)); z-index: 8; width: 40px; height: 40px; padding: 0; border-radius: 12px; font-size: 18px; line-height: 1; background: rgba(26, 20, 16, 0.75); }
+#menu { position: fixed; left: 50%; top: 50%; transform: translate(-50%, -50%); z-index: 9; width: min(440px, calc(100% - 24px)); max-height: calc(100% - 24px); overflow: auto; box-sizing: border-box; padding: 16px 18px 18px; display: none; }
+#menu.on { display: block; } #menuVeil { position: fixed; inset: 0; z-index: 8; background: rgba(5, 7, 10, 0.55); display: none; } #menuVeil.on { display: block; }
+#menu h2 { font: 400 22px var(--serif); margin: 0 0 12px; } #menu h3 { font-size: 11px; letter-spacing: 0.18em; text-transform: uppercase; color: var(--amber); margin: 16px 0 8px; font-weight: 600; }
+#menu .acts { display: flex; flex-direction: column; gap: 7px; } #menu .acts button { text-align: left; } #menu .acts button:disabled { display: none; }
+#menu .opt { display: grid; grid-template-columns: 110px 1fr 38px; gap: 6px 10px; align-items: center; font-size: 13px; margin-bottom: 6px; } #menu .opt input { width: 100%; accent-color: var(--amber); } #menu .opt .pct { color: var(--dim); font-size: 12px; text-align: right; }
+#menu .seg { display: flex; grid-column: 2 / 4; } #menu .seg button { flex: 1 1 0; border-radius: 0; margin-left: -1px; padding: 5px 6px; font-size: 12px; } #menu .seg button:first-child { border-radius: 10px 0 0 10px; } #menu .seg button:last-child { border-radius: 0 10px 10px 0; }
+#menu .seg button.on { background: #4a3a22; border-color: var(--amber); color: #ffe2b0; }
+body.corr #tut { left: calc(50% + 26px); width: min(600px, calc(100% - 88px)); }
+#ctl .cams { margin-top: 6px; gap: 4px; } #ctl .cams button { padding: 4px 9px; font-size: 12px; } #ctl .cams .free { font-size: 11px; color: var(--dim); margin-left: 4px; }
+@media (max-width: 760px) { #ctl .cams .free { display: none; } }
 #ctl { position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(12px + env(safe-area-inset-bottom)); width: min(900px, calc(100% - 24px)); box-sizing: border-box; padding: 9px 12px 8px; z-index: 4; display: none; }
 #ctl .row { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; justify-content: center; }
 #ctl button { padding: 6px 10px; font-size: 13px; border-radius: 10px; } #ctl button.on { background: #4a3a22; border-color: var(--amber); color: #ffe2b0; } #ctl button.go { background: #6a2a22; border-color: #c84a3a; color: #ffd8cc; }
@@ -96,17 +109,30 @@ body.corr #tut, body.corr #ctl { display: block; }
   <div class="hint">Click anywhere to go on <kbd>space</kbd></div></div>
 <div id="end"><div class="k">Next</div><h2 id="endT"></h2><p id="endW"></p><div class="row"><button id="again">Play the scene again</button><button id="toTitle">To the title</button></div></div>
 <div id="dock"><div id="say" class="panel"><div class="who" id="sayWho"></div><div class="txt" id="sayTxt"></div><div class="choices" id="choices"></div><div class="hintc" id="chooseHint"></div><div class="next" id="sayNext">▸</div></div></div>
-<button id="skip">Skip scene <kbd>esc</kbd></button>
+<button id="skip">Skip scene</button>
+<button id="menuBtn" title="Menu (Esc)" aria-label="Menu">☰</button>
+<div id="menuVeil"></div>
+<div id="menu" class="panel" role="dialog" aria-label="Menu">
+  <h2>Paused</h2>
+  <div class="acts"><button id="mResume">Go on <kbd>Esc</kbd></button><button id="mSkip">Skip this scene</button><button id="mAgain">Begin this scene again</button><button id="mTitle">To the title</button></div>
+  <h3>Sound</h3>
+  <div id="mVols"></div>
+  <h3>Settings</h3>
+  <div class="opt"><span>Text</span><div class="seg" id="sSpeed"><button data-v="slow">Slow</button><button data-v="normal">Steady</button><button data-v="fast">Quick</button><button data-v="instant">At once</button></div></div>
+  <div class="opt"><span>Tutorial prompts</span><div class="seg" id="sPrompts"><button data-v="on">Shown</button><button data-v="off">Hidden</button></div></div>
+  <div class="opt"><span>Picture</span><div class="seg" id="sLow"><button data-v="full">Full</button><button data-v="low">Lighter on the machine</button></div></div>
+</div>
 <div id="tut" class="panel"><div class="ph" id="tutPh"></div><div class="tx" id="tutTx"></div><div class="wd" id="tutWd"></div></div>
 <div id="ctl" class="panel">
   <div class="row">
     <button id="cRun" class="go">Start run<kbd>Space</kbd></button>
     <span class="grp"><span class="lab">Pace</span><button data-k="pace" data-d="-0.25">−</button><span class="val" id="paceV">1×</span><button data-k="pace" data-d="0.25">+</button><kbd>[ ]</kbd></span>
     <span class="grp"><span class="lab">Strength</span><button data-k="strength" data-d="-0.25">−</button><span class="val" id="strengthV">1×</span><button data-k="strength" data-d="0.25">+</button><kbd>− =</kbd></span>
-    <button id="cBack">Put her back<kbd>P</kbd></button><button id="cHand">Her hand<kbd>H</kbd></button><button id="cSoothe">Soothe<kbd>S</kbd></button>
+    <button id="cBack" title="Keep your position: down across your knee, or the hand back where it was">Tell her<kbd>P</kbd></button><button id="cHand" title="Take her hand, and hold it at the small of her back">Take her hand<kbd>H</kbd></button><button id="cSoothe">Soothe<kbd>S</kbd></button>
     <button id="cTop">Shift: down<kbd>T</kbd></button><button id="cUnd">Drawers: up<kbd>U</kbd></button>
-    <button id="cCam">Camera<kbd>C</kbd></button><button id="cEnd">End it<kbd>Enter</kbd></button>
+    <button id="cEnd">End it<kbd>Enter</kbd></button>
   </div>
+  <div class="row cams"><span class="lab">Camera</span><span id="camBtns"></span><kbd>C · 1–6</kbd><span class="free">or drag to look round, scroll or pinch to come closer</span></div>
   <div id="meter"><div id="track"><div id="fill"></div></div><div id="minfo"></div></div>
 </div>
 
@@ -160,6 +186,35 @@ async function opening() {
   await new Promise(r => setTimeout(r, 1400)); if (playing) return; stage.hold(true); shade('dim');
 }
 
+// ── Settings (kept in this browser): how fast lines type out; the tutorial's prompts shown or not; the picture full or lighter. And the
+// sound's levels (kept by js/audio.js) ──
+const SKEY = 'fenwick:settings', SPEED = { slow: 42, normal: 24, fast: 11, instant: 0 };
+const settings = (() => { let v = {}; try { v = JSON.parse(localStorage.getItem(SKEY) || '{}') || {}; } catch (e) {} return Object.assign({ speed: 'normal', prompts: 'on', low: q.get('low') ? 'low' : 'full' }, v); })();
+const typeMs = () => (SPEED[settings.speed] != null ? SPEED[settings.speed] : 24);
+function applySettings() {
+  document.body.classList.toggle('noprompts', settings.prompts === 'off'); if (stage.low !== (settings.low === 'low')) stage.setLow(settings.low === 'low');
+  for (const [id, k] of [['sSpeed', 'speed'], ['sPrompts', 'prompts'], ['sLow', 'low']]) document.querySelectorAll('#' + id + ' button').forEach(b => b.classList.toggle('on', b.dataset.v === settings[k]));
+}
+for (const [id, k] of [['sSpeed', 'speed'], ['sPrompts', 'prompts'], ['sLow', 'low']]) document.querySelectorAll('#' + id + ' button').forEach(b => b.onclick = () => { settings[k] = b.dataset.v; try { localStorage.setItem(SKEY, JSON.stringify(settings)); } catch (e) {} applySettings(); });
+{ const V = $('mVols'), names = { master: 'All', music: 'Music', voice: 'Voices', sfx: 'Effects', amb: 'The room' };
+  for (const k in names) { const row = document.createElement('div'); row.className = 'opt'; const l = document.createElement('span'); l.textContent = names[k]; const r = document.createElement('input'); r.type = 'range'; r.min = 0; r.max = 100;
+    const pc = document.createElement('span'); pc.className = 'pct'; const show = () => { pc.textContent = r.value + '%'; };
+    r.value = Math.round(((window.GameAudio && GameAudio.vols[k]) != null ? GameAudio.vols[k] : 0.8) * 100); show(); r.oninput = () => { show(); if (window.GameAudio) GameAudio.setVol(k, r.value / 100); };
+    row.append(l, r, pc); V.append(row); } }
+applySettings();
+// ── The menu: the scene paused (held as it is) while it's open ──
+let menuOpen = false, heldBefore = false;
+function menu(on) {
+  on = on == null ? !menuOpen : !!on; if (on === menuOpen) return; menuOpen = on;
+  $('menu').classList.toggle('on', on); $('menuVeil').classList.toggle('on', on);
+  if (on) { heldBefore = stage.held; stage.hold(true); const inScene = playing || document.body.classList.contains('corr'); $('mSkip').disabled = !inScene; $('mAgain').disabled = !inScene; $('mTitle').disabled = $('title').style.display !== 'none' && !inScene; }
+  else if (!heldBefore) stage.hold(false);
+}
+$('menuBtn').onclick = () => menu(true); $('mResume').onclick = () => menu(false); $('menuVeil').onclick = () => menu(false);
+$('mSkip').onclick = () => { menu(false); if (document.body.classList.contains('corr')) { if (corrDone) corrDone(); } else skip(); };
+$('mAgain').onclick = () => { menu(false); const k = SC && SC.id; run(0, false, k); };
+$('mTitle').onclick = () => { menu(false); runId++; if (cs) cs.stop(); dropCorrection(); playing = false; document.body.classList.remove('film', 'corr'); hideLine(); $('skip').style.display = 'none'; $('end').classList.remove('on'); $('card').classList.remove('on', 'ask'); $('title').style.display = 'flex'; opening(); };
+
 // ── The dialogue box: the line types out in the speaker's voice; a click (or space) shows it whole, then goes on ──
 let advance = null, typer = null, picking = null;
 function line({ id, name, text, ms }) {
@@ -169,7 +224,8 @@ function line({ id, name, text, ms }) {
     let i = 0; clearInterval(typer); el.textContent = ''; $('choices').innerHTML = ''; $('chooseHint').textContent = ''; picking = null;
     const whole = () => { clearInterval(typer); el.textContent = text; $('sayNext').style.display = 'block'; advance = () => { advance = null; $('sayNext').style.display = 'none'; res(); }; };
     if (still) { whole(); advance = null; return; }
-    advance = whole; typer = setInterval(() => { el.textContent = text.slice(0, ++i); if (i >= text.length) whole(); }, Cutscene.TYPE_MS);
+    if (!typeMs()) { whole(); return; }
+    advance = whole; typer = setInterval(() => { el.textContent = text.slice(0, ++i); if (i >= text.length) whole(); }, typeMs());
   });
 }
 // (a choice: what Silas says, as buttons under the prompt; a click, or its number)
@@ -239,7 +295,7 @@ function skip() { if (!playing || !cs || document.body.classList.contains('corr'
 // said going on by itself. Resolves 'done' on her acceptance (and the end of it), or 'word' if she says her word ──
 let ses = null, tut = null, corrDone = null;
 // (the correction's own two, gone once it's over, or the game's begun again: the rooms share the one space)
-function dropCorrection() { if (!ses) return; scene.remove(ses.captain.root); for (const P of ses.people) scene.remove(P.f.root); ses = null; tut = null; window.ses = null; ROOMS.office.setChair('desk'); }
+function dropCorrection() { stage.controls.enabled = false; if (!ses) return; scene.remove(ses.captain.root); for (const P of ses.people) scene.remove(P.f.root); ses = null; tut = null; window.ses = null; ROOMS.office.setChair('desk'); }
 const flashQ = []; let flashing = false;
 // (a line in the box, typed out, then left a moment and gone: no click wanted, the player's hands are on the controls)
 function flash(id, name, text) { flashQ.push({ id, name, text }); while (flashQ.length > 2) flashQ.shift(); if (!flashing) nextFlash(); }      // (never more than a couple behind)
@@ -248,7 +304,7 @@ function nextFlash() {
   const box = $('say'), el = $('sayTxt'); box.style.display = 'block'; $('sayWho').textContent = L.name; $('sayWho').className = 'who' + (L.id === 'silas' ? ' silas' : ''); $('sayNext').style.display = 'none';
   if (window.GameAudio && GameAudio.ctx) GameAudio.speak(L.id, L.text, Math.min(3.2, L.text.length * 0.035), { pitch: Cast.pitch(L.id) });
   let i = 0; clearInterval(typer); el.textContent = '';
-  typer = setInterval(() => { el.textContent = L.text.slice(0, ++i); if (i >= L.text.length) { clearInterval(typer); setTimeout(() => { if (!flashQ.length) box.style.display = 'none'; nextFlash(); }, 1300 + L.text.length * 25); } }, 22);
+  typer = setInterval(() => { i = typeMs() ? i + 1 : L.text.length; el.textContent = L.text.slice(0, i); if (i >= L.text.length) { clearInterval(typer); setTimeout(() => { if (!flashQ.length) box.style.display = 'none'; nextFlash(); }, 1300 + L.text.length * 25); } }, Math.max(8, typeMs()));
 }
 const theirName = who => (who === 'captain' ? Player.get().first : 'Cicely'), voiceOf = who => (who === 'captain' ? 'silas' : 'cicely');
 const filled = t => Player.fill(String(t)).replace(/\bMr Fenwick\b/g, 'Mr ' + Player.get().last);
@@ -272,6 +328,7 @@ function correction(my) {
       refreshCorr();
     });
     ses.start(); document.body.classList.remove('film'); document.body.classList.add('corr'); $('skip').style.display = 'none';
+    stage.controls.enabled = true; drawCams();      // (the player's camera, between the views)
     corrDone = () => end('done');
     black(false); refreshCorr();
   });
@@ -286,22 +343,26 @@ function bump(k, d) {
 document.querySelectorAll('#ctl [data-k]').forEach(b => b.onclick = () => bump(b.dataset.k, +b.dataset.d));
 const C = {
   run: () => { if (!ses) return; const was = ses.st.running; ses.run(); if (!was && ses.st.running) did('run'); else refreshCorr(); },
-  back: () => { if (ses && ses.putBack()) did('putBack'); },
-  hand: () => { if (ses && ses.handDown()) did('hand'); },
+  back: () => { if (ses && ses.tell()) did('tell'); },      // (keep your position: down, if she's up; the hand away, if it's back)
+  hand: () => { if (ses && ses.takeHand()) did('take'); },      // (or take her hand, and hold it from then on)
   soothe: () => { if (!ses) return; const on = !ses.st.soothe; ses.set({ soothe: on }); if (on) did('soothe'); else refreshCorr(); },
   top: () => { const c = ses && ses.current; if (!c) return; const up = c.f.state.top !== 'up'; ses.dress({ top: up ? 'up' : 'down' }); if (up) did('top'); else refreshCorr(); },
   under: () => { const c = ses && ses.current; if (!c) return; const down = c.f.state.under === 'up'; ses.dress({ under: down ? 'down' : 'up' }); if (down) did('under'); else refreshCorr(); },
-  cam: () => { if (!ses) return; const set = ses.CAMS[ses.st.position] || []; ses.camera((ses.st.cam + 1) % Math.max(1, set.length)); },
+  cam: i => { if (!ses) return; const set = ses.CAMS[ses.st.position] || []; ses.camera(i == null ? (ses.st.cam + 1) % Math.max(1, set.length) : i); drawCams(); },
   end: () => { if (!ses) return; if (!tut.canEnd) { flash('silas', Player.get().first, 'Not yet.'); return; } did('end'); ses.endTurn(); },
 };
-$('cRun').onclick = C.run; $('cBack').onclick = C.back; $('cHand').onclick = C.hand; $('cSoothe').onclick = C.soothe; $('cTop').onclick = C.top; $('cUnd').onclick = C.under; $('cCam').onclick = C.cam; $('cEnd').onclick = C.end;
+$('cRun').onclick = C.run; $('cBack').onclick = C.back; $('cHand').onclick = C.hand; $('cSoothe').onclick = C.soothe; $('cTop').onclick = C.top; $('cUnd').onclick = C.under; $('cEnd').onclick = C.end;
+// (the camera: the correction's own views, by name (hers and his named), and between them the player's own: drag to look round, closer or further)
+const camName = n => (n === 'Their face' ? 'Her face' : n === 'Captain' ? Player.get().first : n);
+function drawCams() { const el = $('camBtns'); el.innerHTML = ''; if (!ses) return; (ses.CAMS[ses.st.position] || []).forEach(([n], i) => { const b = document.createElement('button'); b.textContent = camName(n); b.classList.toggle('on', ses.st.cam === i); b.onclick = () => C.cam(i); el.append(b); }); }
 // (the meter: distress against the bar; its band ticks, the edge, and too harsh in red)
 { const tr = $('track'), max = 2.2; for (const v of [0.3, 0.6, 0.9, 1.0, Pain.PAIN.CRYING, Pain.PAIN.STILL]) { const t = document.createElement('div'); t.className = 'tick'; t.style.left = (v / max * 100) + '%'; tr.append(t); }
   const h = document.createElement('div'); h.className = 'tick harsh'; h.style.left = (Pain.PAIN.TOO_HARSH / max * 100) + '%'; tr.append(h); }
 function refreshCorr() {
   if (!ses || !tut) return; const st = ses.st, c = ses.current, on = c && st.phase === 'turn' && !st.ending, pr = tut.prompt;
   $('cRun').firstChild.textContent = st.running ? 'Stop run' : 'Start run'; $('cRun').disabled = !on || ses.busy || ses.up || ses.covering;
-  $('cSoothe').classList.toggle('on', st.soothe); $('cSoothe').disabled = !on || ses.busy; $('cBack').disabled = !on || !ses.up; $('cHand').disabled = !on || !ses.covering;
+  $('cSoothe').classList.toggle('on', st.soothe); $('cSoothe').disabled = !on || ses.busy; $('cBack').disabled = !on || !(ses.up || ses.covering); $('cHand').disabled = !on || !ses.covering;
+  $('cEnd').title = tut.canEnd ? 'End it' : 'Not yet';
   $('cTop').disabled = $('cUnd').disabled = !on || ses.busy; $('cEnd').disabled = !on;
   if (c) { $('cTop').firstChild.textContent = 'Shift: ' + (c.f.state.top === 'up' ? 'raised' : 'down'); $('cUnd').firstChild.textContent = 'Drawers: ' + (c.f.state.under === 'up' ? 'up' : 'lowered'); }
   $('paceV').textContent = times(st.pace); $('strengthV').textContent = times(st.strength);
@@ -309,15 +370,16 @@ function refreshCorr() {
   $('tutPh').textContent = pr ? tut.phase.name : tut.phase.name; $('tutTx').innerHTML = ''; $('tutWd').textContent = pr && pr.word ? pr.word : '';
   if (pr) { $('tutTx').append(pr.text); if (pr.control) { const k = document.createElement('kbd'); k.textContent = pr.control; $('tutTx').append(k); } }
   else $('tutTx').textContent = st.running ? 'Keep on.' : '';
-  const lit = { putBack: 'cBack', hand: 'cHand', soothe: 'cSoothe', top: 'cTop', under: 'cUnd', run: 'cRun', end: 'cEnd' };
-  for (const id of Object.values(lit)) $(id).classList.toggle('hot', !!(pr && lit[pr.act] === id));
+  const lit = { tell: 'cBack', take: 'cHand', soothe: 'cSoothe', top: 'cTop', under: 'cUnd', run: 'cRun', end: 'cEnd' }, acts = pr ? (pr.acts || [pr.act]) : [];
+  for (const id of Object.values(lit)) $(id).classList.toggle('hot', acts.some(a => lit[a] === id));
+  if (pr && pr.note) $('tutWd').textContent = pr.note;
   document.querySelectorAll('#ctl [data-k="pace"]').forEach(b => b.classList.toggle('hot', !!(pr && (pr.act === 'pace' || (pr.act === 'slower' && +b.dataset.d < 0)))));
   document.querySelectorAll('#ctl [data-k="strength"]').forEach(b => b.classList.toggle('hot', !!(pr && pr.act === 'strength')));
   $('meter').classList.toggle('hot', !!(pr && pr.look === 'meter'));
   $('dock').style.bottom = `calc(${$('ctl').offsetHeight + 22}px + env(safe-area-inset-bottom))`;      // (the dialogue just above the controls, however many rows they take)
 }
 function meter() { if (!ses) return; const c = ses.current, d = c ? c.pain.distress() : 0; $('fill').style.width = Math.min(100, d / 2.2 * 100) + '%';
-  $('minfo').innerHTML = c ? `<b>${ses.band()}</b> · ${c.hits} smacks${ses.st.running ? ' · running' : ''}${ses.st.soothe ? ' · soothing' : ''}` : ''; }
+  $('minfo').innerHTML = c ? `<b>${ses.band()}</b>${ses.receptive ? ' · <b style="color:var(--teal)">receptive</b>' : ''} · ${c.hits} smacks${ses.st.running ? ' · running' : ''}${ses.st.soothe ? ' · soothing' : ''}` : ''; }
 function audioOn() { if (window.GameAudio && GameAudio.init()) GameAudio.hearth({ fire: 0.85, wind: 0.25 }); }
 
 $('begin').onclick = () => { audioOn(); ready.then(() => run(0, true, ORDER[0])); };
@@ -325,18 +387,20 @@ $('again').onclick = () => run(0, false, ORDER[0]);
 $('toTitle').onclick = () => { $('end').classList.remove('on'); $('title').style.display = 'flex'; opening(); };
 $('skip').onclick = skip;
 // (a click anywhere goes on, but on a button or a link)
-addEventListener('click', e => { if (e.target.closest('button, a, input, label, form')) return; if (advance) advance(); });
+addEventListener('click', e => { if (menuOpen || e.target.closest('button, a, input, label, form, #menu')) return; if (advance) advance(); });
 addEventListener('keydown', e => {
+  if (e.key === 'Escape') { menu(); e.preventDefault(); return; }      // (the menu, from anywhere)
+  if (menuOpen) return;
   if (e.target.closest && e.target.closest('input, textarea')) return;      // (typing a name)
   if (ses && document.body.classList.contains('corr')) {
-    const k = e.key, m = { ' ': C.run, p: C.back, P: C.back, h: C.hand, H: C.hand, s: C.soothe, S: C.soothe, t: C.top, T: C.top, u: C.under, U: C.under, c: C.cam, C: C.cam, Enter: C.end };
+    const k = e.key, m = { ' ': C.run, p: C.back, P: C.back, h: C.hand, H: C.hand, s: C.soothe, S: C.soothe, t: C.top, T: C.top, u: C.under, U: C.under, c: () => C.cam(), C: () => C.cam(), Enter: C.end };
     if (m[k]) { m[k](); e.preventDefault(); return; }
+    if (/^[1-9]$/.test(k)) { C.cam(+k - 1); e.preventDefault(); return; }
     if (k === '[') { bump('pace', -0.25); return; } if (k === ']') { bump('pace', 0.25); return; } if (k === '-') { bump('strength', -0.25); return; } if (k === '=' || k === '+') { bump('strength', 0.25); return; }
     return;
   }
   if (picking && /^[1-9]$/.test(e.key) && picking[+e.key - 1]) { picking[+e.key - 1](); e.preventDefault(); return; }
   if (e.key === ' ' || e.key === 'Enter') { if (advance) { advance(); e.preventDefault(); } }
-  else if (e.key === 'Escape') skip();
 });
 
 // ── Each frame: the walls between the camera and the scene out of the way, the fire, the people ──

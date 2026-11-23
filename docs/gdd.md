@@ -530,9 +530,10 @@ gives way to the next, within bounds.
   shoulder and pushes up out of position, and he puts her back. Teaches
   pace, strength and putting her back in place.
 
-- **2. Covering.** Her hand comes back over her seat. The first time he
-  tells her to move it; the second time he takes her wrist and holds it
-  at the small of her back. Teaches the pin.
+- **2. Covering.** Her hand comes back over her seat, twice. Either time
+  there are two ways with it: tell her to keep her position, as when she
+  comes up off his knee, or take her hand and hold it at the small of
+  her back, from then on. Teaches both.
 
 - **3. Pride.** She holds in what she feels: her distress climbs while
   she shows little of it. Teaches reading the distress meter rather than
@@ -542,9 +543,14 @@ gives way to the next, within bounds.
   with it: tears, and the first apology. Teaches slowing the pace, and
   soothing.
 
-- **5. Acceptance.** She names what she did, and why: envy, and a whole
-  life spent behind someone else being given everything. Teaches that a
-  correction ends on acceptance, not exhaustion.
+- **5. Receptive.** She names what she did, and why: envy, and a whole
+  life spent behind someone else being given everything. She's taking it
+  honestly now: receptive, as any correction is once her defiance has
+  been lowered, and what's done from here reaches her (her other
+  measures, not her defiance). The tutorial says so and leaves it to the
+  player: give her the correction she deserves, and end it when it's
+  enough; or take it on past too harsh, where she says her word. Teaches
+  that the end is the player's to judge.
 
 **Her word.** She can say Falada at any point, and the first prompt
 reminds the player of it. The script never needs it. If she says it,

@@ -4,18 +4,19 @@
 // her hand: the second time, the wrist pinned), how low her defiance may go yet, how submissive she is, when it gives way to the next; and
 // the prompts, each shown while it matters, teaching a control. The correction itself goes on as it always does: her reactions, her lines,
 // her kicks and her distress are the simulation's.
-//   It can't be failed: it ends only on her acceptance (the End control waits for it). Her word ends it whenever she says it.
+//   It can't be failed. Once she's broken and said what she did, she's receptive, and it runs on as the player has it: ended whenever they
+//   judge it's enough (End waits for that), or taken on to too harsh, and her word, which ends it whenever she says it.
 //
 //   const T = Tutorial.create(ses, script, { say(text), tone })  ·  pass it as Session.create's opts.director (T.director) before the
 //   session's made: Tutorial.director(script) → { director, attach(ses, ui) }  ·  T.update(dt) each frame  ·  T.prompt → { text, control } | null
 //   ·  T.phase → { i, id, name }  ·  T.canEnd  ·  T.did(action) (the page tells it what the player did: 'putBack', 'hand', 'pace', 'strength',
-//   'top', 'under', 'run', 'soothe', 'end')
+//   'top', 'under', 'run', 'soothe', 'end', 'tell' (keep your position), 'take' (her hand))
 (function (root) {
 'use strict';
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 
 function director(script) {
-  const S = { i: 0, ses: null, ui: null, t: 0, hits0: 0, did: {}, pdone: {}, shown: {}, wordSeen: false, done: false, broken: false, soothedT: 0, told: 0, tellT: 0, forced: {}, covers: 0, pinnedAt: null, word: false };
+  const S = { i: 0, ses: null, ui: null, t: 0, hits0: 0, did: {}, pdone: {}, shown: {}, wordSeen: false, done: false, broken: false, soothedT: 0, told: 0, tellT: 0, forced: {}, covers: 0, coversDone: 0, pinnedAt: null, word: false };
   const ph = () => script.phases[S.i] || script.phases[script.phases.length - 1];
   const P = () => S.ses && S.ses.current;
   // ── What the correction asks of the director ──
@@ -29,7 +30,7 @@ function director(script) {
   // (the state a prompt's `when` asks after)
   const is = {
     up: () => S.ses.up, shiftDown: () => P() && P().f.state.top !== 'up', drawersUp: () => P() && P().f.state.under === 'up',
-    cover1: () => S.ses.covering && S.covers <= 1, cover2: () => S.ses.covering && S.covers >= 2,
+    covering: () => S.ses.covering,
     broken: () => S.broken, telling: () => S.told > 0 && S.told < script.accept.length, told: () => S.told >= script.accept.length,
   };
   // ── On to the next phase, when this one's done ──
@@ -44,7 +45,8 @@ function director(script) {
     switch (p.id) {
       case 'ready': return hits() >= 1;
       case 'defiance': return S.putBackInPhase && !S.ses.up && ((n >= o.hits && D() >= o.distress) || n >= o.most);
-      case 'covering': return S.pinnedAt != null && hits() - S.pinnedAt >= o.after;
+      // (her hand twice, or once and held from then on; and a few smacks after)
+      case 'covering': return !S.ses.covering && (S.coversDone >= (o.covers || 2) || S.ses.pinned) && S.coverDoneAt != null && n - S.coverDoneAt >= o.after;
       case 'pride': return P() && P().f.state.under === 'down' && ((D() >= o.distress && n >= o.hits) || n >= o.most);
       case 'breaking': return S.broken && S.soothedT >= 3;
       default: return false;
@@ -57,18 +59,18 @@ function director(script) {
     // (in the defiance, if she's not come up of her own accord by a few smacks in, she does; in the covering, her hand comes back, twice)
     if (p.forceUp && !S.forced.up && inPhase() >= p.forceUp) { S.forced.up = true; if (!ses.up && !S.upInPhase) ses.pushUp(); }
     if (ses.up && p.id === 'defiance') S.upInPhase = true;
-    if (p.forceCover && !ses.covering && !ses.pinned) {
+    if (p.forceCover && !ses.covering && !ses.pinned && S.covers < p.forceCover.length) {
       const at = S.covers === 0 ? p.forceCover[0] : S.coverDoneAt != null ? S.coverDoneAt + p.forceCover[1] - p.forceCover[0] : Infinity;
       if (inPhase() >= at) ses.cover();
     }
     if (ses.covering && !S._covering) { S._covering = true; S.covers++; }
-    if (!ses.covering && S._covering) { S._covering = false; S.coverDoneAt = inPhase(); if (ses.pinned && S.pinnedAt == null) S.pinnedAt = hits(); }
+    if (!ses.covering && S._covering) { S._covering = false; S.coversDone++; S.coverDoneAt = inPhase(); if (ses.pinned && S.pinnedAt == null) S.pinnedAt = hits(); }
     // (the break: her defiance let go, it goes out of her all at once, and the engine has her say so)
     if (!S.broken && Pc.said.yield) { S.broken = true; }
     if (p.id === 'breaking' && !S.broken && inPhase() >= (p.within || 6) && S.ses.breakNow) { S.ses.breakNow(); S.broken = true; }      // (and if it hasn't come of itself, a few smacks in: it does)
     if (S.broken && ses.st.soothe) S.soothedT += dt;
-    // (acceptance: what she did, and why, a line at a time, a few seconds apart; told whole, it can end)
-    if (p.id === 'acceptance' && S.told < script.accept.length) { S.tellT -= dt; if (S.tellT <= 0) { if (S.ui.say) S.ui.say(script.accept[S.told]); S.told++; S.tellT = 5.5; } }
+    // (receptive: what she did, and why, a line at a time, a few seconds apart; then it's the player's to run on, or end)
+    if (p.id === 'receptive' && S.told < script.accept.length) { S.tellT -= dt; if (S.tellT <= 0) { if (S.ui.say) S.ui.say(script.accept[S.told]); S.told++; S.tellT = 5.5; } }
     // (a prompt that teaches nothing to do, only something to see: a few seconds, then on)
     const pr = prompt(); if (pr && !pr.act && !pr.when) { const k = keyOf(pr); S.shown[k] = (S.shown[k] || 0) + dt; if (S.shown[k] > 8) S.pdone[k] = true; }
     if (out()) advance();
@@ -85,8 +87,11 @@ function director(script) {
   return {
     director, attach, update,
     get prompt() { return prompt(); }, get phase() { return { i: S.i, id: ph().id, name: ph().name }; },
-    get canEnd() { return ph().id === 'acceptance' && S.told >= script.accept.length; },
-    did(a) { S.did[a] = (S.did[a] || 0) + 1; S.wordSeen = true; if (a === 'putBack' && ph().id === 'defiance') S.putBackInPhase = true; for (const q of ph().prompts || []) if (q.act === a && !q.again && applies(q)) S.pdone[keyOf(q)] = true; },
+    get canEnd() { return ph().id === 'receptive'; },
+    did(a) {
+      S.did[a] = (S.did[a] || 0) + 1; S.wordSeen = true; if (a === 'tell' && ph().id === 'defiance') S.putBackInPhase = true;
+      for (const q of ph().prompts || []) if ((q.act === a || (q.acts && q.acts.includes(a))) && !q.again && applies(q)) S.pdone[keyOf(q)] = true;
+    },
     word() { S.word = true; }, finish() { S.done = true; }, S,
   };
 }

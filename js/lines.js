@@ -28,6 +28,7 @@ const PLACE = {
 const CAPTAIN = {
   hands: ['Hand down, {name}.', 'Move the hand.', 'That hand goes back where it was.'],
   pin: ['That’s twice. I’ll hold it for you.', 'Give me the wrist. There.', 'All right. I have it. Stay.'],
+  take: ['Give me the wrist. There.', 'I’ll hold that for you.', 'All right. I have it. Stay.'],
   down: ['Down.', 'Stay down, {name}.', 'Back over. All the way.'],
   rail: ['Back in position.', 'Hands on the rail. Bend.', 'Down, {name}. Hold the rail.'],
   wall: ['Back in position.', 'Hands on the rail. Bend.', 'Down, {name}. Hold the rail.'],

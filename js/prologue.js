@@ -203,8 +203,8 @@ const OFFICE = {
 
 // ── The correction: the tutorial (docs/gdd.md, "The correction: the tutorial"). Across his knee on his chair, pulled out from the desk; she's
 // in her own shift and drawers. The correction plays as it always does (js/session.js); a phase controller (js/tutorial.js) drives her
-// defiance, pride and submission through five phases, and a prompt teaches each control as it first matters. It can't be failed; it ends on
-// her acceptance, not her exhaustion; her word ends it at once, whenever she says it. ──
+// defiance, pride and submission through five phases, and a prompt teaches each control as it first matters. It can't be failed. Once
+// she's receptive it runs on as the player has it: ended when they judge it's enough, or on to too harsh, and her word. ──
 const CORRECTION = {
   id: 'correction', room: 'office', title: 'The correction',
   // (how defiant she comes to it, from how he answered her plea: stung by dryness most; disarmed a little by gentleness)
@@ -213,27 +213,30 @@ const CORRECTION = {
   word: 'Her word is Falada. If she says it, it’s over at once, as you promised.',
   phases: [
     { id: 'ready', name: 'Before you begin', prompts: [
-      { key: 'up', when: 'up', again: true, text: 'She’s not down yet. Put her back across your knee.', control: 'P', act: 'putBack' },
+      { key: 'up', when: 'up', again: true, text: 'She’s not down yet. Tell her to keep her position: across your knee.', control: 'P', act: 'tell' },
       { key: 'shift', when: 'shiftDown', text: 'Her shift first: raise it, and roll it at her back.', control: 'T', act: 'top' },
       { key: 'run', text: 'Start a run. Smacks keep coming, at the pace and strength set, until you stop it.', control: 'Space', act: 'run' } ] },
-    { id: 'defiance', name: 'Defiance', floor: 0.5, allow: ['up', 'glance'], hold: ['up'], forceUp: 9, out: { hits: 14, distress: 0.45, most: 24, need: 'putBack' }, prompts: [
-      { key: 'up', when: 'up', again: true, text: 'She’s pushed up off your knee. Put her back.', control: 'P', act: 'putBack' },
+    { id: 'defiance', name: 'Defiance', floor: 0.5, allow: ['up', 'glance'], hold: ['up'], forceUp: 9, out: { hits: 14, distress: 0.45, most: 24 }, prompts: [
+      { key: 'up', when: 'up', again: true, text: 'She’s pushed up off your knee. Tell her to keep her position.', control: 'P', act: 'tell' },
       { key: 'pace', after: 4, text: 'Pace: slower, or faster. A steady pace is easier to bear than a quick one.', control: '[ ]', act: 'pace' },
       { key: 'strength', after: 9, text: 'Strength: lighter, or harder. Harder brings her on sooner; too hard, and it’s more than she can bear.', control: '− =', act: 'strength' } ] },
-    { id: 'covering', name: 'Covering', floor: 0.5, allow: ['cover', 'glance'], hold: ['cover'], forceCover: [2, 6], out: { need: 'pin', after: 4 }, prompts: [
-      { key: 'hand', when: 'cover1', text: 'Her hand’s come back over her seat. Tell her to move it.', control: 'H', act: 'hand' },
-      { key: 'pin', when: 'cover2', text: 'Again. This time take her wrist, and hold it at the small of her back.', control: 'H', act: 'hand' } ] },
+    // (her hand back over her seat: two ways with it, either time: tell her to keep her position, or take her hand and hold it, from then on)
+    { id: 'covering', name: 'Covering', floor: 0.5, allow: ['cover', 'glance'], hold: ['cover'], forceCover: [2, 6], out: { covers: 2, after: 4 }, prompts: [
+      { key: 'hand', when: 'covering', again: true, text: 'Her hand’s come back over her seat. Tell her to keep her position, or take her hand and hold it at the small of her back.', control: 'P  or  H', acts: ['tell', 'take'] } ] },
     { id: 'pride', name: 'Pride', floor: 0.55, allow: ['glance'], out: { distress: 0.95, hits: 8, most: 34 }, prompts: [
       { key: 'drawers', when: 'drawersUp', text: 'Her drawers: lower them.', control: 'U', act: 'under' },
       { key: 'meter', text: 'She’s holding in what she feels: her face shows little of it. Read the meter, not her face.', look: 'meter' } ] },
     { id: 'breaking', name: 'Breaking', floor: 0, submission: 0.5, out: { need: 'soothed' }, prompts: [
       { key: 'slow', when: 'broken', text: 'She’s broken. Slow the pace.', control: '[', act: 'slower' },
       { key: 'soothe', when: 'broken', text: 'Soothe her: your palm, in slow circles, between.', control: 'S', act: 'soothe' } ] },
-    { id: 'acceptance', name: 'Acceptance', floor: 0, submission: 0.8, prompts: [
+    // (she says what she did, and why: she's taking it honestly now. Receptive: her defiance gone, what's done from here reaches her, as in any
+    // correction once it's lowered. It runs on as the player has it: on to its end, or too far, and her word)
+    { id: 'receptive', name: 'Receptive', floor: 0, submission: 0.8, prompts: [
       { key: 'listen', when: 'telling', text: 'Let her speak.' },
-      { key: 'end', when: 'told', text: 'She’s accepted it. A correction ends on acceptance, not on exhaustion. End it.', control: 'Enter', act: 'end' } ] },
+      { key: 'receptive', when: 'told', text: 'She’s receptive now: her defiance is gone, and what you do from here reaches her. Give her the correction she deserves, and end it when it’s enough.', control: 'Enter', act: 'end',
+        note: 'Past the red mark on the meter is too harsh: held there, she’ll say her word.', look: 'meter' } ] },
   ],
-  // (what she says as she comes to accept it: what she did, and why. One at a time, a little apart)
+  // (what she says as she comes to it honestly: what she did, and why. One at a time, a little apart)
   accept: [
     'I wanted it. All of it. Her gowns, and her name, and him.',
     'Twenty years I walked behind her, holding her train, and no one ever once asked what I wanted.',

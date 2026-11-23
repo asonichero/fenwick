@@ -14,7 +14,8 @@ function fake() {
   let D = 0, up = true, cover = false, pinned = false, covers = 0;
   const ses = { current: P, st: { phase: 'turn', soothe: false, running: false, pace: 1, strength: 1 }, distress: () => D,
     get up() { return up; }, get covering() { return cover; }, get pinned() { return pinned; },
-    pushUp() { up = true; }, cover() { cover = true; covers++; }, putBack() { up = false; }, handDown() { cover = false; if (covers >= 2) pinned = true; } };
+    pushUp() { up = true; }, cover() { if (!pinned) { cover = true; covers++; } }, putBack() { up = false; },
+    tell() { if (up) { up = false; return 'down'; } if (cover) { cover = false; return 'hand'; } return false; }, takeHand() { if (!cover) return false; cover = false; pinned = true; return true; } };
   const tick = (dir, dt) => {
     if (ses.st.running && !up && !cover) { P.hits += dt * 2 * ses.st.pace; D = Math.min(1.4, D + dt * 0.04 * ses.st.strength); }
     else D = Math.max(0, D - dt * 0.01);
@@ -25,7 +26,8 @@ function fake() {
   return { P, ses, tick };
 }
 
-function play(choose) {
+function play(choose, hands) {
+  hands = hands || ['tell', 'take']; let nh = 0;
   const F = fake(), said = [], T = Tutorial.director(SC); T.attach(F.ses, { say: t => said.push(t) });
   const phases = [], taught = new Set(); let t = 0, endedEarly = false;
   for (; t < 600; t += 0.1) {
@@ -33,9 +35,10 @@ function play(choose) {
     if (!phases.includes(T.phase.id)) phases.push(T.phase.id);
     const pr = T.prompt; if (pr && pr.act) taught.add(pr.act);
     // (the player: does what the prompt asks; otherwise keeps a run going)
-    const act = pr && pr.act;
+    const act = pr && (pr.act || (pr.acts && (pr.acts.length > 1 ? hands[Math.min(nh, hands.length - 1)] : pr.acts[0])));
     if (!T.canEnd && F.ses.st.running && t > 30 && t < 30.2) endedEarly = T.canEnd;      // (trying to end it early: it can't)
-    if (act === 'putBack') { F.ses.putBack(); T.did('putBack'); }
+    if (act === 'tell') { const r = F.ses.tell(); if (r === 'hand') nh++; T.did('tell'); }
+    else if (act === 'take') { F.ses.takeHand(); nh++; T.did('take'); }
     else if (act === 'top') { F.P.f.state.top = 'up'; T.did('top'); }
     else if (act === 'under') { F.P.f.state.under = 'down'; T.did('under'); }
     else if (act === 'run') { F.ses.st.running = true; T.did('run'); }
@@ -44,20 +47,34 @@ function play(choose) {
     else if (act === 'hand') { F.ses.handDown(); T.did('hand'); }
     else if (act === 'slower') { F.ses.st.pace = 0.75; T.did('slower'); }
     else if (act === 'soothe') { F.ses.st.running = false; F.ses.st.soothe = true; T.did('soothe'); }
-    else if (act === 'end') { T.did('end'); break; }
+    else if (act === 'end') { if (T.canEnd) { T.did('end'); break; } }
     else if (!F.ses.st.soothe) F.ses.st.running = true;
     if (choose) choose(F, T, t);
   }
   return { F, T, phases, taught, said, t, endedEarly };
 }
 
-test('played as the prompts ask: every phase in the GDD’s order, each control taught, and it ends on her acceptance', () => {
+test('played as the prompts ask: every phase in the GDD’s order, each control taught; receptive, it ends when the player ends it', () => {
   const r = play();
-  assert.deepEqual(r.phases, ['ready', 'defiance', 'covering', 'pride', 'breaking', 'acceptance']);
-  for (const a of ['putBack', 'top', 'run', 'pace', 'strength', 'hand', 'under', 'slower', 'soothe', 'end']) assert.ok(r.taught.has(a), 'taught: ' + a);
-  assert.ok(r.F.ses.pinned, 'the second time, her wrist held');
+  assert.deepEqual(r.phases, ['ready', 'defiance', 'covering', 'pride', 'breaking', 'receptive']);
+  for (const a of ['tell', 'top', 'run', 'pace', 'strength', 'under', 'slower', 'soothe', 'end']) assert.ok(r.taught.has(a), 'taught: ' + a);
+  assert.ok(r.F.ses.pinned, 'her hand taken, the second time');
   assert.deepEqual(r.said, SC.accept, 'what she did, and why, all of it');
   assert.equal(r.endedEarly, false); assert.ok(r.t < 600, 'it ends: ' + r.t.toFixed(1));
+});
+
+test('her hand: either way, either time; taken the first time, it’s held from then on and the covering’s done', () => {
+  const first = play(null, ['take']); assert.ok(first.F.ses.pinned); assert.deepEqual(first.phases, ['ready', 'defiance', 'covering', 'pride', 'breaking', 'receptive']);
+  const told = play(null, ['tell', 'tell']); assert.ok(!told.F.ses.pinned, 'told twice: never held'); assert.ok(told.phases.includes('pride'));
+  const C = SC.phases.find(p => p.id === 'covering'), q = C.prompts.find(x => x.when === 'covering');
+  assert.deepEqual(q.acts, ['tell', 'take']); assert.ok(!/put her back/i.test(q.text), 'not “put her back”: keep her position, or her hand');
+});
+
+test('receptive, it runs on: it doesn’t end of itself; End is the player’s, from the moment she’s receptive', () => {
+  let ran = 0, could = false;
+  play((F, T) => { if (T.phase.id === 'receptive') { ran += 0.1; could = could || T.canEnd; } }, null);
+  assert.ok(could); assert.ok(ran > (SC.accept.length - 1) * 5, 'ran on while she spoke: ' + ran.toFixed(1));
+  const T = Tutorial.director(SC), F = fake(); T.attach(F.ses, {}); assert.equal(T.canEnd, false, 'not before');
 });
 
 test('her defiance is held up till the breaking, and then it goes', () => {
