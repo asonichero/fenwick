@@ -132,8 +132,17 @@ test('the tutorial is his own thoughts: each prompt a thought of Silas’s, with
   assert.match(SC.hand.prompt, /\?$/, 'the hand: his thought is the choice');
 });
 
-test('after her hand the first time, she takes a good deal more before it comes again', () => {
-  const C = SC.phases.find(p => p.id === 'covering'); assert.ok(C.forceCover[1] - C.forceCover[0] >= 8, String(C.forceCover));
+test('after her hand the first time, she takes a good deal more before it comes again: never sooner than the engine lets her', () => {
+  globalThis.THREE = globalThis.THREE || require('../vendor/three.min.js'); require('../js/session.js');
+  const C = SC.phases.find(p => p.id === 'covering'), gap = window.Session.COVER_GAP;
+  assert.ok(gap >= 10, 'the engine’s own gap, in smacks: ' + gap); assert.ok(C.forceCover[1] - C.forceCover[0] >= gap, String(C.forceCover));
+});
+
+test('her hand: what he says, either way, the first time and the second; moving it, about keeping her position, or it taking longer', () => {
+  const [tell, take] = SC.hand.options;
+  assert.equal(tell.say.length, 2); assert.equal(take.say.length, 2); assert.notEqual(tell.say[0], tell.say[1]);
+  for (const l of tell.say) assert.match(l, /position|longer/i);
+  assert.match(take.say.join(' '), /hold|keep/i);
 });
 
 test('pride opens with her still answering back, and him saying she’s not feeling it; only then the thought of her drawers', () => {

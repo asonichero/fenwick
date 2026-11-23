@@ -14,7 +14,8 @@
 //   ses.defiance() · ses.gains() · opts.dressAtEnd: false, to leave them as they are at the end (the game dresses them in the fade to aftercare)
 //   opts.director (the prologue's tutorial, js/tutorial.js): { allow(kind, P), hold(kind, P), floor(P) }: whether she covers or looks back of her
 //   own accord (kind 'cover' | 'glance'), whether her hand waits for the player (and stops the run till then), and how low her defiance may go
-//   yet (till it's let go, and breaks). ses.cover(): her hand back, now. ses.breakNow(): the break. Her hand, the player's two ways with it:
+//   yet (till it's let go, and breaks). ses.cover(): her hand back, now, if she may (not within Session.COVER_GAP smacks of the last time
+//   it was dealt with, opts.coverGap to change it, nor as something's being said: false, and try again). ses.breakNow(): the break. Her hand, the player's two ways with it:
 //   ses.tell() (moved out of the way) · ses.takeHand() (the wrist, held from then on); ses.handDown() as Meridian had it · ses.receptive
 //   (They never come up out of position: Fenwick has no use for it.)
 // (Internally the corrector is still `captain` and the room `bay`: Meridian's names, kept so the engine stays diffable against it.)
@@ -92,6 +93,9 @@ const sm = (a, b, x) => { const t = Math.max(0, Math.min(1, (x - a) / (b - a)));
 const freshReact = () => ({ fight: 1, ff: 1, A: 0, bout: 0, cad: 2.6, stepPh: 0, stepAmp: 0, step: 0, ph: [0, 1, 2, 3, 4].map(() => Math.random() * 20), n: { kicks: 0, bucks: 0, bouts: 0, stamps: 0, reaches: 0, covers: 0, glances: 0 },
   pride: 0, cover: null, coverK: 0, pinOn: false, pinK: 0, glance: 0, glanceK: 0, cool: 0, broke: 0, afterStill: 0 });
 const yawQ = yaw => new Q().setFromAxisAngle(UP, yaw);
+// (her hand back over her seat, and dealt with: it can't come back again till she's taken this many more smacks (a step of the correction
+// is a smack), nor while something's just been said: so what's said is heard out, and each time is its own)
+const COVER_GAP = 12;
 
 function create(stage, bay, opts) {
   const scene = stage.scene, C = root.Cast, S = root.Pain, L = root.Lines, A = root.GameAudio;
@@ -226,14 +230,14 @@ function create(stage, bay, opts) {
     R.cool -= dt; R.broke -= dt;
     const free = !st.ending && !st.act && st.phase === 'turn' && !st.word && R.ff > 0.4 && R.cool <= 0 && !R.cover;
     const w = dfy * (1 - 0.6 * sub);
-    if (free && dfy > 0.25 && D > 0.3 && otk && !R.pinOn && (R.braceK || 0) < 0.3 && Math.random() < dt * 0.1 * w && allows('cover', P)) startCover(P);
+    if (free && dfy > 0.25 && D > 0.3 && otk && !R.pinOn && (R.braceK || 0) < 0.3 && coverReady(P) && Math.random() < dt * 0.1 * w && allows('cover', P)) startCover(P);
     if (R.glance <= 0 && dfy > 0.2 && R.ff > 0.4 && !st.ending && Math.random() < dt * 0.18 * dfy && allows('glance', P)) { R.glance = 0.9 + 0.8 * Math.random(); R.n.glances++; }
     if (R.glance > 0) R.glance -= dt;
     // a hand over the seat: told once; the second time, held
     if (R.cover) {
       const c = R.cover; c.t += dt;
       if (!c.said && !c.held && c.t > 0.5) { c.said = true; say('captain', V.captain(R.n.covers >= 2 ? 'pin' : 'hands', P.id)); }
-      if (!c.held && c.t >= c.dur) { R.cover = null; R.cool = 2.5; if (c.take || (!DIR && R.n.covers >= 2)) R.pinOn = true; }      // (with a director, held only when the player takes it)
+      if (!c.held && c.t >= c.dur) { R.cover = null; R.cool = 2.5; R.coverEnd = P.hits; if (c.take || (!DIR && R.n.covers >= 2)) R.pinOn = true; }      // (with a director, held only when the player takes it)
     }
     if (st.ending || st.phase !== 'turn') R.pinOn = false;      // (let go once it's over)
     R.coverK = ease_(R.coverK, R.cover ? 1 : 0, R.cover ? 5 : 3);
@@ -244,6 +248,8 @@ function create(stage, bay, opts) {
   }
   // (a hand back over the seat: of their own accord, or as the director has it. If it waits for the player, the run stops with it: it's
   // dealt with, and then the player starts again)
+  const coverGap = opts.coverGap != null ? opts.coverGap : COVER_GAP;
+  const coverReady = P => (P.rx.coverEnd == null || P.hits - P.rx.coverEnd >= coverGap) && sayCool <= 0;      // (not again so soon, nor over what's being said)
   function startCover(P) { const R = P.rx, held = holds('cover', P); R.cover = { t: 0, dur: 1.3 + 0.6 * Math.random(), said: false, held }; R.n.covers++; if (held) st.running = false; emit('cover', { id: P.id, n: R.n.covers, held }); }
   // (moves the hand: told, the first time; the second, the wrist taken and held)
   function handDown() { const R = cur && cur.rx, c = R && R.cover; if (!c || c.done) return false; c.done = true; c.held = false; if (!c.said) { c.said = true; say('captain', V.captain(R.n.covers >= 2 ? 'pin' : 'hands', cur.id)); } c.dur = c.t + 0.6; emit('state'); return true; }
@@ -1311,12 +1317,12 @@ function create(stage, bay, opts) {
     defiance: () => (cur ? cur.def : 0), gains: () => (cur ? Object.assign({}, cur.gain) : null),
     // (the break, now, as a smack past the edge would bring it: the defiance out of her at once, a sob, the head down, and her saying so)
     breakNow() { const P = cur; if (!P || P.said.yield || st.phase !== 'turn') return false; P.def = Math.min(P.def, 0.12); P.said.yield = 1; P.rx.broke = 2.4; kickSp('head', -5); scripted(); return true; },
-    handDown, tell, takeHand, cover() { if (cur && !cur.rx.cover && !cur.rx.pinOn && st.position === 'otk' && st.phase === 'turn' && !st.ending) startCover(cur); },
+    handDown, tell, takeHand, cover() { if (cur && !cur.rx.cover && !cur.rx.pinOn && st.position === 'otk' && st.phase === 'turn' && !st.ending && coverReady(cur)) { startCover(cur); return true; } return false; },      // (now, if she may: else, try again later)
     get receptive() { return !!(cur && cur.def < 0.2); },      // (receptive: their defiance gone (or never there): what's done reaches them now)
     get covering() { return !!(cur && cur.rx.cover && !cur.rx.cover.done); }, get pinned() { return !!(cur && cur.rx.pinOn); },
   };
   return api;
 }
 
-root.Session = { create, TUNE, TUNE_DEFAULTS };
+root.Session = { create, TUNE, TUNE_DEFAULTS, COVER_GAP };
 })(typeof window !== 'undefined' ? window : globalThis);

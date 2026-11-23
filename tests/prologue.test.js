@@ -205,7 +205,7 @@ const allBeats = beats => beats.flatMap(b => [b].concat(b.talk ? b.talk.options.
 
 test('the coda: his office by day; him at his desk, her in the goose girl’s dress, coming in from the yard; every beat something to see or hear', () => {
   const o = Office.build(new THREE.Scene()), S = o.spots();
-  assert.equal(CO.room, 'office'); assert.equal(CO.day, true); assert.equal(typeof o.setDay, 'function'); o.setDay(true); assert.equal(o.day, true); o.setDay(false);
+  assert.equal(CO.room, 'office'); assert.equal(CO.day, true); assert.match(CO.card.big, /weeks later/i, 'a card first: time passing'); assert.equal(typeof o.setDay, 'function'); o.setDay(true); assert.equal(o.day, true); o.setDay(false);
   assert.deepEqual(Object.keys(CO.cast).sort(), ['cicely', 'silas']); assert.equal(CO.cast.cicely.spec[2], 'goose', 'the goose girl’s plain dress now');
   assert.equal(CO.cast.silas.seat, 'silas', 'at his desk'); assert.ok(!CO.cast.cicely.off && CO.cast.cicely.mark === 'outside' && S.outside, 'behind the door from the first, ready to come in from the yard');
   const door = CO.beats.findIndex(b => b.act === 'door'); assert.ok(!CO.beats[door].pause && CO.beats[door + 1].act === 'walk' && CO.beats[door + 1].by === 'cicely', 'in as soon as it’s open');

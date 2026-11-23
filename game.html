@@ -323,6 +323,7 @@ async function run(from, cards, start) {
     if (SC.room === 'office' && !SC.phases) ROOMS.office.setChair('desk');      // (his chair at his desk again, for the scene that has it there)
     if (SC.phases) { lastHow = await correction(my); if (my !== runId) return; continue; }      // (the correction: and on, through black, to its aftercare)
     if (SC.talk) { await aftercare(my, lastHow); if (my !== runId) return; continue; }      // (the aftercare and the offer: the last there is, yet)
+    if (SC.card && !still && !f) { hideLine(); await black(true, true); await card(SC.card); if (my !== runId) return; }      // (a card first, on black, clicked through: time passing)
     cs = Cutscene.create({ stage, room, scene: SC, cast: castOf(SC), ui, fill: Player.fill, chosen: kept() }); window.cs = cs; cs.prewarm();
     const done = cs.play(f);
     black(false);
@@ -354,7 +355,7 @@ function flash(id, name, text, o) {
   for (let i = 0; flashQ.filter(x => !x.thought).length > 2 && i < flashQ.length;) { if (!flashQ[i].thought) flashQ.splice(i, 1); else i++; }      // (never more than a couple of lines behind)
   if (!flashing && !handing) nextFlash();
 }
-let flashT = null, handing = false;
+let flashT = null, handing = false, curFlash = null;      // (curFlash: the line on show, till its moment's over)
 function nextFlash() {
   if (handing) { flashing = false; return; }      // (the choice has the box: what's said waits)
   for (let i = 0; i < flashQ.length;) { const x = flashQ[i]; if (x.thought && x.live && !x.live()) { flashQ.splice(i, 1); if (x.done) x.done(); } else i++; }
@@ -362,12 +363,12 @@ function nextFlash() {
   // waiting holds up nothing else)
   let at = flashQ.findIndex(x => !x.thought); if (at < 0) at = flashQ.findIndex(x => !x.wait || !x.wait());
   if (at < 0) { flashing = !!flashQ.length; if (flashQ.length) { clearTimeout(flashT); flashT = setTimeout(() => { flashing = false; nextFlash(); }, 250); } return; }
-  const L = flashQ.splice(at, 1)[0]; flashing = true; if (L.done) L.done();
+  const L = flashQ.splice(at, 1)[0]; flashing = true; curFlash = L; if (L.done) L.done();
   const box = $('say'), el = $('sayTxt'); box.style.display = 'block'; box.classList.toggle('thought', !!L.thought); $('sayWho').textContent = L.name; $('sayWho').className = 'who' + (L.id === 'silas' ? ' silas' : ''); $('sayNext').style.display = 'none';
   if (!L.thought && window.GameAudio && GameAudio.ctx) GameAudio.speak(L.id, L.text, Math.min(3.2, L.text.length * 0.035), { pitch: Cast.pitch(L.id) });
   let i = 0; clearInterval(typer); el.textContent = ''; refreshCorr();
   const hold = L.thought ? 2400 + L.text.length * 38 : 1300 + L.text.length * 25;
-  typer = setInterval(() => { i = typeMs() ? i + 1 : L.text.length; el.textContent = L.text.slice(0, i); if (i >= L.text.length) { clearInterval(typer); flashT = setTimeout(() => { if (!flashQ.length) box.style.display = 'none'; nextFlash(); }, hold); } }, Math.max(8, typeMs()));
+  typer = setInterval(() => { i = typeMs() ? i + 1 : L.text.length; el.textContent = L.text.slice(0, i); if (i >= L.text.length) { clearInterval(typer); flashT = setTimeout(() => { curFlash = null; if (!flashQ.length) box.style.display = 'none'; nextFlash(); }, hold); } }, Math.max(8, typeMs()));
 }
 // ── His thoughts: the tutorial. Each prompt, as it first matters, a thought of his (its `think`); with the first, her word; with the last, how
 // far is too far. The control it's about opens, and is lit, once he's thought it ──
@@ -398,7 +399,7 @@ function correction(my) {
     const S = SCENES.correction, office = ROOMS.office, tone = kept().tone || 'firm';
     for (const id in cast) cast[id].root.visible = false; cs = null;
     office.setChair('out'); office.door.set(0);
-    dropCorrection(); office.setChair('out'); handing = false; lastPr = null; thoughtOf.clear(); waitingFor.clear(); flashQ.length = 0;
+    dropCorrection(); office.setChair('out'); handing = false; curFlash = null; lastPr = null; thoughtOf.clear(); waitingFor.clear(); flashQ.length = 0;
     tut = Tutorial.director(S);
     const rel = { cicely: Object.assign({}, S.rel, { defiance: S.tone[tone] != null ? S.tone[tone] : 0.78 }) };
     ses = makeSession(rel, tut.director);
@@ -410,7 +411,7 @@ function correction(my) {
         document.body.classList.remove('corr'); document.body.classList.add('after'); $('dock').style.bottom = ''; hideLine(); await black(true, true); res(how); })(); };
     ses.on((type, d) => {
       if (type === 'say') flash(voiceOf(d.who), theirName(d.who), filled(d.text));
-      if (type === 'cover' && d.held) handChoice();
+      if (type === 'cover' && d.held) handChoice(d.n);
       if (type === 'word') tut.word();
       if (type === 'aftercareNow') end('word');
       if (type === 'done') { tut.finish(); end('done'); }
@@ -455,15 +456,19 @@ async function aftercare(my, how) {
 
 // (her hand back over her seat: the run's stopped, and what Silas does with it is the player's choice, in the dialogue box: moved out of the
 // way, or taken and held from then on; what he says, his own (js/lines.js). What she says meanwhile waits)
-async function handChoice() {
-  if (handing || !ses) return; handing = true;
-  clearInterval(typer); clearTimeout(flashT); flashing = false;      // (anything being said, cut short)
-  const H = SCENES.correction.hand, opts = H.options.map(o => ({ id: o.id, label: o.label, text: filled(Lines.captain(o.line, 'cicely')) }));
+async function handChoice(n) {
+  if (handing || !ses) return; handing = true;      // (nothing more said meanwhile)
+  while (curFlash && handing) await wait(100);      // (what's being said, heard out first: the choice waits for it)
+  if (!handing || !ses) return;
+  clearInterval(typer); clearTimeout(flashT); flashing = false;
+  // (what he'll say, the first time or the second: shown under the choice, and then said)
+  const H = SCENES.correction.hand, k = Math.max(0, (n || 1) - 1), opts = H.options.map(o => ({ id: o.id, label: o.label, text: filled(o.say ? o.say[Math.min(k, o.say.length - 1)] : Lines.captain(o.line, 'cicely')) }));
   const id = await choose({ name: Player.get().first, prompt: H.prompt, options: opts, thought: true });
   if (!handing) return; handing = false; hideLine();
+  for (let i = flashQ.length - 1; i >= 0; i--) if (!flashQ[i].thought) flashQ.splice(i, 1);      // (what she said while he chose, gone: his answer next)
   const o = opts.find(x => x.id === id);
   if (ses && ses.covering && (id === 'take' ? ses.takeHand(o.text) : ses.tell(o.text))) did(id);
-  nextFlash();
+  if (!flashing) nextFlash();      // (his answer's on show already: what's queued waits for it)
 }
 // (the controls: each tells the tutorial what the player did; each closed to the player till the tutorial's taught it)
 const ok = a => !tut || (!tut.locked && tut.taught(a) && !waitingFor.has(actOf(a)));      // (and nothing at all while she tells it truly)

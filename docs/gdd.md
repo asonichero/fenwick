@@ -537,10 +537,13 @@ and each opens with the thought that introduces it.
 
 - **2. Covering.** Her hand comes back over her seat, twice. Each time
   the run stops, and what Silas does about it is a choice in the
-  dialogue: move her hand out of the way, or take it and hold it at the
-  small of her back, from then on. Then the player starts the run again.
-  After the first time, she takes a good deal more before her hand comes
-  back. Teaches both, and that a run is the player's to begin.
+  dialogue, with what he'll say shown under each: move her hand out of
+  the way (keep her position, or it only takes longer), or take it and
+  hold it at the small of her back, from then on. Then the player starts
+  the run again. After the first time, she takes a good deal more before
+  her hand comes back: in any correction, never within a dozen smacks of
+  its last being dealt with, nor over something being said. Teaches
+  both, and that a run is the player's to begin.
 
 - **3. Pride.** Her hand dealt with, she's still answering back, and
   Silas remarks aloud that she isn't feeling it yet; he thinks to lower
@@ -596,29 +599,30 @@ plain dress; Adela's gown stays behind.
 
 ### Coda: the letter
 
-A few weeks later, by day. Silas is at his desk in the estate office
-when there's a knock: Cicely, in the goose girl's plain dress, with a
-letter a rider left at the yard gate. She lays it on his desk; he leaves
-it there unopened and comes round the desk to her. The player chooses
-what he asks, in any order, and the conversation closes only when every
-line has been taken: how she's keeping (she sleeps now; her hands are
-ruined, and she doesn't mind), the geese and Kit (Kit says she has a way
-with them), Lady Adela (Cicely asked her pardon, and was given it), and
-the letter (a solicitor's; the rider looked at her as if she might steal
-it, and she didn't). Throughout, how she is matters more to him than
-whatever the letter holds. The time that has passed and what the
-correction did are shown, not told: she is steady, good at her work, and
-easy with him. She goes back to her geese, and he tells her to come to
-him if ever she's not well, letter or no letter. Alone, he takes the
-letter up and breaks the seal, and the view cuts to the whole page, held
-still, as its words are written in: a great-uncle Silas barely knew has
-died, and the Hall in the Fenwood, named with the player's surname, is
-his. Once it's all there, the player puts the letter down, and Silas
-sums it up in a few words of his own, for anyone who read it quickly.
-She is settled, and the post is the master's to give, not his, so his
-leaving takes nothing from her. His master releases him with thanks. The
-prologue ends on the road to the Fenwood, where Chapter 1 begins and,
-for the first time, the final say is his.
+A card, Some weeks later, on black, and then the estate office by day.
+Silas is at his desk in the estate office when there's a knock: Cicely,
+in the goose girl's plain dress, with a letter a rider left at the yard
+gate. She lays it on his desk; he leaves it there unopened and comes
+round the desk to her. The player chooses what he asks, in any order,
+and the conversation closes only when every line has been taken: how
+she's keeping (she sleeps now; her hands are ruined, and she doesn't
+mind), the geese and Kit (Kit says she has a way with them), Lady Adela
+(Cicely asked her pardon, and was given it), and the letter (a
+solicitor's; the rider looked at her as if she might steal it, and she
+didn't). Throughout, how she is matters more to him than whatever the
+letter holds. The time that has passed and what the correction did are
+shown, not told: she is steady, good at her work, and easy with him. She
+goes back to her geese, and he tells her to come to him if ever she's
+not well, letter or no letter. Alone, he takes the letter up and breaks
+the seal, and the view cuts to the whole page, held still, as its words
+are written in: a great-uncle Silas barely knew has died, and the Hall
+in the Fenwood, named with the player's surname, is his. Once it's all
+there, the player puts the letter down, and Silas sums it up in a few
+words of his own, for anyone who read it quickly. She is settled, and
+the post is the master's to give, not his, so his leaving takes nothing
+from her. His master releases him with thanks. The prologue ends on the
+road to the Fenwood, where Chapter 1 begins and, for the first time, the
+final say is his.
 
 ### Prologue cast
 

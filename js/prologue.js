@@ -216,8 +216,10 @@ const CORRECTION = {
   // (her word, thought of with the first of them)
   word: 'I’ll know it’s too much if she names the mare.',
   // (her hand back over her seat: the choice, in the dialogue box, under his thought)
-  // (what Silas says, either way: js/lines.js's, CAPTAIN.hands and CAPTAIN.take)
-  hand: { prompt: 'Her hand’s back, to cover herself. Move it out of the way, or take it and keep hold of it?', options: [{ id: 'tell', label: 'Move it out of the way', line: 'hands' }, { id: 'take', label: 'Take her hand', line: 'take' }] },
+  // (what Silas says, either way, the first time and the second: shown under the choice, and said)
+  hand: { prompt: 'Her hand’s back, to cover herself. Move it out of the way, or take it and keep hold of it?', options: [
+    { id: 'tell', label: 'Move it out of the way', say: ['Hand away, Cicely. Keep your position, or this only takes longer.', 'Again? Every time that hand comes back, it goes on longer. Keep it down.'] },
+    { id: 'take', label: 'Take her hand', say: ['Then I’ll keep it for you. Give it here.', 'That’s twice. I’ll hold it for you, then. Stay still.'] }] },
   phases: [
     { id: 'ready', name: 'Before you begin', prompts: [
       { key: 'shift', when: 'shiftDown', think: 'She won’t feel it through the shift. I should raise it.', control: 'T', act: 'top' },
@@ -227,7 +229,7 @@ const CORRECTION = {
       { key: 'strength', after: 9, optional: true, think: 'Harder brings her to it sooner. Too hard, and it’s more than she can bear.', control: '− =', act: 'strength' } ] },      // (optional: left alone, each gives way after a few smacks)
     // (her hand back over her seat: the run stops, and the player chooses, in the dialogue, either time: move it out of the way, or take it and
     // hold it, from then on. Then the run's theirs to begin again. After the first time, she takes a good deal more before it comes again)
-    { id: 'covering', name: 'Covering', floor: 0.5, allow: ['cover', 'glance'], hold: ['cover'], forceCover: [2, 12], out: { covers: 2, after: 4 }, prompts: [
+    { id: 'covering', name: 'Covering', floor: 0.5, allow: ['cover', 'glance'], hold: ['cover'], forceCover: [2, 16], out: { covers: 2, after: 4 }, prompts: [
       { key: 'hand', when: 'covering', again: true, acts: ['tell', 'take'] },      // (his thought's the choice's own: SCENES.correction.hand.prompt)
       { key: 'again', when: 'stopped', again: true, think: 'Again, then.', control: 'Space', act: 'run' } ] },
     // (her hand dealt with, she's still answering back; he says so: she's not feeling it yet. Then he thinks of her drawers)
@@ -338,6 +340,7 @@ const AFTERCARE = {
 // its words written out as he reads them: his great-uncle is dead, and the Hall in the Fenwood is his. ──
 const CODA = {
   id: 'coda', room: 'office', day: true, title: 'The letter',
+  card: { big: 'Some weeks later' },      // (on black, before it: clicked through)
   start: { door: 0 },
   cast: {
     silas: { spec: ['silas'], seat: 'silas', arms: 'desk', face: 'calm', gait: 'silas', look: 'down' },      // (at his ledger)
