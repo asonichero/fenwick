@@ -88,10 +88,11 @@ function build(scene) {
     D.tick = dt => { if (!D.ms) return; D.t += dt * 1000; const u = Math.min(1, D.t / D.ms), e = u * u * (3 - 2 * u); set(D.from + (D.target - D.from) * e); if (u >= 1) { D.ms = 0; const d = D.done; D.done = null; if (d) d(); } };
     doors[name] = D; return D;
   }
-  // (the front door, hung on its east side, swinging in; the great hall's, on its north side, into the great hall; the study's and the
+  // (the front door, hung on its west side, swinging in (seen from within, from the east, it's back against the wall's edge, the day
+  // through it); the great hall's, on its north side, into the great hall; the study's and the
   // kitchens', shut and staying so)
   // (hinge: +1, the leaf runs from its hinge to its own −x; −1, to its +x. swing: how far it turns, open)
-  makeDoor('front', FRONT.w, FRONT.h, 1, l => { l.position.set(FRONT.x + FRONT.w / 2 - 0.02, 0, E.z1 - 0.05); sides.S.add(l); }, -1.45);
+  makeDoor('front', FRONT.w, FRONT.h, -1, l => { l.position.set(FRONT.x - FRONT.w / 2 + 0.02, 0, E.z1 - 0.05); sides.S.add(l); }, 1.45);
   makeDoor('great', GREAT.w, GREAT.h, -1, l => { l.position.set(E.x1 + T - 0.05, 0, GREAT.z - GREAT.w / 2 + 0.02); l.rotation.y = -Math.PI / 2; sides.E.add(l); }, 1.4);
   makeDoor('study', STUDY.w, STUDY.h, -1, l => { l.position.set(E.x0 + 0.05, 0, STUDY.z + STUDY.w / 2 - 0.02); l.rotation.y = Math.PI / 2; sides.W.add(l); }, 0);
   makeDoor('kitchens', KITCH.w, KITCH.h, -1, l => { l.position.set(KITCH.x - KITCH.w / 2 + 0.02, 0, G2.z0 + 0.05); sides.GN.add(l); }, 0);
@@ -287,6 +288,7 @@ function build(scene) {
     doorways: [{ x0: E.x1 - 0.2, z0: GREAT.z - GREAT.w / 2 + 0.15, x1: G2.x0 + 0.2 + T, z1: GREAT.z + GREAT.w / 2 - 0.15, door: 'great' }],
     blocks: [{ x0: -0.42, z0: -0.12, x1: 1.02, z1: 0.52 }, { x0: -1.3, z0: 0.3, x1: -0.7, z1: 0.9 }, { x0: 1.3, z0: 0.2, x1: 1.9, z1: 0.8 }, { x0: -2.95, z0: -1.3, x1: -2.4, z1: -0.7 },
       { x0: 1.15, z0: 2.0, x1: 1.45, z1: 2.5 }, { x0: -2.3, z0: 2.0, x1: -0.9, z1: 2.5 },
+      { x0: -0.72, z0: 1.15, x1: -0.5, z1: 2.5 }, { x0: 3.3, z0: -0.4, x1: 4.9, z1: 0.1 },      // (the front door and the great hall's, open)
       { x0: 4.8, z0: -0.25, x1: 9.6, z1: 1.05 }, { x0: 4.8, z0: -0.6, x1: 9.6, z1: -0.25 }, { x0: 4.8, z0: 1.05, x1: 9.6, z1: 1.4 },      // (the table and its benches)
       { x0: 9.7, z0: -3.1, x1: 11.4, z1: -1.7 }, { x0: 5.1, z0: G2.z0, x1: 6.9, z1: G2.z0 + 0.6 }, { x0: G2.x1 - 0.55, z0: -1.4, x1: G2.x1, z1: 1.4 },
       { x0: 10.65, z0: 1.15, x1: 11.15, z1: 1.65 }, { x0: 10.25, z0: 1.85, x1: 10.75, z1: 2.35 }, { x0: 10.9, z0: -2.1, x1: 11.6, z1: -1.4 }],

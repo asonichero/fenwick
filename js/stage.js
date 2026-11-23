@@ -73,7 +73,11 @@ function create(view, opts) {
   root.addEventListener('resize', resize); resize();
 
   let tween = null;
+  // (a set shot further off than the player may draw the view back to, a long shot of a house, say: let it be, for as long as it's held)
+  const maxBase = controls.maxDistance;
+  function reach(...d) { const far = Math.max(...d) + 0.01; if (far > maxBase) controls.maxDistance = Math.max(controls.maxDistance, far); else if (controls.maxDistance > maxBase) controls.maxDistance = maxBase; }
   function go(pos, look, ms) {
+    reach(pos.distanceTo(look), ms ? camera.position.distanceTo(controls.target) : 0);
     if (!ms) { camera.position.copy(pos); controls.target.copy(look); controls.update(); tween = null; return; }
     tween = { t0: performance.now(), ms, p0: camera.position.clone(), p1: pos.clone(), l0: controls.target.clone(), l1: look.clone() };
   }
