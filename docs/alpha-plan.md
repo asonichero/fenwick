@@ -11,7 +11,7 @@ This plan comes from parsing the Game Design Document (`docs/gdd.md`, converted 
 
 ## 1. The game, as the GDD states it
 
-A third-person narrative walking simulator. Silas Fenwick, a practical woodsman, inherits a decayed country house above the village of Redmere and restores it. Seven young women from European fairy tales (all 18 to 21) come under his roof as employees and wards. He brings order to the estate and to their lives. Five pillars:
+A blend: cinematic, choice-driven scenes for each heroine's key beats, in an estate explored on foot, with a daily round at the Hall between them and relationships kept as a dating sim keeps them, the correction at its core (GDD, "Genre"; "Chapters and arcs"). Silas Fenwick, a practical woodsman, inherits a decayed country house above the village of Redmere and restores it. Seven young women from European fairy tales (all 18 to 21) come under his roof as employees and wards. He brings order to the estate and to their lives. Five pillars:
 
 1. **Third-person spatial exploration** of the Hall, courtyard, woods and village edge, on foot, at a grounded pace. **Progression is gated physically**: doors unlocked, fallen timber cleared and rooms restored open new wings and trigger new arrivals.
 2. **Environmental clue-finding** before a confrontation: muddy footprints, broken furniture, wolf tracks, pried locks, hidden food caches.
