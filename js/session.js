@@ -11,6 +11,9 @@
 //   ses.run(on) · ses.set({ pace, strength, side, area, soothe }) · ses.dress({ top, bottoms, under }) · ses.endTurn() · ses.camera(i)
 //   ses.on(fn): 'say' { who, id, text }, 'hit' {…}, 'state', 'turn' { i, id }, 'word' { id }, 'turnEnd' { id, outcome, stats }, 'done' { results }
 //   ses.update(dt) each frame; ses.aftercare(id) poses the two of them on the aftercare seat for the conversation. ses.defiance() · ses.gains()
+//   opts.director (the prologue's tutorial, js/tutorial.js): { allow(kind, P), hold(kind, P), floor(P) }: whether she comes up or covers of her own
+//   accord (kind 'up' | 'cover' | 'glance'), whether either waits for the player (ses.putBack(), ses.handDown(): the second time, he pins the
+//   wrist), and how low her defiance may go yet (till it's let go, and breaks). ses.pushUp(), ses.cover(): either, now. ses.breakNow(): the break.
 // (Internally the corrector is still `captain` and the room `bay`: Meridian's names, kept so the engine stays diffable against it.)
 (function (root) {
 'use strict';
@@ -100,7 +103,8 @@ function create(stage, bay, opts) {
   // (who corrects: Silas; or anyone else given a figure (opts.corrector: { id, spec, presence, response }: kept from Meridian, where the ship's
   // AI held the Captain to account; Fenwick has no use for it yet). Whoever it is, it's `captain` here: the one at the seat's end, at her side,
   // with the hand. And who's corrected: a heroine, or anyone given a figure and a profile of their own (p.spec, p.profile))
-  const CR = opts.corrector || null, correctorId = (CR && CR.id) || 'captain';
+  const CR = opts.corrector || null, correctorId = (CR && CR.id) || 'captain', DIR = opts.director || null;
+  const allows = (k, P) => !DIR || !DIR.allow || DIR.allow(k, P), holds = (k, P) => !!(DIR && DIR.hold && DIR.hold(k, P));
   const captain = Fg.make(CR && CR.spec ? CR.spec : C.squireSpec(opts.captain)); scene.add(captain.root);
   if (CR && CR.presence) Fg.presence(captain, CR.presence);
   // (and what's said: the room's usual lines, or the check-in's own, voiced by whoever's in each place)
@@ -220,22 +224,22 @@ function create(stage, bay, opts) {
     const free = !st.ending && !st.act && st.phase === 'turn' && !st.word && R.ff > 0.4 && R.cool <= 0 && !R.cover && !R.up;
     const w = dfy * (1 - 0.6 * sub);
     if (free && dfy > 0.25 && D > 0.3) {
-      if (otk && !R.pinOn && (R.braceK || 0) < 0.3 && Math.random() < dt * 0.1 * w) { R.cover = { t: 0, dur: 1.3 + 0.6 * Math.random(), said: false }; R.n.covers++; }
-      else if (Math.random() < dt * 0.045 * w) { R.up = { t: 0, dur: 1.2 + 0.8 * Math.random(), said: false }; R.n.ups++; }
+      if (otk && !R.pinOn && (R.braceK || 0) < 0.3 && Math.random() < dt * 0.1 * w && allows('cover', P)) startCover(P);
+      else if (Math.random() < dt * 0.045 * w && allows('up', P)) startUp(P);
     }
-    if (R.glance <= 0 && dfy > 0.2 && R.ff > 0.4 && !st.ending && Math.random() < dt * 0.18 * dfy) { R.glance = 0.9 + 0.8 * Math.random(); R.n.glances++; }
+    if (R.glance <= 0 && dfy > 0.2 && R.ff > 0.4 && !st.ending && Math.random() < dt * 0.18 * dfy && allows('glance', P)) { R.glance = 0.9 + 0.8 * Math.random(); R.n.glances++; }
     if (R.glance > 0) R.glance -= dt;
     // a hand over the seat: told once; the second time, held
     if (R.cover) {
       const c = R.cover; c.t += dt;
-      if (!c.said && c.t > 0.5) { c.said = true; say('captain', V.captain(R.n.covers >= 2 ? 'pin' : 'hands', P.id)); }
-      if (c.t >= c.dur) { R.cover = null; R.cool = 2.5; if (R.n.covers >= 2) R.pinOn = true; }
+      if (!c.said && !c.held && c.t > 0.5) { c.said = true; say('captain', V.captain(R.n.covers >= 2 ? 'pin' : 'hands', P.id)); }
+      if (!c.held && c.t >= c.dur) { R.cover = null; R.cool = 2.5; if (R.n.covers >= 2) R.pinOn = true; }
     }
     // up out of position, till they're put back (as they're placed, the defiant are slow to settle: up from the start)
     if (R.up) {
       const u = R.up; u.t += dt;
-      if (!u.said && u.t > (u.start ? u.dur - 0.5 : 0.45)) { u.said = true; say('captain', V.captain(otk ? 'down' : st.position === 'table' ? 'table' : sup.kind === 'rail' ? 'rail' : lineKind, P.id)); }
-      if (u.t >= u.dur) { R.up = null; R.cool = 2.5; }
+      if (!u.said && !u.held && u.t > (u.start ? u.dur - 0.5 : 0.45)) { u.said = true; say('captain', V.captain(otk ? 'down' : st.position === 'table' ? 'table' : sup.kind === 'rail' ? 'rail' : lineKind, P.id)); }
+      if (!u.held && u.t >= u.dur) { R.up = null; R.cool = 2.5; }
     }
     if (st.ending || st.phase !== 'turn') R.pinOn = false;      // (let go once it's over)
     R.coverK = ease_(R.coverK, R.cover ? 1 : 0, R.cover ? 5 : 3); R.upK = ease_(R.upK, R.up && R.up.t >= 0 ? 1 : 0, R.up ? 4 : 2.5);
@@ -244,6 +248,12 @@ function create(stage, bay, opts) {
     const brace = otk && P.r && P.r.braces && !R.pinOn && !st.ending && st.phase === 'turn' ? sm(0.55, 0.85, D) * sm(0.5, 0.8, sub) : 0;
     R.braceK = ease_(R.braceK || 0, brace, 2.5);
   }
+  // (coming up out of position, or a hand back over the seat: of their own accord, or as the director has it; held, if it waits for the player)
+  function startCover(P) { const R = P.rx; R.cover = { t: 0, dur: 1.3 + 0.6 * Math.random(), said: false, held: holds('cover', P) }; R.n.covers++; emit('cover', { id: P.id, n: R.n.covers }); }
+  function startUp(P) { const R = P.rx; R.up = { t: 0, dur: 1.2 + 0.8 * Math.random(), said: false, held: holds('up', P) }; R.n.ups++; emit('up', { id: P.id, n: R.n.ups }); }
+  // (the player puts them back: he says so, and down they go; moves the hand: told, the first time; the second, the wrist taken and held)
+  function putBack() { const R = cur && cur.rx, u = R && R.up; if (!u) return false; u.held = false; if (!u.said) { u.said = true; say('captain', V.captain(st.position === 'otk' ? 'down' : st.position === 'table' ? 'table' : sup.kind === 'rail' ? 'rail' : lineKind, cur.id)); } u.dur = Math.max(0, u.t) + 0.5; emit('state'); return true; }
+  function handDown() { const R = cur && cur.rx, c = R && R.cover; if (!c) return false; c.held = false; if (!c.said) { c.said = true; say('captain', V.captain(R.n.covers >= 2 ? 'pin' : 'hands', cur.id)); } c.dur = c.t + 0.6; emit('state'); return true; }
   // What a smack takes out of their defiance, and what that becomes. It can't fall further than how much it hurts lets it (gone by about the
   // edge; sooner the more submissive, later the more there was); each smack takes a share of what's left above that. Drained inside the edge,
   // it becomes Compliance; drained by going well past it, or by main force (full strength), Resentment. And smacks run on long after they've stilled, with nothing left to
@@ -251,7 +261,8 @@ function create(stage, bay, opts) {
   function drain(P, r) {
     const R = P.rx, D = P.pain.distress(), was = P.def;
     const brk = 0.85 + 0.35 * P.def0 - 0.3 * P.rel.submission, tgt = P.def0 * (1 - sm(0.3, brk, D));
-    if (tgt < P.def) P.def += (tgt - P.def) * 0.4;
+    const floor = DIR && DIR.floor ? DIR.floor(P) || 0 : 0;      // (held up, till the director lets it go)
+    if (Math.max(tgt, floor) < P.def) P.def += (Math.max(tgt, floor) - P.def) * 0.4;
     // (harsh: well past the edge, or broken by main force, smacks at full strength)
     const x = was - P.def, h = Math.max(sm(1.1, 1.6, D), 0.5 * sm(1.25, 1.5, st.strength));
     P.gain.compliance += x * (1 - h); P.gain.resentment += x * h;
@@ -968,7 +979,7 @@ function create(stage, bay, opts) {
     J.kick = 0; J.stamp = 0; for (const k in sp) { sp[k].x = 0; sp[k].v = 0; }
     cur.rx = freshReact(); cur.def = cur.def0; cur.gain = { compliance: 0, resentment: 0 };
     // (the defiant are slow to settle as they're placed: up off the knee, or upright at the rail, looking back, till he puts them down)
-    if (cur.def0 > 0.4) { cur.rx.up = { t: -0.2, dur: 2.6 + 1.6 * cur.def0, said: false, start: true }; cur.rx.glance = 1.6; cur.rx.n.ups++; }
+    if (cur.def0 > 0.4 && allows('up', cur)) { cur.rx.up = { t: -0.2, dur: 2.6 + 1.6 * cur.def0, said: false, start: true, held: holds('up', cur) }; cur.rx.glance = 1.6; cur.rx.n.ups++; emit('up', { id: cur.id, n: cur.rx.n.ups, start: true }); }
     cur.f.setClothes({ top: 'down', bottoms: 'up', under: 'up' }); cur.f.setExpr(cur.r.base || 'calm'); drapes();
     emit('turn', { i, id: cur.id }); emit('state');
     setTimeout(() => { say('captain', V.place(cur.id, placeKey())); setTimeout(() => say('subject', V.react(cur.id, cur.def0 > 0.5 && !/defiant|stern/.test(cur.r.base) ? 'defy' : 'start'), cur), 1600); }, 300);      // (their own way in, unless they're far more defiant than they usually are)
@@ -1299,6 +1310,10 @@ function create(stage, bay, opts) {
     distress: () => (cur ? cur.pain.distress() : 0), band: () => (cur ? BANDS[bandIndex()] : ''), harshAt: S.PAIN.TOO_HARSH,
     fight: () => (cur ? cur.rx.fight : 1), agitation: () => (cur ? cur.rx.A : 0),
     defiance: () => (cur ? cur.def : 0), gains: () => (cur ? Object.assign({}, cur.gain) : null),
+    // (the break, now, as a smack past the edge would bring it: the defiance out of her at once, a sob, the head down, and her saying so)
+    breakNow() { const P = cur; if (!P || P.said.yield || st.phase !== 'turn') return false; P.def = Math.min(P.def, 0.12); P.said.yield = 1; P.rx.broke = 2.4; kickSp('head', -5); scripted(); return true; },
+    putBack, handDown, pushUp() { if (cur && !cur.rx.up && st.phase === 'turn' && !st.ending) startUp(cur); }, cover() { if (cur && !cur.rx.cover && !cur.rx.pinOn && st.position === 'otk' && st.phase === 'turn' && !st.ending) startCover(cur); },
+    get up() { return !!(cur && cur.rx.up); }, get covering() { return !!(cur && cur.rx.cover); }, get pinned() { return !!(cur && cur.rx.pinOn); },
   };
   return api;
 }

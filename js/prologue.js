@@ -18,7 +18,7 @@
 // Shots are given from someone's place: the camera and what it looks at in that person's own frame (x to their left, y up, z ahead of them),
 // so they follow the room's layout as it's edited (rooms.html); `at` instead of `from` places them in the room itself.
 //
-//   Prologue.SCENES.hall, .office · Prologue.ORDER (the scenes, in the order they're played) · Prologue.shot(scene, name, spots) → { cam, look }
+//   Prologue.SCENES.hall, .office, .correction (the tutorial: phases, not beats) · Prologue.ORDER (the scenes, in the order they're played) · Prologue.shot(scene, name, spots) → { cam, look }
 //   · Prologue.speakers(scene)
 (function (root) {
 'use strict';
@@ -201,7 +201,50 @@ const OFFICE = {
   next: { title: 'The correction', where: 'Across your knee, in your office (being built)' },
 };
 
-const SCENES = { hall: HALL, office: OFFICE };
+// ── The correction: the tutorial (docs/gdd.md, "The correction: the tutorial"). Across his knee on his chair, pulled out from the desk; she's
+// in her own shift and drawers. The correction plays as it always does (js/session.js); a phase controller (js/tutorial.js) drives her
+// defiance, pride and submission through five phases, and a prompt teaches each control as it first matters. It can't be failed; it ends on
+// her acceptance, not her exhaustion; her word ends it at once, whenever she says it. ──
+const CORRECTION = {
+  id: 'correction', room: 'office', title: 'The correction',
+  // (how defiant she comes to it, from how he answered her plea: stung by dryness most; disarmed a little by gentleness)
+  tone: { firm: 0.78, dry: 0.9, gentle: 0.66 },
+  rel: { submission: 0.1, comfort: 0.1, desire: 0 },
+  word: 'Her word is Falada. If she says it, it’s over at once, as you promised.',
+  phases: [
+    { id: 'ready', name: 'Before you begin', prompts: [
+      { key: 'up', when: 'up', again: true, text: 'She’s not down yet. Put her back across your knee.', control: 'P', act: 'putBack' },
+      { key: 'shift', when: 'shiftDown', text: 'Her shift first: raise it, and roll it at her back.', control: 'T', act: 'top' },
+      { key: 'run', text: 'Start a run. Smacks keep coming, at the pace and strength set, until you stop it.', control: 'Space', act: 'run' } ] },
+    { id: 'defiance', name: 'Defiance', floor: 0.5, allow: ['up', 'glance'], hold: ['up'], forceUp: 9, out: { hits: 14, distress: 0.45, most: 24, need: 'putBack' }, prompts: [
+      { key: 'up', when: 'up', again: true, text: 'She’s pushed up off your knee. Put her back.', control: 'P', act: 'putBack' },
+      { key: 'pace', after: 4, text: 'Pace: slower, or faster. A steady pace is easier to bear than a quick one.', control: '[ ]', act: 'pace' },
+      { key: 'strength', after: 9, text: 'Strength: lighter, or harder. Harder brings her on sooner; too hard, and it’s more than she can bear.', control: '− =', act: 'strength' } ] },
+    { id: 'covering', name: 'Covering', floor: 0.5, allow: ['cover', 'glance'], hold: ['cover'], forceCover: [2, 6], out: { need: 'pin', after: 4 }, prompts: [
+      { key: 'hand', when: 'cover1', text: 'Her hand’s come back over her seat. Tell her to move it.', control: 'H', act: 'hand' },
+      { key: 'pin', when: 'cover2', text: 'Again. This time take her wrist, and hold it at the small of her back.', control: 'H', act: 'hand' } ] },
+    { id: 'pride', name: 'Pride', floor: 0.55, allow: ['glance'], out: { distress: 0.95, hits: 8, most: 34 }, prompts: [
+      { key: 'drawers', when: 'drawersUp', text: 'Her drawers: lower them.', control: 'U', act: 'under' },
+      { key: 'meter', text: 'She’s holding in what she feels: her face shows little of it. Read the meter, not her face.', look: 'meter' } ] },
+    { id: 'breaking', name: 'Breaking', floor: 0, submission: 0.5, out: { need: 'soothed' }, prompts: [
+      { key: 'slow', when: 'broken', text: 'She’s broken. Slow the pace.', control: '[', act: 'slower' },
+      { key: 'soothe', when: 'broken', text: 'Soothe her: your palm, in slow circles, between.', control: 'S', act: 'soothe' } ] },
+    { id: 'acceptance', name: 'Acceptance', floor: 0, submission: 0.8, prompts: [
+      { key: 'listen', when: 'telling', text: 'Let her speak.' },
+      { key: 'end', when: 'told', text: 'She’s accepted it. A correction ends on acceptance, not on exhaustion. End it.', control: 'Enter', act: 'end' } ] },
+  ],
+  // (what she says as she comes to accept it: what she did, and why. One at a time, a little apart)
+  accept: [
+    'I wanted it. All of it. Her gowns, and her name, and him.',
+    'Twenty years I walked behind her, holding her train, and no one ever once asked what I wanted.',
+    'So I envied her. That’s all it ever was. And I’d have kept her down with the geese to keep what I took.',
+    'I’m sorry. Not for being found out. For her.',
+  ],
+  next: { title: 'Aftercare and the offer', where: 'In your office, seated together (being built)' },
+  wordNext: { title: 'She said her word', where: 'It’s over, as you promised. She goes on her way, without the offer; the geese are Kit’s alone.' },
+};
+
+const SCENES = { hall: HALL, office: OFFICE, correction: CORRECTION };
 
 // A shot, in the room: its camera and the point it looks at ([x, y, z] each), from the spots (the hall's spots(): { id: { at, yaw } }).
 function shot(scene, name, spots) {
@@ -215,5 +258,5 @@ function shot(scene, name, spots) {
 const flat = beats => beats.flatMap(b => [b].concat(b.choose ? b.choose.options.flatMap(o => flat(o.beats)) : []));
 const speakers = scene => [...new Set(flat(scene.beats).filter(b => b.who).map(b => b.who))];
 
-root.Prologue = { SCENES, ORDER: ['hall', 'office'], shot, speakers };
+root.Prologue = { SCENES, ORDER: ['hall', 'office', 'correction'], shot, speakers };
 })(typeof window !== 'undefined' ? window : globalThis);

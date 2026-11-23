@@ -7,7 +7,8 @@
 // Office.ROOM, as the hall's are (rooms.html arranges them). The walls, the door, the window and the fireplace stay put.
 //
 //   const office = Office.build(scene) → { group, pieces, keys, place(key, at), layout(), spots(), views, bounds, sideOf, sidesAt, resides(),
-//     showMarks(on), setLow(on), door: { set(k), to(k, ms) → Promise, get k }, tick(dt) } · Office.ROOM, Office.LAYOUT, Office.LABELS
+//     showMarks(on), setLow(on), door: { set(k), to(k, ms) → Promise, get k }, setChair('out' | 'desk'), bay() (for js/session.js), tick(dt) }
+//   · Office.ROOM, Office.LAYOUT, Office.LABELS
 (function (root) {
 'use strict';
 const THREE = root.THREE, F = root.Figure, srgb = F.srgb, V3 = THREE.Vector3, K = root.Kit;
@@ -23,12 +24,14 @@ const LAYOUT = {
   chest: { x: 1.7, z: -2.25, ry: 0 },
   sideChair: { x: -2.1, z: 1.55, ry: Math.PI / 2 },
   rug: { x: 0, z: -0.3, ry: 0 },
+  settle: { x: -2.17, z: -1.2, ry: Math.PI / 2 },
   cicelyMark: { x: 0, z: -0.25, ry: Math.PI },
   doorMark: { x: 1.2, z: 1.6, ry: 0 },
   nearMark: { x: 0.5, z: -0.55, ry: -1.03 },
+  chairOutMark: { x: 0.3, z: 0.5, ry: Math.PI / 2 },
 };
 const LABELS = { desk: 'His desk (and the ledgers on it)', chair: 'His chair, behind it', shelves: 'The shelves of ledgers', chest: 'The strongbox', sideChair: 'A chair by the fire',
-  rug: 'The rag rug', cicelyMark: 'Where Cicely stands before the desk (a mark)', doorMark: 'Where Silas shuts the door (a mark)', nearMark: 'Where Silas stands before her (a mark)' };
+  rug: 'The rag rug', settle: 'The settle (the aftercare’s seat)', chairOutMark: 'Where his chair goes for the correction (a mark)', cicelyMark: 'Where Cicely stands before the desk (a mark)', doorMark: 'Where Silas shuts the door (a mark)', nearMark: 'Where Silas stands before her (a mark)' };
 const KEY = 'fenwick:room:office';
 const ROOM = {
   KEY, LAYOUT,
@@ -183,10 +186,15 @@ function build(scene) {
   // a plain chair by the fire
   { const g = piece('sideChair'); box(0.42, 0.04, 0.4, oak, 0, 0.44, 0, g); for (const sx of [-1, 1]) for (const sz of [-1, 1]) cyl(0.02, 0.022, 0.44, oakDark, sx * 0.18, 0.22, sz * 0.17, g);
     for (const sx of [-1, 1]) cyl(0.022, 0.024, 0.95, oakDark, sx * 0.18, 0.475, -0.17, g); box(0.36, 0.2, 0.02, oak, 0, 0.8, -0.17, g); }
+  // the settle along the west wall: a high-backed oak bench for two, a cushion along it (the aftercare's)
+  { const g = piece('settle'), w = 1.3, d = 0.48, sh = 0.44;
+    box(w, 0.05, d, oak, 0, sh, 0, g); box(w - 0.08, 0.06, d - 0.08, std({ color: srgb('#5a2a22'), roughness: 0.9 }), 0, sh + 0.05, 0.01, g);
+    for (const sx of [-1, 1]) { box(0.06, 1.15, d, oakDark, sx * (w / 2 - 0.03), 0.575, 0, g); box(0.06, 0.06, d + 0.02, oakDark, sx * (w / 2 - 0.03), 0.7, 0.02, g); }
+    box(w - 0.06, 0.72, 0.04, oak, 0, sh + 0.42, -d / 2 + 0.03, g); box(w, 0.06, 0.08, oakDark, 0, 1.15, -d / 2 + 0.03, g); box(w - 0.08, 0.18, 0.03, oakDark, 0, 0.18, d / 2 - 0.04, g); }
   // a rag rug before the desk
   { const g = piece('rug'); const r = new THREE.Mesh(new THREE.PlaneGeometry(1.5, 1.0), rugM); r.rotation.x = -Math.PI / 2; r.position.y = 0.004; r.receiveShadow = true; g.add(r); }
   // the marks (only in the room editor)
-  for (const k of ['cicelyMark', 'doorMark', 'nearMark']) { const g = piece(k), m = new THREE.MeshBasicMaterial({ color: k === 'cicelyMark' ? 0xffc86a : 0x6ad0ff, transparent: true, opacity: 0.85 });
+  for (const k of ['cicelyMark', 'doorMark', 'nearMark', 'chairOutMark']) { const g = piece(k), m = new THREE.MeshBasicMaterial({ color: k === 'cicelyMark' ? 0xffc86a : k === 'chairOutMark' ? 0xc89aff : 0x6ad0ff, transparent: true, opacity: 0.85 });
     const ring = new THREE.Mesh(new THREE.RingGeometry(0.22, 0.27, 32), m); ring.rotation.x = -Math.PI / 2; ring.position.y = 0.01; g.add(ring);
     const ar = new THREE.Mesh(new THREE.ConeGeometry(0.08, 0.22, 3), m); ar.rotation.x = Math.PI / 2; ar.position.set(0, 0.012, 0.36); g.add(ar); marks.push(g); g.visible = false; }
 
@@ -226,10 +234,21 @@ function build(scene) {
     'Corner': [[X1 - 0.3, 2.4, Z1 - 0.3], [-0.6, 0.6, -1.0]], 'From above': [[0, 13, 0.02], [0, 0, -0.2]], 'From the fire': [[X0 + 0.45, 1.6, 0.2], [1.2, 0.9, -0.9]],
     'Before the desk': [[0.25, 1.55, 1.35], [0, 1.0, -1.6]],
   };
+  // ── The correction: his chair pulled out from the desk into the room (its mark), and back; and the room as the correction engine wants it ──
+  let chairOut = false;
+  const setChair = where => { chairOut = where === 'out'; const k = chairOut ? 'chairOutMark' : 'chair', g = pieces.chair.g; g.position.set(L[k].x, 0, L[k].z); g.rotation.y = L[k].ry || 0; g.updateMatrixWorld(true); resides(); };
+  const bay = () => {
+    const at = (k, x, z) => new V3(x, 0, z).applyMatrix4(pieces[k].g.matrixWorld).setY(0), sy = L.settle.ry || 0;
+    return { group: G, private: true, bounds, sideOf, sidesAt, spots: {
+      bench: { at: new V3(L.chairOutMark.x, 0, L.chairOutMark.z), yaw: L.chairOutMark.ry || 0, turn: 0, seatY: 0.49 },
+      after: { at: at('settle', 0.3, 0.06), yaw: sy, seatY: 0.49, beside: at('settle', -0.3, 0.06) },
+      wall: { at: at('desk', 0, DD / 2 + 0.85), yaw: (L.desk.ry || 0) + Math.PI, support: { kind: 'edge', y: DH + 0.01, d: 0.85, bend: 0.95, lines: 'writing' } },
+      watch: [], corner: { at: new V3(X1 - 0.4, 0, Z1 - 0.6), yaw: Math.PI } } };
+  };
   let t = 0;
   const setLow = on => { key.castShadow = !on; };
   return { group: G, pieces, keys: Object.keys(LAYOUT), place, layout: () => JSON.parse(JSON.stringify(L)), spots, views, bounds, sideOf, sidesAt, resides, name: 'Silas’s office at Thornleigh',
-    showMarks: on => { for (const m of marks) m.visible = !!on; }, setLow, key, door,
+    showMarks: on => { for (const m of marks) m.visible = !!on; }, setLow, key, door, setChair, bay, get chairOut() { return chairOut; },
     tick(dt) { t += dt;
       if (door.ms) { door.t += dt * 1000; const k = Math.min(1, door.t / door.ms), e = k * k * (3 - 2 * k); setDoor(door.from + (door.target - door.from) * e); if (k >= 1) { door.ms = 0; const d = door.done; door.done = null; if (d) d(); } }
       const f = 0.85 + 0.1 * Math.sin(t * 7.1) + 0.06 * Math.sin(t * 12.7 + 1.1); fireL.intensity = 3.2 * f; deskLight.intensity = 1.3 * (0.95 + 0.05 * Math.sin(t * 9.3));

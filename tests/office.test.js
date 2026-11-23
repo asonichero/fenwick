@@ -36,3 +36,14 @@ test('the door: shut by default; it swings open, and shuts again over time', asy
   o.door.set(1); assert.equal(o.door.k, 1);
   const p = o.door.to(0, 500); for (let i = 0; i < 40; i++) o.tick(0.02); await p; assert.equal(o.door.k, 0);
 });
+
+test('the correction: his chair pulled out to its mark, with room for her across his knee, clear of the desk; back to the desk after', () => {
+  const o = Office.build(new THREE.Scene()), L = Office.LAYOUT, home = o.pieces.chair.g.position.clone();
+  o.setChair('out'); assert.ok(o.chairOut); assert.ok(o.pieces.chair.g.position.distanceTo(new THREE.Vector3(L.chairOutMark.x, 0, L.chairOutMark.z)) < 1e-6);
+  const B = o.bay(), b = B.spots.bench, side = new THREE.Vector3(Math.cos(b.yaw), 0, -Math.sin(b.yaw)), desk = new THREE.Box3().setFromObject(o.pieces.desk.g);
+  assert.ok(B.private && B.spots.after && B.spots.after.beside && B.spots.wall && Array.isArray(B.spots.watch), 'what the correction engine looks for');
+  for (const sx of [-1, 1]) { const end = b.at.clone().addScaledVector(side, sx * 1.0); end.y = 0.5;
+    assert.ok(desk.distanceToPoint(end) > 0.1, 'her head and her feet clear of the desk'); assert.ok(end.x > o.bounds.minX + 0.2 && end.x < o.bounds.maxX - 0.2 && end.z > o.bounds.minZ + 0.2 && end.z < o.bounds.maxZ - 0.2, 'and of the walls'); }
+  o.setChair('desk'); assert.ok(o.pieces.chair.g.position.distanceTo(home) < 1e-6 && !o.chairOut);
+  assert.deepEqual(o.layout().chair, Office.ROOM.layout({}).chair, 'its place at the desk, in the layout, untouched');
+});

@@ -59,6 +59,26 @@ body.film .bar { height: 6vh; }
 kbd { font: 11px ui-monospace, monospace; color: var(--dim); }
 @media (max-width: 760px) { #say { padding: 13px 15px 11px; } #say .txt { font-size: 15px; } body.film .bar { height: 3vh; } }
 @media (hover: none) { kbd { display: none; } }
+/* the correction: the prompt (what to do now, and the control for it) at the top; the controls along the foot; the meter; the dialogue above
+   the controls, going on by itself */
+#tut { position: fixed; top: calc(12px + env(safe-area-inset-top)); left: 50%; transform: translateX(-50%); width: min(620px, calc(100% - 24px)); box-sizing: border-box; padding: 10px 16px 11px; z-index: 4; display: none; }
+#tut .ph { font-size: 10px; letter-spacing: 0.2em; text-transform: uppercase; color: var(--amber); } #tut .tx { font: 16px/1.4 var(--serif); margin-top: 3px; }
+#tut .tx kbd { font: 12px ui-monospace, monospace; color: #1a1410; background: var(--amber); border-radius: 5px; padding: 1px 6px; margin-left: 8px; white-space: nowrap; }
+#tut .wd { font-size: 12px; color: #ffd8cc; margin-top: 6px; } #tut .wd:empty { display: none; }
+#ctl { position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(12px + env(safe-area-inset-bottom)); width: min(900px, calc(100% - 24px)); box-sizing: border-box; padding: 9px 12px 8px; z-index: 4; display: none; }
+#ctl .row { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; justify-content: center; }
+#ctl button { padding: 6px 10px; font-size: 13px; border-radius: 10px; } #ctl button.on { background: #4a3a22; border-color: var(--amber); color: #ffe2b0; } #ctl button.go { background: #6a2a22; border-color: #c84a3a; color: #ffd8cc; }
+#ctl button.hot { box-shadow: 0 0 0 2px var(--amber), 0 0 14px rgba(216, 162, 74, 0.6); }
+#ctl .grp { display: inline-flex; align-items: center; gap: 4px; } #ctl .val { min-width: 34px; text-align: center; color: var(--amber); font-size: 13px; } #ctl .lab { font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--dim); margin-right: 2px; }
+#ctl kbd { margin-left: 4px; }
+#meter { margin-top: 7px; } #meter.hot #track { box-shadow: 0 0 0 2px var(--amber), 0 0 14px rgba(216, 162, 74, 0.6); }
+#track { position: relative; height: 9px; background: #241c16; border-radius: 6px; overflow: hidden; border: 1px solid var(--line); }
+#fill { position: absolute; left: 0; top: 0; bottom: 0; width: 0; background: linear-gradient(90deg, #4a8a7a, #c8a040 45%, #d8603e 70%, #a02a3a); }
+#track .tick { position: absolute; top: 0; bottom: 0; width: 1px; background: rgba(255,255,255,0.35); } #track .harsh { width: 2px; background: #c84a3a; }
+#minfo { font-size: 11px; color: var(--dim); margin-top: 3px; text-align: center; } #minfo b { color: var(--ink); }
+body.corr #say { cursor: default; min-height: 0; }
+body.corr #tut, body.corr #ctl { display: block; }
+@media (max-width: 760px) { #ctl button { padding: 6px 8px; font-size: 12px; } #tut .tx { font-size: 14px; } }
 </style>
 </head>
 <body>
@@ -77,9 +97,22 @@ kbd { font: 11px ui-monospace, monospace; color: var(--dim); }
 <div id="end"><div class="k">Next</div><h2 id="endT"></h2><p id="endW"></p><div class="row"><button id="again">Play the scene again</button><button id="toTitle">To the title</button></div></div>
 <div id="dock"><div id="say" class="panel"><div class="who" id="sayWho"></div><div class="txt" id="sayTxt"></div><div class="choices" id="choices"></div><div class="hintc" id="chooseHint"></div><div class="next" id="sayNext">▸</div></div></div>
 <button id="skip">Skip scene <kbd>esc</kbd></button>
+<div id="tut" class="panel"><div class="ph" id="tutPh"></div><div class="tx" id="tutTx"></div><div class="wd" id="tutWd"></div></div>
+<div id="ctl" class="panel">
+  <div class="row">
+    <button id="cRun" class="go">Start run<kbd>Space</kbd></button>
+    <span class="grp"><span class="lab">Pace</span><button data-k="pace" data-d="-0.25">−</button><span class="val" id="paceV">1×</span><button data-k="pace" data-d="0.25">+</button><kbd>[ ]</kbd></span>
+    <span class="grp"><span class="lab">Strength</span><button data-k="strength" data-d="-0.25">−</button><span class="val" id="strengthV">1×</span><button data-k="strength" data-d="0.25">+</button><kbd>− =</kbd></span>
+    <button id="cBack">Put her back<kbd>P</kbd></button><button id="cHand">Her hand<kbd>H</kbd></button><button id="cSoothe">Soothe<kbd>S</kbd></button>
+    <button id="cTop">Shift: down<kbd>T</kbd></button><button id="cUnd">Drawers: up<kbd>U</kbd></button>
+    <button id="cCam">Camera<kbd>C</kbd></button><button id="cEnd">End it<kbd>Enter</kbd></button>
+  </div>
+  <div id="meter"><div id="track"><div id="fill"></div></div><div id="minfo"></div></div>
+</div>
 
 <script src="vendor/three.min.js"></script><script src="vendor/OrbitControls.js"></script><script src="vendor/postprocessing.js"></script><script src="vendor/GLTFLoader.js"></script>
 <script src="js/cast.js"></script><script src="js/figure.js"></script><script src="js/poses.js"></script><script src="js/stage.js"></script><script src="js/kit.js"></script><script src="js/hall.js"></script><script src="js/office.js"></script>
+<script src="js/pain.js"></script><script src="js/lines.js"></script><script src="js/session.js"></script><script src="js/tutorial.js"></script>
 <script src="js/audio.js"></script><script src="js/player.js"></script><script src="js/prologue.js"></script><script src="js/gait.js"></script><script src="js/cutscene.js"></script>
 <script>
 'use strict';
@@ -94,6 +127,8 @@ stage.controls.enabled = false;            // (the camera's the scene's)
 camera.far = 120; camera.updateProjectionMatrix();
 // (a little warm light from where the camera stands, as a film's fill, so faces read in rooms lit by candles and fires; set a little behind
 // the camera, so what's close to it isn't washed out)
+// (a change of clothes the correction makes through black: a skirt, draped as she lies, isn't animated)
+stage.fade = fn => { if (still) return fn(); const b = $('black'); b.classList.add('quick'); b.classList.remove('off', 'dim'); setTimeout(() => { fn(); b.classList.add('off'); }, 650); };
 const fillL = new THREE.PointLight(0xffe0bc, 1.3, 5, 2); fillL.position.set(0, 0.25, 0.9); camera.add(fillL); scene.add(camera);
 // (the rooms, both built, one shown at a time)
 const ROOMS = { hall: Hall.build(scene), office: Office.build(scene) }; for (const k in ROOMS) ROOMS[k].showMarks(false);
@@ -120,7 +155,7 @@ const ready = Promise.all([Figure.preload(), Gait.load().catch(e => console.warn
 });
 // (the opening shot, before it moves: everyone in their places, a moment for the skirts to hang, then held still, and dimmed, behind the title)
 async function opening() {
-  stage.hold(false); showRoom('hall'); SC = SCENES.hall; cs = Cutscene.create({ stage, room, scene: SC, cast: castOf(SC), ui, fill: Player.fill }); cs.place();
+  stage.hold(false); ROOMS.office.setChair('desk'); showRoom('hall'); SC = SCENES.hall; cs = Cutscene.create({ stage, room, scene: SC, cast: castOf(SC), ui, fill: Player.fill }); cs.place();
   const v = Prologue.shot(SC, 'foot', cs.spots); stage.go(new V3(...v.cam), new V3(...v.look), 0);
   await new Promise(r => setTimeout(r, 1400)); if (playing) return; stage.hold(true); shade('dim');
 }
@@ -173,7 +208,7 @@ function card(c) {
 // ── Playing it: from a scene (the first, unless asked), each in turn, to the end; a scene skipped goes on to the next ──
 let playing = false, runId = 0;
 async function run(from, cards, start) {
-  const my = ++runId; start = SCENES[start] ? start : first;
+  const my = ++runId; start = SCENES[start] ? start : first; dropCorrection(); document.body.classList.remove('corr');
   $('end').classList.remove('on'); $('title').style.display = 'none';
   if (cards) { for (const c of SCENES[ORDER[0]].cards) await card(c); }      // (over the opening shot, held still and dimmed)
   if (my !== runId) return;
@@ -181,6 +216,8 @@ async function run(from, cards, start) {
   for (let i = ORDER.indexOf(start), f = from || 0; i < ORDER.length; i++, f = 0) {
     if (cs) cs.stop();
     stage.hold(false); SC = SCENES[ORDER[i]]; showRoom(SC.room);
+    if (SC.room === 'office' && !SC.phases) ROOMS.office.setChair('desk');      // (his chair at his desk again, for the scene that has it there)
+    if (SC.phases) { const ok = await correction(my); if (my !== runId) return; if (ok === 'word') { SC = Object.assign({}, SC, { next: SC.wordNext }); } break; }      // (the correction: the last there is, yet)
     cs = Cutscene.create({ stage, room, scene: SC, cast: castOf(SC), ui, fill: Player.fill, chosen: kept() }); window.cs = cs;
     const done = cs.play(f);
     black(false);
@@ -188,14 +225,99 @@ async function run(from, cards, start) {
     if (my !== runId || still) return;
     hideLine(); await black(true, true);      // (between scenes, black; a scene skipped is cut to it)
   }
-  playing = false; $('skip').style.display = 'none'; document.body.classList.remove('film');
+  playing = false; $('skip').style.display = 'none'; document.body.classList.remove('film', 'corr'); $('dock').style.bottom = '';
   finish();
 }
 async function finish() {
   await black(true, true); hideLine();
   $('endT').textContent = SC.next.title; $('endW').textContent = SC.next.where; $('end').classList.add('on');
 }
-function skip() { if (!playing || !cs) return; cs.stop(); if (picking) picking[0](); if (advance) advance(); if (advance) advance(); }
+function skip() { if (!playing || !cs || document.body.classList.contains('corr')) return; cs.stop(); if (picking) picking[0](); if (advance) advance(); if (advance) advance(); }
+
+// ── The correction (the prologue's tutorial: js/tutorial.js over js/session.js): his chair out from the desk, the two of them made as the
+// correction makes them (her in her shift and drawers), the tutorial directing; the controls along the foot, the prompt at the top, what's
+// said going on by itself. Resolves 'done' on her acceptance (and the end of it), or 'word' if she says her word ──
+let ses = null, tut = null, corrDone = null;
+// (the correction's own two, gone once it's over, or the game's begun again: the rooms share the one space)
+function dropCorrection() { if (!ses) return; scene.remove(ses.captain.root); for (const P of ses.people) scene.remove(P.f.root); ses = null; tut = null; window.ses = null; ROOMS.office.setChair('desk'); }
+const flashQ = []; let flashing = false;
+// (a line in the box, typed out, then left a moment and gone: no click wanted, the player's hands are on the controls)
+function flash(id, name, text) { flashQ.push({ id, name, text }); while (flashQ.length > 2) flashQ.shift(); if (!flashing) nextFlash(); }      // (never more than a couple behind)
+function nextFlash() {
+  const L = flashQ.shift(); if (!L) { flashing = false; return; } flashing = true;
+  const box = $('say'), el = $('sayTxt'); box.style.display = 'block'; $('sayWho').textContent = L.name; $('sayWho').className = 'who' + (L.id === 'silas' ? ' silas' : ''); $('sayNext').style.display = 'none';
+  if (window.GameAudio && GameAudio.ctx) GameAudio.speak(L.id, L.text, Math.min(3.2, L.text.length * 0.035), { pitch: Cast.pitch(L.id) });
+  let i = 0; clearInterval(typer); el.textContent = '';
+  typer = setInterval(() => { el.textContent = L.text.slice(0, ++i); if (i >= L.text.length) { clearInterval(typer); setTimeout(() => { if (!flashQ.length) box.style.display = 'none'; nextFlash(); }, 1300 + L.text.length * 25); } }, 22);
+}
+const theirName = who => (who === 'captain' ? Player.get().first : 'Cicely'), voiceOf = who => (who === 'captain' ? 'silas' : 'cicely');
+const filled = t => Player.fill(String(t)).replace(/\bMr Fenwick\b/g, 'Mr ' + Player.get().last);
+function correction(my) {
+  return new Promise(res => {
+    const S = SCENES.correction, office = ROOMS.office, tone = kept().tone || 'firm';
+    for (const id in cast) cast[id].root.visible = false; cs = null;
+    office.setChair('out'); office.door.set(0);
+    dropCorrection(); office.setChair('out');
+    tut = Tutorial.director(S);
+    const rel = { cicely: Object.assign({}, S.rel, { defiance: S.tone[tone] != null ? S.tone[tone] : 0.78 }) };
+    ses = Session.create(stage, office.bay(), { position: 'otk', between: 'aside', queue: [{ id: 'cicely', sex: 'f', outfit: 'shift' }], rel, witnesses: [], sound: !still, director: tut.director });
+    tut.attach(ses, { say: text => flash('cicely', 'Cicely', filled(text)), phase: () => refreshCorr() });
+    window.ses = ses; window.tut = tut;
+    let over = false; const end = how => { if (over) return; over = true; setTimeout(async () => { document.body.classList.remove('corr'); hideLine(); await black(true, true); dropCorrection(); res(how); }, how === 'word' ? 2600 : 1800); };
+    ses.on((type, d) => {
+      if (type === 'say') flash(voiceOf(d.who), theirName(d.who), filled(d.text));
+      if (type === 'word') tut.word();
+      if (type === 'aftercareNow') end('word');
+      if (type === 'done') { tut.finish(); end('done'); }
+      refreshCorr();
+    });
+    ses.start(); document.body.classList.remove('film'); document.body.classList.add('corr'); $('skip').style.display = 'none';
+    corrDone = () => end('done');
+    black(false); refreshCorr();
+  });
+}
+// (the controls: each tells the tutorial what the player did)
+const P0 = { pace: [0.5, 2], strength: [0.5, 1.5] }, times = v => (Number.isInteger(v) ? v.toFixed(0) : String(v)) + '×';
+const did = a => { if (tut) tut.did(a); refreshCorr(); };
+function bump(k, d) {
+  if (!ses) return; const v = Math.round(Math.min(P0[k][1], Math.max(P0[k][0], ses.st[k] + d)) / 0.25) * 0.25; if (v === ses.st[k]) return;
+  ses.set({ [k]: v }); did(k); if (k === 'pace' && d < 0) did('slower');
+}
+document.querySelectorAll('#ctl [data-k]').forEach(b => b.onclick = () => bump(b.dataset.k, +b.dataset.d));
+const C = {
+  run: () => { if (!ses) return; const was = ses.st.running; ses.run(); if (!was && ses.st.running) did('run'); else refreshCorr(); },
+  back: () => { if (ses && ses.putBack()) did('putBack'); },
+  hand: () => { if (ses && ses.handDown()) did('hand'); },
+  soothe: () => { if (!ses) return; const on = !ses.st.soothe; ses.set({ soothe: on }); if (on) did('soothe'); else refreshCorr(); },
+  top: () => { const c = ses && ses.current; if (!c) return; const up = c.f.state.top !== 'up'; ses.dress({ top: up ? 'up' : 'down' }); if (up) did('top'); else refreshCorr(); },
+  under: () => { const c = ses && ses.current; if (!c) return; const down = c.f.state.under === 'up'; ses.dress({ under: down ? 'down' : 'up' }); if (down) did('under'); else refreshCorr(); },
+  cam: () => { if (!ses) return; const set = ses.CAMS[ses.st.position] || []; ses.camera((ses.st.cam + 1) % Math.max(1, set.length)); },
+  end: () => { if (!ses) return; if (!tut.canEnd) { flash('silas', Player.get().first, 'Not yet.'); return; } did('end'); ses.endTurn(); },
+};
+$('cRun').onclick = C.run; $('cBack').onclick = C.back; $('cHand').onclick = C.hand; $('cSoothe').onclick = C.soothe; $('cTop').onclick = C.top; $('cUnd').onclick = C.under; $('cCam').onclick = C.cam; $('cEnd').onclick = C.end;
+// (the meter: distress against the bar; its band ticks, the edge, and too harsh in red)
+{ const tr = $('track'), max = 2.2; for (const v of [0.3, 0.6, 0.9, 1.0, Pain.PAIN.CRYING, Pain.PAIN.STILL]) { const t = document.createElement('div'); t.className = 'tick'; t.style.left = (v / max * 100) + '%'; tr.append(t); }
+  const h = document.createElement('div'); h.className = 'tick harsh'; h.style.left = (Pain.PAIN.TOO_HARSH / max * 100) + '%'; tr.append(h); }
+function refreshCorr() {
+  if (!ses || !tut) return; const st = ses.st, c = ses.current, on = c && st.phase === 'turn' && !st.ending, pr = tut.prompt;
+  $('cRun').firstChild.textContent = st.running ? 'Stop run' : 'Start run'; $('cRun').disabled = !on || ses.busy || ses.up || ses.covering;
+  $('cSoothe').classList.toggle('on', st.soothe); $('cSoothe').disabled = !on || ses.busy; $('cBack').disabled = !on || !ses.up; $('cHand').disabled = !on || !ses.covering;
+  $('cTop').disabled = $('cUnd').disabled = !on || ses.busy; $('cEnd').disabled = !on;
+  if (c) { $('cTop').firstChild.textContent = 'Shift: ' + (c.f.state.top === 'up' ? 'raised' : 'down'); $('cUnd').firstChild.textContent = 'Drawers: ' + (c.f.state.under === 'up' ? 'up' : 'lowered'); }
+  $('paceV').textContent = times(st.pace); $('strengthV').textContent = times(st.strength);
+  // (the prompt; the control it's for, lit)
+  $('tutPh').textContent = pr ? tut.phase.name : tut.phase.name; $('tutTx').innerHTML = ''; $('tutWd').textContent = pr && pr.word ? pr.word : '';
+  if (pr) { $('tutTx').append(pr.text); if (pr.control) { const k = document.createElement('kbd'); k.textContent = pr.control; $('tutTx').append(k); } }
+  else $('tutTx').textContent = st.running ? 'Keep on.' : '';
+  const lit = { putBack: 'cBack', hand: 'cHand', soothe: 'cSoothe', top: 'cTop', under: 'cUnd', run: 'cRun', end: 'cEnd' };
+  for (const id of Object.values(lit)) $(id).classList.toggle('hot', !!(pr && lit[pr.act] === id));
+  document.querySelectorAll('#ctl [data-k="pace"]').forEach(b => b.classList.toggle('hot', !!(pr && (pr.act === 'pace' || (pr.act === 'slower' && +b.dataset.d < 0)))));
+  document.querySelectorAll('#ctl [data-k="strength"]').forEach(b => b.classList.toggle('hot', !!(pr && pr.act === 'strength')));
+  $('meter').classList.toggle('hot', !!(pr && pr.look === 'meter'));
+  $('dock').style.bottom = `calc(${$('ctl').offsetHeight + 22}px + env(safe-area-inset-bottom))`;      // (the dialogue just above the controls, however many rows they take)
+}
+function meter() { if (!ses) return; const c = ses.current, d = c ? c.pain.distress() : 0; $('fill').style.width = Math.min(100, d / 2.2 * 100) + '%';
+  $('minfo').innerHTML = c ? `<b>${ses.band()}</b> · ${c.hits} smacks${ses.st.running ? ' · running' : ''}${ses.st.soothe ? ' · soothing' : ''}` : ''; }
 function audioOn() { if (window.GameAudio && GameAudio.init()) GameAudio.hearth({ fire: 0.85, wind: 0.25 }); }
 
 $('begin').onclick = () => { audioOn(); ready.then(() => run(0, true, ORDER[0])); };
@@ -206,6 +328,12 @@ $('skip').onclick = skip;
 addEventListener('click', e => { if (e.target.closest('button, a, input, label, form')) return; if (advance) advance(); });
 addEventListener('keydown', e => {
   if (e.target.closest && e.target.closest('input, textarea')) return;      // (typing a name)
+  if (ses && document.body.classList.contains('corr')) {
+    const k = e.key, m = { ' ': C.run, p: C.back, P: C.back, h: C.hand, H: C.hand, s: C.soothe, S: C.soothe, t: C.top, T: C.top, u: C.under, U: C.under, c: C.cam, C: C.cam, Enter: C.end };
+    if (m[k]) { m[k](); e.preventDefault(); return; }
+    if (k === '[') { bump('pace', -0.25); return; } if (k === ']') { bump('pace', 0.25); return; } if (k === '-') { bump('strength', -0.25); return; } if (k === '=' || k === '+') { bump('strength', 0.25); return; }
+    return;
+  }
   if (picking && /^[1-9]$/.test(e.key) && picking[+e.key - 1]) { picking[+e.key - 1](); e.preventDefault(); return; }
   if (e.key === ' ' || e.key === 'Enter') { if (advance) { advance(); e.preventDefault(); } }
   else if (e.key === 'Escape') skip();
@@ -216,7 +344,9 @@ stage.start(dt => {
   const s = room.sidesAt(camera.position); s.add('C');
   for (const [o, side] of room.sideOf) o.visible = !s.has(side);
   room.tick(dt); if (cs) cs.tick(dt);
+  if (ses && document.body.classList.contains('corr')) { ses.update(dt); tut.update(dt); meter(); if ((frameN = (frameN + 1) % 6) === 0) refreshCorr(); }
 });
+let frameN = 0;
 if (still) ready.then(() => { $('title').style.display = 'none'; run(at0, false, first).catch(e => console.error(e)); setTimeout(() => { window.ready = true; }, 2500); });
 else ready.then(() => { window.ready = true; });
 window.__game = { stage, rooms: ROOMS, get room() { return room; }, get scene() { return SC; }, get cs() { return cs; }, get cast() { return cast; }, run: (from, cards, start) => run(from, cards, start || first) };
