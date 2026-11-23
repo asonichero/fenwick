@@ -17,7 +17,7 @@ function create(o) {
   const keys = { f: 0, b: 0, l: 0, r: 0 };
   let on = false, held = false, busy = false, pos = new V3(), yaw = 0, gait = null, fade = null, near = null, moving = false, headY = 0;
   let arm = ARM, cur = ARM, lastD = null, lift = 0;      // (the view's distance: as the player would have it, as it is, as it was last set; and
-  // how far it's been raised, drawn in, to see over him)
+  // how far it's been brought up or down, drawn in, to his eyes' height)
   const onDown = e => { const k = KEYS[e.key]; if (!on || !k || (e.target.closest && e.target.closest('input, textarea'))) return; keys[k] = 1; e.preventDefault(); };
   const onUp = e => { const k = KEYS[e.key]; if (k) keys[k] = 0; };
   const onBlur = () => { for (const k in keys) keys[k] = 0; };
@@ -57,7 +57,7 @@ function create(o) {
     cam.position.y -= lift; lift = 0;
     const off = cam.position.clone().sub(ctl.target), d = off.length() || 1, dir = off.divideScalar(d);
     if (lastD != null && Math.abs(d - lastD) > 0.03) arm = cur = Math.max(0.8, Math.min(5, d));      // (the player's drawn it in or out)
-    const rt = new V3(dir.z, 0, -dir.x).normalize(), tgt = pos.clone().add(new V3(0, 1.45, 0)).addScaledVector(rt, SIDE * Math.max(0, Math.min(1, (cur - 0.8) / 1.6)));
+    const rt = new V3(dir.z, 0, -dir.x).normalize(), tgt = pos.clone().add(new V3(0, 1.45, 0)).addScaledVector(rt, SIDE);
     // (how far back it can be, along its line, before it's through a wall)
     const at = m => inRooms(tgt.x + dir.x * m, tgt.z + dir.z * m, 0.12);
     let room = arm; if (!at(arm)) { let lo = 0, hi = arm; for (let i = 0; i < 12; i++) { const m = (lo + hi) / 2; if (at(m)) lo = m; else hi = m; } room = lo; }
@@ -65,10 +65,10 @@ function create(o) {
     ctl.target.copy(tgt); cam.position.copy(tgt).addScaledVector(dir, cur);
     const top = ceilAt(cam.position.x, cam.position.z) - 0.25; if (cam.position.y > top) cam.position.y = top;
     lastD = cam.position.distanceTo(tgt);
-    // (drawn in by a wall, raised a little too, to look over him rather than into his back)
-    lift = Math.min(Math.max(0, arm - cur) * 0.45, Math.max(0, top - cam.position.y)); cam.position.y += lift;
+    // (drawn in by a wall: brought down level with his eyes as it comes, over his shoulder, he to one side, never looking down on his back)
+    const k = Math.max(0, Math.min(1, (1.7 - cur) / 0.8)); lift = (tgt.y + 0.12 - cam.position.y) * k; cam.position.y += lift;
     // (drawn in so close it would be inside him: he's not shown till it's back out)
-    F.root.visible = Math.hypot(cam.position.x - pos.x, cam.position.z - pos.z) > 0.5 || cam.position.y > pos.y + 2.1;
+    F.root.visible = Math.hypot(cam.position.x - pos.x, cam.position.z - pos.z) > 0.45;
   }
   function stop() {
     on = false; for (const k in keys) keys[k] = 0; if (ui.prompt) ui.prompt(null); if (F) F.root.visible = true;
