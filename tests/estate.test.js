@@ -13,11 +13,11 @@ test('eight chapters, each with its zone and featured heroine, as the GDD tables
   assert.equal(Estate.CHAPTERS[1].journey.id, 'escort');      // (the twilight walk)
 });
 
-test('progression is gated: a zone opens only once its chapter is reached; the trail opens the village', () => {
+test('progression is gated: a zone opens only once its chapter is reached; Redmere by the footpath from the first', () => {
   const s = Estate.create();
-  assert.ok(s.zones.hall.open); assert.ok(!s.zones.study.open);
+  assert.ok(s.zones.hall.open); assert.ok(s.zones.village.open, 'Redmere, from the first day'); assert.ok(!s.zones.study.open); assert.ok(!s.zones.gate.open);
   assert.equal(Estate.unlock(s, 'study'), false);
-  s.chapter = 2; assert.ok(Estate.clear(s, 'gate')); assert.ok(s.zones.village.open);
+  s.chapter = 2; assert.ok(Estate.clear(s, 'gate'));
   s.chapter = 3; assert.ok(Estate.unlock(s, 'study'));
   assert.equal(Estate.ZONES.briar.gate.kind, 'clear'); assert.equal(Estate.ZONES.westwing.gate.kind, 'unlock');
 });
@@ -150,4 +150,16 @@ test('the finale opens once its chapter’s reached and every arc has turned', (
   assert.ok(!Estate.finaleOpen(s));
   for (const id of Cast.IDS) { bring(s, id, 3); Estate.affect(s, id, { trust: 0.25 }); }
   assert.ok(Estate.finaleOpen(s), Cast.IDS.map(id => id + ':' + Estate.arcOf(s, id).stage).join(' '));
+});
+
+test('Chapter 1: three days; arrival, the Fenwood and Redmere, her asleep in his bed by evening; the offer next morning, home to decide, back the day after', () => {
+  const C = Estate.CHAPTERS[0], [d1, d2, d3] = C.days, at = (d, b) => d.indexOf(b);
+  assert.equal(C.days.length, 3); assert.deepEqual(C.beats, C.days.flat());
+  for (const [a, b] of [['arrive', 'explore'], ['stew', 'woods'], ['woods', 'village'], ['village', 'clues'], ['clues', 'discover'], ['discover', 'terms'], ['terms', 'correction'], ['correction', 'aftercare'], ['aftercare', 'guestroom']]) assert.ok(at(d1, a) >= 0 && at(d1, a) < at(d1, b), a + ' before ' + b);
+  assert.ok(at(d2, 'offer') === 0 && d2.includes('decide') && d2.includes('letter'), 'the offer at breakfast; home to decide; he writes to Thornleigh');
+  assert.equal(d3[0], 'return'); assert.equal(d3[d3.length - 1], 'work', 'taken in: the chapter ends');
+  assert.ok(C.clues.some(c => /stew/.test(c) && /bowl and spoon/.test(c)) && C.clues.some(c => /stool/.test(c)) && C.clues.some(c => /his bed/.test(c)));
+  assert.ok(!C.clues.some(c => /ink/.test(c)), 'no ink'); assert.ok(C.meets.includes('reeve') && C.meets.includes('bakerMother') && C.meets.includes('alewife'));
+  assert.ok(C.meets.every(id => Cast.VILLAGE[id]), 'each one of the village cast'); assert.match(Cast.VILLAGE.goldieFamily.role, /smith/);
+  assert.ok(Estate.ZONES.village.rooms.some(r => r.id === 'smithy'));
 });

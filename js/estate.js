@@ -38,8 +38,10 @@ const ZONES = {
     rooms: [{ id: 'creek', name: 'Far creek' }, { id: 'camp', name: 'Timberline camp' }] },
   westwing: { name: 'The restored West Wing', chapter: 8, area: 'hall', gate: { kind: 'unlock', label: 'The West Wing door, locked since the great-uncle’s death' },
     rooms: [{ id: 'westwing', name: 'West Wing', hearth: true }] },
-  village: { name: 'Redmere', chapter: 2, area: 'village', public: true, gate: { kind: 'none', label: 'Reached once the trail is clear' },
-    rooms: [{ id: 'bakery', name: 'The bakery' }, { id: 'green', name: 'The green' }, { id: 'market', name: 'Market' }] },
+  // (Redmere, by the footpath through the Fenwood, from the first day: about sixty households, 250 to 300 people, all holding from the Hall.
+  // No one wanders: Silas meets whom the story needs, a few speaking at a visit, a handful more placed about the green)
+  village: { name: 'Redmere', chapter: 1, area: 'village', public: true, gate: { kind: 'none', label: 'By the footpath through the Fenwood' },
+    rooms: [{ id: 'green', name: 'The green' }, { id: 'bakery', name: 'The bakery' }, { id: 'alehouse', name: 'The alehouse' }, { id: 'smithy', name: 'The smithy' }, { id: 'church', name: 'The church and churchyard' }, { id: 'reeve', name: 'The reeve’s house' }, { id: 'market', name: 'Market' }] },
 };
 const ROOMS = {}; for (const z in ZONES) for (const r of ZONES[z].rooms) ROOMS[r.id] = Object.assign({ zone: z }, r);
 
@@ -47,11 +49,23 @@ const ROOMS = {}; for (const z in ZONES) for (const r of ZONES[z].rooms) ROOMS[r
 // names muddy footprints, broken furniture, wolf tracks, pried locks, hidden food caches; each chapter's discovery supplies its own).
 // journey: the on-rails walk, where the GDD names one. beats: the chapter's steps, in order, drafted from its conflict and climax. ──
 const CHAPTERS = [
+  // (Ch. 1 in detail: docs/gdd.md, "Chapter 1 in detail". Three days. His arrival, the Hall, the Fenwood and Redmere; that evening, her asleep
+  // in his bed; her terms, the correction, the night in the guest room; the offer, and home to decide; back, and taken in)
   { n: 1, id: 'dusty', title: 'The Dusty Hall', zone: 'hall', featured: ['goldie'], with: [],
-    conflict: 'Discovering the trespasser; establishing house rules and putting her to work restoring order.',
-    clues: ['half-eaten rations', 'spilled ink', 'a broken antique chair', 'a guest bed slept in'],
-    beats: ['explore', 'clues', 'discover', 'terms', 'correction', 'aftercare', 'offer', 'restore'],
-    lore: 'Goldie’s wandering is why she finds the Hall. Her parents and the village watch her change in instalments.' },
+    conflict: 'Arriving at the Hall and walking the Fenwood to Redmere; finding the trespasser asleep in his bed; her terms, the correction and the offer; house rules, and her place.',
+    // (what she left, for him to read when he's back from Redmere at dusk: he'd put the last of the supplies he travelled with to a stew over
+    // the great hall's hearth before he went)
+    clues: ['the stew pot emptied, a used bowl and spoon on the table', 'a stool broken by the great hall’s hearth', 'muddy prints up the stair', 'his bed slept in'],
+    // (on the way: hers, and the next chapter's)
+    signs: ['small footprints off the footpath', 'a ribbon caught on a bramble', 'wolf tracks, deeper in'],
+    meets: ['reeve', 'bakerMother', 'alewife', 'vicar'],      // (Redmere, the first time; the vicar a nod at the churchyard gate, if at all)
+    days: [
+      ['arrive', 'keys', 'explore', 'restore', 'stew', 'woods', 'village', 'dusk', 'clues', 'discover', 'terms', 'correction', 'aftercare', 'guestroom'],
+      ['offer', 'decide', 'round', 'letter'],
+      ['return', 'rules', 'chair', 'work'],
+    ],
+    open: ['who hands him the keys (Edwin Hollis, the solicitor, perhaps)'],
+    lore: 'Goldie’s wandering is why she finds the Hall. Her father is Redmere’s smith; her family and the village watch her change in instalments.' },
   { n: 2, id: 'path', title: 'The Forest Path', zone: 'gate', featured: ['red'], with: [],
     conflict: 'Rescuing her from the wolf; twilight escort to the village and the start of her woods lessons.',
     clues: ['wolf tracks', 'a dropped basket', 'a trampled path-side'],
@@ -85,6 +99,7 @@ const CHAPTERS = [
     conflict: 'Unlocking the West Wing to resolve the previous owner’s mystery while defending the estate from Snow White’s stepmother and the wolf pack.',
     clues: [], beats: ['warning', 'roles', 'defence', 'unlock', 'truth', 'title'] },
 ];
+for (const C of CHAPTERS) if (C.days) C.beats = C.days.flat();
 // (the one the GDD names but doesn't place: "touring hazardous ruins". Ch. 3's West Wing landing or Ch. 6's gatehouse are the candidates.)
 const UNPLACED_JOURNEYS = ['Touring hazardous ruins'];
 
@@ -174,7 +189,7 @@ function create(o) {
 }
 // Opening a zone: its gate dealt with (unlock, clear, or its rooms restored enough to use).
 function canOpen(s, z) { const Z = ZONES[z]; return !!Z && Z.chapter <= s.chapter; }
-function open(s, z) { if (!canOpen(s, z)) return false; s.zones[z].open = true; if (z === 'gate') s.zones.village.open = true; s.log.push({ day: s.day, open: z }); return true; }
+function open(s, z) { if (!canOpen(s, z)) return false; s.zones[z].open = true; s.log.push({ day: s.day, open: z }); return true; }
 const unlock = open, clear = open;
 // Restoring a room: from dusty and boarded up (0) to warm and lived in (1); a room with a hearth can be lit once it's restored halfway.
 function restore(s, room, amount) {

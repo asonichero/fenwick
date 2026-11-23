@@ -30,7 +30,7 @@ const ROSTER = {
       flaw: 'Chronic carelessness, daydreaming, treating others’ property without boundaries',
       discovery: 'Found fast asleep in an upstairs guest bed days after Silas moves in: half-eaten rations, spilled ink and a broken antique chair.',
       arc: 'Disciplined for the trespass and damage; offered a position as maid to work off her debt. She takes the offer to her parents and returns only if she is willing. Her employment is public; she visits her parents on her days off. His first dependent.',
-      history: 'Her father keeps a working trade in Redmere; her mother runs a household where her younger siblings fell into step early. Goldie never did.',
+      history: 'Her father is Redmere’s smith; her mother runs a household where her younger siblings fell into step early. Goldie never did.',
       temperament: 'Curious, quick, unbothered by disapproval in the moment (it lands later, privately). Needs a reason, and tests whether one exists. Honest to a fault: argues her case instead of taking a consequence quietly.',
       resistance: 'The most overt of the seven. She defies in the open, debates, and tries every boundary to see which hold. What holds her is the first structure that meets her curiosity instead of suppressing it.',
       motif: 'Just right: a chair, a place at the table, a room that fits her.',
@@ -291,7 +291,7 @@ const SQUIRE = {
 const VILLAGE = {
   bakerMother: { label: 'Red’s mother', role: 'Redmere’s baker, widowed', note: 'Hopeful and practical about her daughter’s future; relieved by any protector.' },
   grandmother: { label: 'Red’s grandmother', role: 'Lives in a cottage in the Fenwood, on Silas’s land' },
-  goldieFamily: { label: 'Goldie’s family', role: 'Father keeps a working trade in Redmere; mother; younger siblings', note: 'Unseen; reported on by Goldie.' },
+  goldieFamily: { label: 'Goldie’s family', role: 'Her father, Redmere’s smith; her mother; younger siblings', note: 'Unseen; reported on by Goldie.' },
   merchant: { label: 'Belle’s father', role: 'A merchant in debt to the estate', note: 'His visits are awkward and transactional at first.' },
   hansel: { label: 'Hansel', role: 'Gretel’s brother; light stable work once he recovers', note: 'His age is not given (open). Never part of a correction.' },
   gothel: { label: 'Gothel', role: 'The gatehouse tower’s tenant, evicted for unlawful confinement', note: 'Antagonist, Ch. 6.' },

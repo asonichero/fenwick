@@ -124,17 +124,23 @@ player gives another surname, the Hall takes it; the Fenwood keeps its
 own.) The village deliberately does not, so it reads as older than the
 family holding it.
 
-| Place                       | What it is                                                                                                           | Used for                                                                    |
-|-----------------------------|----------------------------------------------------------------------------------------------------------------------|-----------------------------------------------------------------------------|
-| Redmere                     | The village, named for the mere beside it. Bakery, the green, Goldie's family home, a vicar, an alewife and a reeve  | Public life: gossip, market, parents                                        |
-| Fenwick Hall                | The squire's house. Neglected, in arrears, with a household that forgot what attention felt like                     | Private life: the servants' wing, the study, the West Wing, the upper rooms |
-| The Fenwood                 | The wood at the village's edge and beyond, held by the Fenwicks. Granny's cottage, the timberline camp and the creek | Boundary life: tracks, wolves, the forest path                              |
-| Walled garden and gatehouse | An overgrown garden, and an isolated tower on the eastern perimeter                                                  | Rapunzel's chapter                                                          |
+| Place                       | What it is                                                                                                                                                                                                                                                                                    | Used for                                                                    |
+|-----------------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|-----------------------------------------------------------------------------|
+| Redmere                     | The village, named for the mere beside it: about sixty households, 250 to 300 people. The green and the church, the alehouse, the bakery, the smithy (Goldie's father is the smith), the reeve's house, and a lane of cottages down to the mere and its mill. A vicar, an alewife and a reeve | Public life: gossip, market, parents                                        |
+| Fenwick Hall                | The squire's house. Neglected, in arrears, with a household that forgot what attention felt like                                                                                                                                                                                              | Private life: the servants' wing, the study, the West Wing, the upper rooms |
+| The Fenwood                 | The wood at the village's edge and beyond, held by the Fenwicks. Granny's cottage, the timberline camp and the creek                                                                                                                                                                          | Boundary life: tracks, wolves, the forest path                              |
+| Walled garden and gatehouse | An overgrown garden, and an isolated tower on the eastern perimeter                                                                                                                                                                                                                           | Rapunzel's chapter                                                          |
 
 **Tenancy.** Every household in Redmere, including the bakery, holds
 from the Hall. This is why the village registers a young squire's
 arrival: his visits, his rulings and the women he takes into his
 household are all public business.
+
+**On screen.** Redmere is one compact set: the green and its frontages,
+and the lane to the mere. No one wanders. Silas meets whom the story
+needs him to: three to five speak at a visit, and a handful more are
+placed about it (children on the green, someone at the well, a carter
+unloading).
 
 **Kinship rumour (open).** The Fenwicks are said to keep an old,
 half-serious kinship with the wood. It can stay as local colour, become
@@ -166,24 +172,25 @@ their original descriptions, because the series has nothing on them.
 Goldie, and he does. The village and the rest of the household often say
 Goldilocks, for the hair.
 
-**Discovery.** Found fast asleep in an upstairs guest bed days after
-Silas moves in. She wandered onto his land and found his house instead
-of the Bears', leaving half-eaten rations, spilled ink and a broken
-antique chair.
+**Discovery.** Found asleep in his own bed on his first evening at the
+Hall. While he walked to Redmere she wandered in from the Fenwood, ate
+the stew he'd left over the great hall's hearth, broke a stool by the
+fire, and went up to bed.
 
 **Arc and dynamic.** After disciplining her for the trespass and damage,
 Silas learns she has no real prospects and offers her a position as maid
-to work off her debt. She takes the offer to her parents and returns
-only if she is willing. Her employment is public, and she visits her
-parents on her days off. She is his first dependent, and she needs firm
-structure to turn scattered daydreaming into mindfulness.
+to work off her debt. He makes the offer the next morning; she takes it
+home to her parents, and returns the day after only if she is willing.
+Her employment is public, and she visits her parents on her days off.
+She is his first dependent, and she needs firm structure to turn
+scattered daydreaming into mindfulness.
 
-**History (age 18).** Her father keeps a working trade in Redmere, and
-her mother runs a household in which her younger siblings fell into step
-early. Goldie never did. She has not found a reason a chore mattered
-more than whatever lay past the garden wall. Her parents have moved from
-scolding to embarrassment to tired resignation, and the village has
-watched it happen.
+**History (age 18).** Her father is Redmere's smith, and her mother runs
+a household in which her younger siblings fell into step early. Goldie
+never did. She has not found a reason a chore mattered more than
+whatever lay past the garden wall. Her parents have moved from scolding
+to embarrassment to tired resignation, and the village has watched it
+happen.
 
 **Temperament.** Curious, quick and unbothered by disapproval in the
 moment; it lands later, privately, in ways she would never admit. She
@@ -724,7 +731,7 @@ final say is his.
 | Chapter  | Unlocked zone                            | Featured                     | Core conflict and climax beat                                                                                                                                                                   |
 |----------|------------------------------------------|------------------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | Prologue | The hall and estate office at Thornleigh | Cicely, the false bride      | Naming her own sentence; Silas's terms (clemency if she submits, the mare's name as her word); the correction, forgiveness and the goose girl's place; the letter that sends him to the Fenwood |
-| Ch. 1    | Main Hall and guest bedrooms             | Goldilocks                   | Discovering the trespasser; establishing house rules and putting her to work restoring order                                                                                                    |
+| Ch. 1    | Main Hall and guest bedrooms             | Goldilocks                   | Arriving at the Hall and walking the Fenwood to Redmere; finding the trespasser asleep in his bed; her terms, the correction and the offer; house rules, and her place                          |
 | Ch. 2    | Front gate and forest trail              | Little Red Riding Hood       | Rescuing her from the wolf; twilight escort to the village and the start of her woods lessons                                                                                                   |
 | Ch. 3    | Study and West Wing landing              | Belle                        | Settling her father's debt; establishing her as ward and bookkeeper and catching her at the West Wing door                                                                                      |
 | Ch. 4    | Servants' wing and laundry yard          | Cinderella (with Goldilocks) | Uncovering her exhaustion and night outings; confronting her stepmother at the village border                                                                                                   |
@@ -788,8 +795,8 @@ stat bars.
 ### Lore notes for the chapters
 
 - **Ch. 1.** Goldie's wandering is why she finds the Hall. Her parents
-  and the village watch her change in instalments, and her trade-holding
-  family lives in Redmere.
+  and the village watch her change in instalments, and her family, the
+  smith's, lives in Redmere.
 
 - **Ch. 2.** Red's mother is relieved when Silas brings her home and
   promises to keep an eye on her, and the village starts to read him as
@@ -797,6 +804,53 @@ stat bars.
 
 - **Ch. 3.** Belle's father is the debt made flesh. The West Wing
   carries the great-uncle's last years in the Hall.
+
+### Chapter 1 in detail
+
+**Day one: arrival.** Silas reaches the Hall's gates at midday, the road
+to the Fenwood behind him, and is given the keys (by whom is open:
+perhaps Edwin Hollis, the solicitor whose letter called him here). One
+door has no key: the West Wing's. He explores the entrance hall, the
+great hall, the stair and his own room, and restores his first room: the
+great hall cleared and its hearth lit, the start of the Hall's warmth.
+Over that hearth he puts the last of the supplies he travelled with to a
+stew.
+
+**The Fenwood and Redmere.** He walks the footpath through the Fenwood
+to Redmere to introduce himself, reading the ground on the way: small
+footprints off the path and a ribbon caught on a bramble, which are
+Goldie's, and wolf tracks deeper in, which are Chapter 2's. In Redmere
+he meets the reeve, who gives him the state of things (rents in arrears,
+a village that stopped expecting anything of the Hall, an old squire who
+shut himself away) and makes the law real; Red's mother at the bakery,
+where he buys bread, and who worries aloud about her daughter, out with
+a basket for her grandmother in the wood; and the alewife, whose gossip
+includes the smith's daughter, Marigold, whom everyone calls Goldilocks,
+who wanders off and turns up in odd places. The vicar, if at all, nods
+at the churchyard gate, courteous and already measuring him. Goldie's
+family stays unseen: the alewife points out the smithy.
+
+**The evening.** He walks home at dusk with the bread, and the Hall
+shows him someone's been in: the stew pot emptied, and a used bowl and
+spoon on the table; a stool broken by the great hall's hearth; muddy
+prints up the stair. He follows them to his room and finds her asleep in
+his bed. Woken, she's honest to a fault: she owns what she did and
+argues her case. The choice is hers: the reeve in the morning, her
+family shamed and the damages owed, or settling it with him, here. Then
+her terms and her word; the correction, on the edge of his bed; and
+aftercare. He won't send her home through a wood with wolves in it after
+dark, so she sleeps in the guest room.
+
+**Day two.** At breakfast he offers her a place as a maid, to work off
+the damage, with wages and days off at home, and sends her home to
+decide. The rest of the day is his, the first of the daily round: a room
+restored, something cleared in the grounds, or Redmere again, where the
+gossip has started. He writes to Thornleigh.
+
+**Day three.** She comes back, decided. House rules, her room, and a
+chair at his table that's just right. Her first work alongside him
+closes the chapter: she's taken into the household, Chapter 2 opens, and
+her arc runs on.
 
 ## Climax, win state and narrative ending
 
