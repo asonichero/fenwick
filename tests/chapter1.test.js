@@ -41,8 +41,9 @@ test('the arrival: its shots, acts and spots real; every line one of his thought
   // (the camera kept outside the house for the shots of it, and within it for the shots inside)
   for (const k of ['house', 'houseIn', 'approach', 'porch']) assert.ok(A.shots[k].cam[2] > FenwickHall.E.z1, k + ' from outside');
   for (const k of ['doorIn', 'inside']) { const [x, , z] = A.shots[k].cam, E = FenwickHall.E; assert.ok(x > E.x0 && x < E.x1 && z > E.z0 && z < E.z1, k + ' from within'); }
-  // (ending turned toward the way on: the great hall's door)
-  assert.equal(A.beats[A.beats.length - 1].toward, 'greatDoor');
+  // (ending turned toward the way on, the great hall's door, the front door swung shut behind him)
+  assert.ok(A.beats.some(b => b.act === 'turn' && b.toward === 'greatDoor'), 'turned to the great hall');
+  const last = A.beats[A.beats.length - 1]; assert.equal(last.act, 'door'); assert.equal(last.which, 'front'); assert.equal(last.to, 0);
 });
 
 test('the Hall: the sweep outside the front door, the walk within; the great hall reached only through its door, and only once it’s open', () => {

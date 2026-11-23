@@ -1,6 +1,6 @@
 // Fenwick Hall — Chapter 1, "The Dusty Hall" (docs/gdd.md, "Chapter 1 in detail"): the scenes, as data, played by game.html. Begun with his
 // arrival: a card, then the arrival (a cutscene, js/cutscene.js: up the sweep, the door unlocked, in; the hall taken in, in his own thoughts),
-// and on without a cut to the Hall walked (js/roam.js): the entrance hall and the great hall, what there is to look at, and the great hall's
+// the front door swung shut behind him in the draught, and on without a cut to the Hall walked (js/roam.js): the entrance hall and the great hall, what there is to look at, and the great hall's
 // first putting right (its dust sheets off, its shutters open, its hearth cleared, laid and lit), and the last of what he brought put to a stew
 // over it. Then, next: the Fenwood, and Redmere.
 //   A walked scene (roam): { from: a spot, face: a spot to face (begun there, not walked on into), intro: [thoughts], things: [{ id, at: a point of the room's, reach, label, when, steps, once }],
@@ -37,6 +37,7 @@ const ARRIVAL = {
     { shot: 'inside', look: { silas: 'stair' }, pause: 1500 },
     { look: { silas: 'sheets' }, who: 'silas', think: true, text: 'Dust sheets over everything. As if he meant to come back to it all.' },
     { look: { silas: null }, act: 'turn', by: 'silas', toward: 'greatDoor', ms: 900, who: 'silas', think: true, face: 'calm', text: 'And cold as a cellar. A fire first; then I’ll see what’s what.' },      // (turned to the great hall's door: the way on)
+    { act: 'door', which: 'front', to: 0, ms: 2400, sfx: 'creak', pause: 700 },      // (and the draught takes the front door, and swings it shut behind him)
   ],
 };
 

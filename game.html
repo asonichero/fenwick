@@ -494,8 +494,9 @@ function roamScene(my, before) {
   return new Promise(async res => {
     const S = SC.roam, rm = room, castO = castOf(SC), F = castO.silas, flags = new Set(), done = new Set();
     if (cs) { cs.stop(); if (cs.dispose) cs.dispose(); } cs = null;
-    // (begun here, not walked on into from the arrival: the Hall as he'd have it by now, the front door open behind him)
-    if (before !== 'arrival' && rm.reset) { rm.reset(); if (rm.doors && rm.doors.front) rm.doors.front.set(1); }
+    // (begun here, not walked on into from the arrival: the Hall as he'd have it by now; either way, the front door shut behind him)
+    if (before !== 'arrival' && rm.reset) rm.reset();
+    if (rm.doors && rm.doors.front) rm.doors.front.set(0);
     for (const k in castO) castO[k].root.visible = k === 'silas';
     const sp = rm.spots()[S.from], yawOf = Q => 2 * Math.atan2(Q.y, Q.w), here = before === 'arrival' && F.root.visible;
     const think = t => flash('silas', Player.get().first, filled(t), { thought: true });

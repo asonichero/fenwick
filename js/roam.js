@@ -16,7 +16,8 @@ function create(o) {
   const { stage, room, figure: F, ui } = o, things = o.things || [], cam = stage.camera, ctl = stage.controls;
   const keys = { f: 0, b: 0, l: 0, r: 0 };
   let on = false, held = false, busy = false, pos = new V3(), yaw = 0, gait = null, fade = null, near = null, moving = false, headY = 0;
-  let arm = ARM, cur = ARM, lastD = null;      // (the view's distance: as the player would have it, as it is, as it was last set)
+  let arm = ARM, cur = ARM, lastD = null, lift = 0;      // (the view's distance: as the player would have it, as it is, as it was last set; and
+  // how far it's been raised, drawn in, to see over him)
   const onDown = e => { const k = KEYS[e.key]; if (!on || !k || (e.target.closest && e.target.closest('input, textarea'))) return; keys[k] = 1; e.preventDefault(); };
   const onUp = e => { const k = KEYS[e.key]; if (k) keys[k] = 0; };
   const onBlur = () => { for (const k in keys) keys[k] = 0; };
@@ -46,13 +47,14 @@ function create(o) {
   function place(at, y) {
     pos.copy(at).setY(0); if (y != null) yaw = y; fade = null; stand();
     const fwd = new V3(Math.sin(yaw), 0, Math.cos(yaw)), head = pos.clone().add(new V3(0, 1.45, 0));
-    stage.go(head.clone().addScaledVector(fwd, -ARM).add(new V3(0, 0.5, 0)), head, 0); arm = cur = ARM; lastD = null; follow(0, true);
+    stage.go(head.clone().addScaledVector(fwd, -ARM).add(new V3(0, 0.5, 0)), head, 0); arm = cur = ARM; lastD = null; lift = 0; follow(0, true);
   }
   // ── The view: wherever the player's turned it, it follows him, its centre a little to the right of him on screen; kept within the rooms
   // (drawn in along its line to him if it would be through a wall, and eased back out once it can be) and under the ceiling ──
   const inRooms = (x, z, m) => W.areas.some(a => inRect(a, x, z, m)) || W.doorways.some(d => inRect(d, x, z, 0));
   const ceilAt = (x, z) => { const a = W.areas.find(a => inRect(a, x, z, 0)); return a && a.ht ? a.ht : 9; };
   function follow(dt, snapTo) {
+    cam.position.y -= lift; lift = 0;
     const off = cam.position.clone().sub(ctl.target), d = off.length() || 1, dir = off.divideScalar(d);
     if (lastD != null && Math.abs(d - lastD) > 0.03) arm = cur = Math.max(0.8, Math.min(5, d));      // (the player's drawn it in or out)
     const rt = new V3(dir.z, 0, -dir.x).normalize(), tgt = pos.clone().add(new V3(0, 1.45, 0)).addScaledVector(rt, SIDE * Math.max(0, Math.min(1, (cur - 0.8) / 1.6)));
@@ -63,6 +65,8 @@ function create(o) {
     ctl.target.copy(tgt); cam.position.copy(tgt).addScaledVector(dir, cur);
     const top = ceilAt(cam.position.x, cam.position.z) - 0.25; if (cam.position.y > top) cam.position.y = top;
     lastD = cam.position.distanceTo(tgt);
+    // (drawn in by a wall, raised a little too, to look over him rather than into his back)
+    lift = Math.min(Math.max(0, arm - cur) * 0.45, Math.max(0, top - cam.position.y)); cam.position.y += lift;
     // (drawn in so close it would be inside him: he's not shown till it's back out)
     F.root.visible = Math.hypot(cam.position.x - pos.x, cam.position.z - pos.z) > 0.5 || cam.position.y > pos.y + 2.1;
   }
