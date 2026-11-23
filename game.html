@@ -358,8 +358,9 @@ let flashT = null, handing = false;
 function nextFlash() {
   if (handing) { flashing = false; return; }      // (the choice has the box: what's said waits)
   for (let i = 0; i < flashQ.length;) { const x = flashQ[i]; if (x.thought && x.live && !x.live()) { flashQ.splice(i, 1); if (x.done) x.done(); } else i++; }
-  // (the next ready: anything said; a thought, once there's quiet for it. A thought waiting holds up nothing else)
-  const at = flashQ.findIndex(x => !x.thought || !x.wait || !x.wait());
+  // (the next: anything said aloud first, in turn; a thought only when nothing's waiting to be said, and once there's quiet for it. A thought
+  // waiting holds up nothing else)
+  let at = flashQ.findIndex(x => !x.thought); if (at < 0) at = flashQ.findIndex(x => !x.wait || !x.wait());
   if (at < 0) { flashing = !!flashQ.length; if (flashQ.length) { clearTimeout(flashT); flashT = setTimeout(() => { flashing = false; nextFlash(); }, 250); } return; }
   const L = flashQ.splice(at, 1)[0]; flashing = true; if (L.done) L.done();
   const box = $('say'), el = $('sayTxt'); box.style.display = 'block'; box.classList.toggle('thought', !!L.thought); $('sayWho').textContent = L.name; $('sayWho').className = 'who' + (L.id === 'silas' ? ' silas' : ''); $('sayNext').style.display = 'none';
