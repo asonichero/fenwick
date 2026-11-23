@@ -610,11 +610,13 @@ whatever the letter holds. The time that has passed and what the
 correction did are shown, not told: she is steady, good at her work, and
 easy with him. She goes back to her geese, and he tells her to come to
 him if ever she's not well, letter or no letter. Alone, he takes the
-letter up and breaks the seal, and the view cuts to the page as its
-words are written out: a great-uncle Silas barely knew has died, and the
-Hall in the Fenwood, named with the player's surname, is his. She is
-settled, and the post is the master's to give, not his, so his leaving
-takes nothing from her. His master releases him with thanks. The
+letter up and breaks the seal, and the view cuts to the whole page, held
+still, as its words are written in: a great-uncle Silas barely knew has
+died, and the Hall in the Fenwood, named with the player's surname, is
+his. Once it's all there, the player puts the letter down, and Silas
+sums it up in a few words of his own, for anyone who read it quickly.
+She is settled, and the post is the master's to give, not his, so his
+leaving takes nothing from her. His master releases him with thanks. The
 prologue ends on the road to the Fenwood, where Chapter 1 begins and,
 for the first time, the final say is his.
 

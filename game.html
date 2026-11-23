@@ -66,6 +66,9 @@ body.film #view { cursor: pointer; }
 /* (the cue that waits for the player: over the letter, read) */
 #cue { position: fixed; right: calc(20px + env(safe-area-inset-right)); bottom: calc(20px + env(safe-area-inset-bottom)); z-index: 7; font: 15px var(--serif); color: var(--amber); background: rgba(26, 20, 16, 0.72); border: 1px solid var(--line); border-radius: 12px; padding: 6px 14px; opacity: 0; pointer-events: none; transition: opacity 0.6s; }
 #cue.on { opacity: 1; animation: nudge 1.1s ease-in-out infinite; }
+/* (something for the player to do, at the foot of the view: put the letter down) */
+#actBtn { position: fixed; left: 50%; bottom: calc(18px + env(safe-area-inset-bottom)); transform: translateX(-50%); z-index: 7; font: 16px var(--serif); padding: 9px 22px; background: rgba(26, 20, 16, 0.86); border-color: var(--amber); color: #ffe2b0; display: none; }
+#actBtn.on { display: block; }
 #skip { position: fixed; top: calc(12px + env(safe-area-inset-top)); right: calc(12px + env(safe-area-inset-right)); z-index: 7; display: none; font-size: 13px; padding: 5px 12px; background: rgba(26, 20, 16, 0.7); }
 /* letterbox bars while the scene plays */
 .bar { position: fixed; left: 0; right: 0; height: 0; background: #05070a; z-index: 3; transition: height 1.2s ease; } #barT { top: 0; } #barB { bottom: 0; }
@@ -120,6 +123,7 @@ body.corr #ctl { display: block; }
 <div id="dock"><div id="say" class="panel"><div class="who" id="sayWho"></div><div class="txt" id="sayTxt"></div><div class="choices" id="choices"></div><div class="hintc" id="chooseHint"></div><div class="next" id="sayNext">▸</div></div></div>
 <button id="skip">Skip scene</button>
 <div id="cue">Go on ▸</div>
+<button id="actBtn"></button>
 <button id="menuBtn" title="Menu (Esc)" aria-label="Menu">☰</button>
 <div id="menuVeil"></div>
 <div id="menu" class="panel" role="dialog" aria-label="Menu">
@@ -276,7 +280,7 @@ function choose({ name, prompt, hint, options, thought }) {
     picking = options.map(o => () => pick(o.id)); window.__choose = picking;
   });
 }
-const hideLine = () => { $('say').style.display = 'none'; $('say').classList.remove('thought'); $('choices').innerHTML = ''; $('chooseHint').textContent = ''; $('cue').classList.remove('on'); };
+const hideLine = () => { $('say').style.display = 'none'; $('say').classList.remove('thought'); $('actBtn').classList.remove('on'); $('choices').innerHTML = ''; $('chooseHint').textContent = ''; $('cue').classList.remove('on'); };
 // (over the picture: black, dim (the still behind the title and the cards), or clear)
 function shade(level, quick) { const b = $('black'); b.classList.toggle('quick', !!quick); b.classList.toggle('dim', level === 'dim'); b.classList.toggle('off', level === 'clear'); return new Promise(r => setTimeout(r, level === 'clear' ? 300 : quick ? 650 : 1450)); }
 const black = (on, quick) => shade(on ? 'black' : 'clear', quick);
@@ -285,7 +289,10 @@ const ui = { line, choose, chose: keep, fade: async on => { hideLine(); await bl
   clear: () => hideLine(),
   // (the player's moment: a cue in the corner, and on at a click or a key)
   click: () => new Promise(res => { if (still) return; $('cue').classList.add('on'); advance = () => { advance = null; $('cue').classList.remove('on'); res(); }; }),
-  hurry: fn => { if (still) return; advance = () => { advance = null; fn(); }; } };
+  hurry: fn => { if (still) return; advance = () => { advance = null; fn(); }; },
+  // (a button at the foot of the view: on by it, or by space or Enter; a click elsewhere doesn't)
+  button: label => new Promise(res => { if (still) return; const b = $('actBtn'); b.textContent = label; b.classList.add('on');
+    const go = () => { b.classList.remove('on'); b.onclick = null; advance = null; res(); }; b.onclick = go; advance = go; advance.keysOnly = true; }) };
 
 // ── The cards, told over the still before the first scene ──
 function card(c) {
@@ -510,7 +517,7 @@ $('again').onclick = () => run(0, false, ORDER[0]);
 $('toTitle').onclick = () => { $('end').classList.remove('on'); showTitle(true); opening(); };
 $('skip').onclick = skip;
 // (a click anywhere goes on, but on a button or a link)
-addEventListener('click', e => { if (menuOpen || e.target.closest('button, a, input, label, form, #menu')) return; if (advance) advance(); });
+addEventListener('click', e => { if (menuOpen || e.target.closest('button, a, input, label, form, #menu')) return; if (advance && !advance.keysOnly) advance(); });
 addEventListener('keydown', e => {
   if (e.key === 'Escape') { menu(); e.preventDefault(); return; }      // (the menu, from anywhere)
   if (menuOpen) return;

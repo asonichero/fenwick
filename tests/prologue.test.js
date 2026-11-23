@@ -200,7 +200,7 @@ test('after her word, the same offer, never as consolation: he owns it went too 
 
 // ── Coda: the letter: some weeks on, by day; Cicely, in the goose girl's dress, brings it; what he asks her, all of it, in any order; then he
 // reads it, alone ──
-const CO = Prologue.SCENES.coda, CODA_ACTS = ACTS.concat(['lay', 'take', 'open', 'read', 'turn', 'gone']);
+const CO = Prologue.SCENES.coda, CODA_ACTS = ACTS.concat(['lay', 'take', 'open', 'read', 'lower', 'turn', 'gone']);
 const allBeats = beats => beats.flatMap(b => [b].concat(b.talk ? b.talk.options.flatMap(o => allBeats(o.beats)) : []));
 
 test('the coda: his office by day; him at his desk, her in the goose girl’s dress, coming in from the yard; every beat something to see or hear', () => {
@@ -211,7 +211,7 @@ test('the coda: his office by day; him at his desk, her in the goose girl’s dr
   const door = CO.beats.findIndex(b => b.act === 'door'); assert.ok(!CO.beats[door].pause && CO.beats[door + 1].act === 'walk' && CO.beats[door + 1].by === 'cicely', 'in as soon as it’s open');
   assert.equal(Prologue.ORDER[Prologue.ORDER.length - 1], 'coda', 'after the aftercare'); assert.match(Prologue.SCENES.aftercare.next.title, /Coda: the letter/);
   for (const [i, b] of allBeats(CO.beats).entries()) {
-    assert.ok(b.who || b.shot || b.act || b.pause || b.end || b.look || b.sfx || b.talk || b.click, 'beat ' + i);
+    assert.ok(b.who || b.shot || b.act || b.pause || b.end || b.look || b.sfx || b.talk || b.click || b.button, 'beat ' + i);
     if (b.who) { assert.ok(CO.cast[b.who], b.who); assert.ok(b.text, 'beat ' + i); assert.ok(!b.face || Figure.EXPRS[b.face], b.face); assert.ok(!b.to || CO.cast[b.to], b.to); }
     if (b.shot) assert.ok(CO.shots[b.shot], b.shot); if (b.act) assert.ok(CODA_ACTS.includes(b.act), b.act);
     if (b.act === 'walk') for (const k of b.path) assert.ok(S[k], 'spot ' + k);
@@ -225,9 +225,13 @@ test('the coda: his office by day; him at his desk, her in the goose girl’s dr
 test('the coda in order: a knock, “Come in”; she lays the letter down; he leaves it and comes round to her; the talk; she goes; he takes it up, opens it, reads', () => {
   const i = f => CO.beats.findIndex(f), at = (k, v) => i(b => b[k] === v);
   const knock = at('sfx', 'knock'), come = i(b => /Come in/.test(b.text || '')), lay = at('act', 'lay'), stand = i(b => b.act === 'stand' && b.by === 'silas'), talk = i(b => b.talk);
-  const gone = at('act', 'gone'), take = at('act', 'take'), open = at('act', 'open'), read = at('act', 'read'), click = i(b => b.click);
-  for (const [n, v] of Object.entries({ knock, come, lay, stand, talk, gone, take, open, read, click })) assert.ok(v >= 0, n);
-  assert.ok(knock < come && come < lay && lay < stand && stand < talk && talk < gone && gone < take && take < open && open < read && read < click, 'in order');
+  const gone = at('act', 'gone'), take = at('act', 'take'), open = at('act', 'open'), read = at('act', 'read'), button = i(b => b.button), lower = at('act', 'lower');
+  for (const [n, v] of Object.entries({ knock, come, lay, stand, talk, gone, take, open, read, button, lower })) assert.ok(v >= 0, n);
+  assert.ok(knock < come && come < lay && lay < stand && stand < talk && talk < gone && gone < take && take < open && open < read && read < button && button < lower, 'in order');
+  assert.match(CO.beats[button].button, /put the letter down/i, 'a button to put it down, once it’s read');
+  // (and what it says, in his words, for whoever read it quickly)
+  const after = CO.beats.slice(lower).filter(b => b.who === 'silas').map(b => b.text).join(' ');
+  assert.match(after, /great-uncle/i); assert.match(after, /\{hall\}/); assert.match(after, /neglected/i); assert.match(after, /final say/i);
   assert.ok(CO.beats[lay].at && CO.points[CO.beats[lay].at], 'laid on the desk');
   // (he leaves it where it lies: it'll keep)
   assert.match(CO.beats.slice(stand, talk).map(b => b.text || '').join(' '), /keep/i);
