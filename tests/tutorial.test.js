@@ -145,7 +145,7 @@ test('her hand: what he says, either way, the first time and the second; moving 
   assert.match(take.say.join(' '), /hold|keep/i);
 });
 
-test('pride opens with her still answering back, and him saying she’s not feeling it; only then the thought of her drawers', () => {
+test('pride opens with her still answering back, and him saying she’s not feeling it; then at once the thought of her drawers', () => {
   const Pp = SC.phases.find(p => p.id === 'pride'), I = Pp.intro;
   assert.ok(I.filter(l => l.who === 'cicely').length >= 2 && I[I.length - 1].who === 'silas' && /not feeling/.test(I[I.length - 1].text));
   assert.ok(I.some(l => l.if === 'pinned') && I.some(l => l.unless === 'pinned'), 'as her hand was dealt with');
@@ -155,6 +155,9 @@ test('pride opens with her still answering back, and him saying she’s not feel
   const r = play((F, T) => { if (T.phase.id === 'pride' && firstPrompt == null && T.prompt) firstPrompt = T.S.t; }, ['take']), lines = r.said.filter(x => I.some(l => l.text === x));
   assert.deepEqual(lines, [I[0].text, I[1].text, I[3].text], 'pinned: her lines, then his');
   assert.ok(firstPrompt >= I[I.length - 1].at, 'the drawers thought only once he’s said it: ' + firstPrompt);
+  // (and straight after it, before anything more of hers: his line leads into it, and it comes first)
+  assert.ok(I[I.length - 1].lead && Pp.prompts[0].first, 'his line leads straight into the thought');
+  assert.ok(firstPrompt < I[I.length - 1].at + 0.2, 'no pause between them: ' + firstPrompt);
   const told = play(null, ['tell', 'tell']).said.filter(x => I.some(l => l.text === x)); assert.deepEqual(told, [I[0].text, I[2].text, I[3].text], 'not pinned: the other line');
 });
 

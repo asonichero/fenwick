@@ -232,15 +232,16 @@ const CORRECTION = {
     { id: 'covering', name: 'Covering', floor: 0.5, allow: ['cover', 'glance'], hold: ['cover'], forceCover: [2, 16], out: { covers: 2, after: 4 }, prompts: [
       { key: 'hand', when: 'covering', again: true, acts: ['tell', 'take'] },      // (his thought's the choice's own: SCENES.correction.hand.prompt)
       { key: 'again', when: 'stopped', again: true, think: 'Again, then.', control: 'Space', act: 'run' } ] },
-    // (her hand dealt with, she's still answering back; he says so: she's not feeling it yet. Then he thinks of her drawers)
+    // (her hand dealt with, she's still answering back; he says so: she's not feeling it yet. Then, straight after (lead), he thinks of her
+    // drawers, before another word of hers (first))
     { id: 'pride', name: 'Pride', floor: 0.55, allow: ['glance'], out: { distress: 0.95, hits: 8, most: 34 },
       intro: [
         { at: 0.8, who: 'cicely', text: 'Is that the worst a steward can do? I’ve had harder from a hairbrush.' },
         { at: 4.6, who: 'cicely', if: 'pinned', text: 'Hold my hand all you like. It won’t make me sorry.' },
         { at: 4.6, who: 'cicely', unless: 'pinned', text: 'Move my hand all you like. It won’t make me sorry.' },
-        { at: 8.4, who: 'silas', text: 'Still more breath for answering back than for anything else. You’re not feeling this yet, are you?' } ],
+        { at: 8.4, who: 'silas', lead: true, text: 'Still more breath for answering back than for anything else. You’re not feeling this yet, are you?' } ],
       prompts: [
-      { key: 'drawers', when: 'drawersUp', think: 'Through linen, it isn’t reaching her. I should lower her drawers.', control: 'U', act: 'under' },
+      { key: 'drawers', when: 'drawersUp', first: true, think: 'Through linen, it isn’t reaching her. I should lower her drawers.', control: 'U', act: 'under' },
       { key: 'meter', think: 'She won’t let me see it in her face. I’ll have to judge it some other way.', look: 'meter' } ] },
     // (broken: after her first line of it, he thinks to slow; and till he does, she goes on, over and over (cycle). Slower, and she promises she
     // understands, over and over, till he soothes her)

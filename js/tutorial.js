@@ -6,7 +6,9 @@
 // till a prompt has taught it (`taught(act)`), End too. The correction itself goes on as it always does: her reactions, her lines, her kicks
 // and her distress are the simulation's.
 //   A phase can open with a few lines said (intro: [{ at, who, text, if, unless }]: at seconds into it; who 'cicely' or 'silas'; said only if
-//   she's pinned (if: 'pinned'), or only if not (unless)), its prompts held back till they're said.
+//   she's pinned (if: 'pinned'), or only if not (unless)), its prompts held back till they're said, and a moment more; or, after a line
+//   that leads into them (lead), not even that: the page's told at once, so his thought can follow straight on (a prompt's `first`: before
+//   anything else she says).
 //   It can't be failed. Once she's broken and said what she did, she's receptive, and it runs on as the player has it: ended whenever they
 //   judge it's enough (End waits for that), or taken on to too harsh, and her word, which ends it whenever she says it.
 //
@@ -66,7 +68,8 @@ function director(script) {
     // (a phase's opening lines, each at its moment)
     const intro = p.intro || []; S.introN = S.introN || 0;
     while (S.introN < intro.length && S.t >= intro[S.introN].at) { const L = intro[S.introN++], pin = !!(ses.pinned);
-      if ((L.if === 'pinned' && !pin) || (L.unless === 'pinned' && pin)) continue; if (S.ui.say) S.ui.say(L.text, L.who || 'cicely'); }
+      if ((L.if === 'pinned' && !pin) || (L.unless === 'pinned' && pin)) continue; if (S.ui.say) S.ui.say(L.text, L.who || 'cicely');
+      if (L.lead && S.ui.phase) S.ui.phase(); }      // (and what it leads into, thought of now, queued straight after it)
     // (in the covering, her hand comes back, twice)
     if (p.forceCover && !ses.covering && !ses.pinned && S.covers < p.forceCover.length) {
       const at = S.covers === 0 ? p.forceCover[0] : S.coverDoneAt != null ? S.coverDoneAt + p.forceCover[1] - p.forceCover[0] : Infinity;
@@ -98,7 +101,7 @@ function director(script) {
   // (one for a moment that comes again, `again`, shows every time it does); one with neither control nor moment shows a few seconds)
   const keyOf = q => S.i + ':' + q.key;
   const applies = q => !(q.when && !is[q.when]()) && !(q.after != null && inPhase() < q.after) && !S.pdone[keyOf(q)];
-  const introDone = () => { const p = ph(), I = p.intro || []; return !I.length || S.t >= I[I.length - 1].at + (p.introHold || 2.5); };
+  const introDone = () => { const p = ph(), I = p.intro || [], L = I[I.length - 1]; return !I.length || S.t >= L.at + (L.lead ? 0 : p.introHold || 2.5); };
   function prompt() {
     if (!S.ses || S.done || S.word || !P()) return null;
     if (!introDone()) return null;      // (what's said first, said)

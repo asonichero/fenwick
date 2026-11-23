@@ -364,10 +364,11 @@ function dropCorrection() { stage.controls.enabled = false; document.body.classL
 const flashQ = []; let flashing = false;
 // (a line in the box, typed out, then left a moment and gone: no click wanted, the player's hands are on the controls)
 // (o.thought: his, in his own head: never dropped, held a little longer, and not voiced; it waits for a quiet moment (o.wait) and is let go if
-// what it was about has passed (o.live))
+// what it was about has passed (o.live). o.first: a thought that comes next, after what's already waiting to be said, and holds back anything
+// said after it till it's shown)
 function flash(id, name, text, o) {
   flashQ.push(Object.assign({ id, name, text }, o));
-  for (let i = 0; flashQ.filter(x => !x.thought).length > 2 && i < flashQ.length;) { if (!flashQ[i].thought) flashQ.splice(i, 1); else i++; }      // (never more than a couple of lines behind)
+  for (let i = 0; flashQ.filter(x => !x.thought).length > 2 && i < flashQ.length;) { if (!flashQ[i].thought && flashQ[i].id !== 'silas') flashQ.splice(i, 1); else i++; }      // (never more than a couple of lines behind: hers let go, never his)
   if (!flashing && !handing) nextFlash();
 }
 let flashT = null, handing = false, curFlash = null;      // (curFlash: the line on show, till its moment's over)
@@ -376,7 +377,9 @@ function nextFlash() {
   for (let i = 0; i < flashQ.length;) { const x = flashQ[i]; if (x.thought && x.live && !x.live()) { flashQ.splice(i, 1); if (x.done) x.done(); } else i++; }
   // (the next: anything said aloud first, in turn; a thought only when nothing's waiting to be said, and once there's quiet for it. A thought
   // waiting holds up nothing else)
-  let at = flashQ.findIndex(x => !x.thought); if (at < 0) at = flashQ.findIndex(x => !x.wait || !x.wait());
+  let at = -1, barred = false;
+  for (let i = 0; i < flashQ.length; i++) { const x = flashQ[i]; if (!x.thought) { at = i; break; } if (x.first) { if (!x.wait || !x.wait()) at = i; else barred = true; break; } }
+  if (at < 0 && !barred) at = flashQ.findIndex(x => !x.wait || !x.wait());
   if (at < 0) { flashing = !!flashQ.length; if (flashQ.length) { clearTimeout(flashT); flashT = setTimeout(() => { flashing = false; nextFlash(); }, 250); } return; }
   const L = flashQ.splice(at, 1)[0]; flashing = true; curFlash = L; if (L.done) L.done();
   const box = $('say'), el = $('sayTxt'); box.style.display = 'block'; box.classList.toggle('thought', !!L.thought); $('sayWho').textContent = L.name; $('sayWho').className = 'who' + (L.id === 'silas' ? ' silas' : ''); $('sayNext').style.display = 'none';
@@ -397,7 +400,7 @@ function thinkOf(pr) {
   if (pr.think && (pr.again || !thoughtOf.has(k))) {
     thoughtOf.add(k); for (const a of acts) { thoughtOf.add('act:' + a); waitingFor.add(a); } if (pr.look) waitingFor.add('look:' + pr.look);
     const done = () => { for (const a of acts) waitingFor.delete(a); if (pr.look) waitingFor.delete('look:' + pr.look); };
-    flash('silas', me, pr.think, { thought: true, live, wait, done });
+    flash('silas', me, pr.think, { thought: true, live, wait, done, first: !!pr.first });
   }
   if (pr.word && !thoughtOf.has('word')) { thoughtOf.add('word'); flash('silas', me, pr.word, { thought: true, wait }); }
   if (pr.note && !thoughtOf.has(k + ':note')) { thoughtOf.add(k + ':note'); flash('silas', me, pr.note, { thought: true, wait }); }
