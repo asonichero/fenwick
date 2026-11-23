@@ -12,7 +12,7 @@
 //   ses.on(fn): 'say' { who, id, text }, 'hit' {…}, 'state', 'turn' { i, id }, 'word' { id }, 'turnEnd' { id, outcome, stats }, 'done' { results }
 //   ses.update(dt) each frame; ses.aftercare(id) poses the two of them on the aftercare seat for the conversation (and dresses them).
 //   ses.defiance() · ses.gains() · opts.dressAtEnd: false, to leave them as they are at the end (the game dresses them in the fade to aftercare)
-//   opts.director (the prologue's tutorial, js/tutorial.js): { allow(kind, P), hold(kind, P), floor(P) }: whether she covers or looks back of her
+//   opts.director (the prologue's tutorial, js/tutorial.js): { allow(kind, P), hold(kind, P), floor(P), quiet(P) }: (quiet: none of her own lines for now) whether she covers or looks back of her
 //   own accord (kind 'cover' | 'glance'), whether her hand waits for the player (and stops the run till then), and how low her defiance may go
 //   yet (till it's let go, and breaks). ses.cover(): her hand back, now, if she may (not within Session.COVER_GAP smacks of the last time
 //   it was dealt with, opts.coverGap to change it, nor as something's being said: false, and try again). ses.breakNow(): the break. Her hand, the player's two ways with it:
@@ -955,6 +955,7 @@ function create(stage, bay, opts) {
     const P = cur, b = bandIndex(), dfy = P.def > 0.4;
     // (the moment their defiance breaks comes before anything else)
     if (P.said.yield === 1) { P.said.yield = 2; say('subject', V.react(P.id, 'yield'), P); return; }
+    if (DIR && DIR.quiet && DIR.quiet(P)) return;      // (hushed, for now, as the director has it)
     if (P.hits === 1 && !P.said.first) { P.said.first = 1; say('subject', V.react(P.id, dfy ? 'defy' : 'first'), P); return; }
     const keys = [null, 'flinching', 'struggling', 'edge', 'past'];
     // (while still defiant, back-talk in place of the early band lines)

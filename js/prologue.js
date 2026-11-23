@@ -234,7 +234,8 @@ const CORRECTION = {
       { key: 'again', when: 'stopped', again: true, think: 'Again, then.', control: 'Space', act: 'run' } ] },
     // (her hand dealt with, she's still answering back; he says so: she's not feeling it yet. Then, straight after (lead), he thinks of her
     // drawers, before another word of hers (first))
-    { id: 'pride', name: 'Pride', floor: 0.55, allow: ['glance'], out: { distress: 0.95, hits: 8, most: 34 },
+    // (and from his line, not a word of hers till her drawers are down and a few smacks have landed since: quiet)
+    { id: 'pride', name: 'Pride', floor: 0.55, allow: ['glance'], out: { distress: 0.95, hits: 8, most: 34 }, quiet: { till: 'drawersDown', hits: 5 },
       intro: [
         { at: 0.8, who: 'cicely', text: 'Is that the worst a steward can do? I’ve had harder from a hairbrush.' },
         { at: 4.6, who: 'cicely', if: 'pinned', text: 'Hold my hand all you like. It won’t make me sorry.' },

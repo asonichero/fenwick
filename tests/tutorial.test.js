@@ -196,6 +196,22 @@ test('she tells it truly, everything held meanwhile; then he says he believes he
   assert.match(q.think, /judge/); assert.match(q.think, /end it herself/); assert.equal(q.act, 'end');
 });
 
+test('from his line, nothing of her own said till her drawers are down and a few smacks have landed since', () => {
+  const Pp = SC.phases.find(p => p.id === 'pride'), lead = Pp.intro[Pp.intro.length - 1]; assert.deepEqual(Pp.quiet, { till: 'drawersDown', hits: 5 });
+  let from = null, down = null, over = null, early = false;
+  play((F, T) => { const q = T.director.quiet(F.P);
+    if (from != null && down != null && over == null && !q) over = F.P.hits;      // (let go: the phase may move on as it is)
+    if (T.phase.id !== 'pride') return;
+    if (q && from == null) from = T.S.t; if (!q && from == null && T.S.t >= lead.at) early = true;
+    if (from != null && down == null && F.P.f.state.under !== 'up') down = F.P.hits; }, ['take']);
+  assert.ok(!early && from != null && from < lead.at + 0.2, 'hushed from his line: ' + from);
+  assert.ok(down != null && over != null, 'and let go again');
+  assert.ok(over - down >= 5 && over - down < 6.5, 'a few smacks after her drawers are down: ' + (over - down));
+  // (and pride's not over, nor her breaking begun, till then)
+  let broke = null; play((F, T) => { if (broke == null && T.phase.id === 'breaking') broke = F.P.hits; }, ['take']);
+  assert.ok(broke >= over, 'the breaking after the spell: ' + broke + ' ≥ ' + over);
+});
+
 test('pace and strength needn’t be touched: left alone, each gives way after a few smacks, and both are introduced before defiance is over', () => {
   const F = fake(), T = Tutorial.director(SC); T.attach(F.ses, {}); let t = 0, phases = [];
   for (; t < 400 && T.phase.id !== 'pride'; t += 0.1) {

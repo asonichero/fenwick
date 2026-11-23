@@ -8,7 +8,8 @@
 //   A phase can open with a few lines said (intro: [{ at, who, text, if, unless }]: at seconds into it; who 'cicely' or 'silas'; said only if
 //   she's pinned (if: 'pinned'), or only if not (unless)), its prompts held back till they're said, and a moment more; or, after a line
 //   that leads into them (lead), not even that: the page's told at once, so his thought can follow straight on (a prompt's `first`: before
-//   anything else she says).
+//   anything else she says). A phase's quiet ({ till, hits }) hushes her own lines from that lead line till its moment's come (till: 'drawersDown')
+//   and as many smacks since (hits).
 //   It can't be failed. Once she's broken and said what she did, she's receptive, and it runs on as the player has it: ended whenever they
 //   judge it's enough (End waits for that), or taken on to too harsh, and her word, which ends it whenever she says it.
 //
@@ -31,12 +32,14 @@ function director(script) {
     allow: (kind) => { const p = ph(); return !!(p.allow && p.allow.includes(kind)); },
     hold: (kind) => { const p = ph(); return !!(p.hold && p.hold.includes(kind)); },
     floor: () => ph().floor || 0,
+    // (she says nothing of her own: from his line that leads into the phase's prompts, till what it waits on is done and a few smacks since)
+    quiet: () => quiet(),
   };
   function attach(ses, ui) { S.ses = ses; S.ui = ui || {}; }
   const hits = () => (P() ? P().hits : 0), inPhase = () => hits() - S.hits0, D = () => (S.ses ? S.ses.distress() : 0);
   // (the state a prompt's `when` asks after)
   const is = {
-    shiftDown: () => P() && P().f.state.top !== 'up', drawersUp: () => P() && P().f.state.under === 'up',
+    shiftDown: () => P() && P().f.state.top !== 'up', drawersUp: () => P() && P().f.state.under === 'up', drawersDown: () => !!(P() && P().f.state.under !== 'up'),
     covering: () => S.ses.covering, stopped: () => S.stopped && !S.ses.covering && !S.ses.st.running,      // (her hand dealt with, the run not begun again)
     broken: () => S.broken, yielded: () => !!(P() && P().said.yield === 2),      // (broken, and her first line of it said)
     slowed: () => !!S.did.slower, telling: () => S.told > 0 && S.told < script.accept.length, told: () => S.told >= script.accept.length,
@@ -44,13 +47,14 @@ function director(script) {
   };
   // ── On to the next phase, when this one's done ──
   function advance() {
-    S.i = Math.min(script.phases.length - 1, S.i + 1); S.t = 0; S.hits0 = hits(); S.introN = 0;
+    S.i = Math.min(script.phases.length - 1, S.i + 1); S.t = 0; S.hits0 = hits(); S.introN = 0; S.quietAt = null;
     const p = ph(), Pc = P();
     if (Pc && p.submission != null) Pc.rel.submission = p.submission;
     if (S.ui.phase) S.ui.phase(S.i, p);
   }
   function out() {
     const p = ph(), o = p.out || {}, n = inPhase();
+    if (p.quiet && quiet()) return false;      // (not over while she's hushed: the spell of smacks after first)
     switch (p.id) {
       case 'ready': return hits() >= 1;
       case 'defiance': return ((n >= o.hits && D() >= o.distress) || n >= o.most) && (p.prompts || []).every(q => !q.act || S.taught.has(q.act));      // (and everything it teaches, introduced)
@@ -69,7 +73,9 @@ function director(script) {
     const intro = p.intro || []; S.introN = S.introN || 0;
     while (S.introN < intro.length && S.t >= intro[S.introN].at) { const L = intro[S.introN++], pin = !!(ses.pinned);
       if ((L.if === 'pinned' && !pin) || (L.unless === 'pinned' && pin)) continue; if (S.ui.say) S.ui.say(L.text, L.who || 'cicely');
+      if (L.lead && p.quiet) { S.quietAt = S.t; S.quietTill = null; }      // (and from here, she holds her tongue a while)
       if (L.lead && S.ui.phase) S.ui.phase(); }      // (and what it leads into, thought of now, queued straight after it)
+    quiet();
     // (in the covering, her hand comes back, twice)
     if (p.forceCover && !ses.covering && !ses.pinned && S.covers < p.forceCover.length) {
       const at = S.covers === 0 ? p.forceCover[0] : S.coverDoneAt != null ? S.coverDoneAt + p.forceCover[1] - p.forceCover[0] : Infinity;
@@ -97,6 +103,14 @@ function director(script) {
     const pr = prompt(); if (pr && !pr.act && !pr.acts && !pr.when) { const k = keyOf(pr); S.shown[k] = (S.shown[k] || 0) + dt; if (S.shown[k] > 8) S.pdone[k] = true; }
     if (out()) advance();
   }
+  // (hushed: a phase's quiet, { till: a moment (is[...]), hits }: begun by its lead line; over once that moment's come and as many smacks
+  // since)
+  function quiet() {
+    const q = ph().quiet; if (!q || S.quietAt == null) return false;
+    if (S.quietTill == null && is[q.till] && is[q.till]()) S.quietTill = hits();
+    if (S.quietTill != null && hits() - S.quietTill >= (q.hits || 0)) { S.quietAt = null; return false; }
+    return true;
+  }
   // (the prompt now: the first of this phase's that applies: its moment (`when`) holding, far enough in (`after`), its control not yet used
   // (one for a moment that comes again, `again`, shows every time it does); one with neither control nor moment shows a few seconds)
   const keyOf = q => S.i + ':' + q.key;
@@ -112,6 +126,7 @@ function director(script) {
   return {
     director, attach, update,
     get prompt() { return prompt(); }, get phase() { return { i: S.i, id: ph().id, name: ph().name }; },
+    get quiet() { return quiet(); },
     get canEnd() { return ph().id === 'receptive' && S.taught.has('end') && !this.locked; },
     // (everything held: while she tells it truly, and till he's thought what's his to judge)
     get locked() { return !S.done && !S.word && ph().id === 'receptive' && !is.judged(); },
