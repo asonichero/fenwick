@@ -23,7 +23,7 @@ function fake() {
     else D = Math.max(0, D - dt * 0.01);
     P.hits = Math.round(P.hits * 1000) / 1000;
     const floor = dir.floor(P), tgt = Math.max(floor, 0.85 * (1 - Math.min(1, D)));
-    if (tgt < P.def) { const was = P.def; P.def = tgt; if (was >= 0.2 && P.def < 0.2) P.said.yield = 1; }
+    if (tgt < P.def) { const was = P.def; P.def = tgt; if (was >= 0.2 && P.def < 0.2) P.said.yield = 2; }      // (broken, and saying so, as the engine has it)
   };
   return { P, ses, tick };
 }
@@ -35,6 +35,7 @@ function play(choose, hands) {
   for (; t < 600; t += 0.1) {
     F.tick(T.director, 0.1); T.update(0.1);
     if (!phases.includes(T.phase.id)) phases.push(T.phase.id);
+    if (choose) choose(F, T, t);      // (what's watched, before the player does anything this moment)
     const pr = T.prompt; for (const a of pr ? [pr.act].concat(pr.acts || []) : []) if (a) taught.add(a);
     if (T.canEnd) couldEnd = true;
     // (the player: does what the prompt asks; otherwise keeps a run going)
@@ -51,7 +52,6 @@ function play(choose, hands) {
     else if (act === 'soothe') { F.ses.st.running = false; F.ses.st.soothe = true; T.did('soothe'); }
     else if (act === 'end') { if (T.canEnd) { T.did('end'); break; } }
     else if (!F.ses.st.soothe && !F.ses.covering) { if (!T.taught('run')) ranUntaught = true; else if (!F.ses.st.running && T.phase.id !== 'covering') F.ses.st.running = true; }      // (keeps a run going: only once it's been taught; and after her hand, only as asked)
-    if (choose) choose(F, T, t);
   }
   return { F, T, phases, taught, said, t, endedEarly, ranUntaught, restarts, couldEnd };
 }
@@ -62,7 +62,7 @@ test('played as the prompts ask: every phase in the GDD’s order, each control 
   for (const a of ['tell', 'top', 'run', 'pace', 'strength', 'under', 'slower', 'soothe', 'end']) assert.ok(r.taught.has(a), 'taught: ' + a);
   for (const a of ['run', 'pace', 'strength', 'top', 'under', 'soothe', 'end']) assert.ok(r.T.taught(a), 'open by the end: ' + a);
   assert.ok(r.F.ses.pinned, 'her hand taken, the second time');
-  assert.deepEqual(r.said, SC.accept, 'what she did, and why, all of it');
+  assert.deepEqual(r.said.filter(t => SC.accept.includes(t)), SC.accept, 'what she did, and why, all of it');
   assert.equal(r.endedEarly, false); assert.ok(r.t < 600, 'it ends: ' + r.t.toFixed(1));
 });
 
@@ -114,10 +114,72 @@ test('only what each phase allows of her own accord; and what waits for the play
 
 test('the first prompt carries her word; and her word stops it', () => {
   const T = Tutorial.director(SC), F = fake(); T.attach(F.ses, {});
-  assert.match(T.prompt.word, /Falada/);
+  assert.match(T.prompt.word, /names the mare/, 'his thought of her word, with the first');
   T.word(); assert.equal(T.prompt, null);
 });
 
 test('how he answered her plea sets how defiant she comes to it', () => {
   assert.ok(SC.tone.dry > SC.tone.firm && SC.tone.firm > SC.tone.gentle);
+});
+
+test('the tutorial is his own thoughts: each prompt a thought of Silas’s, with the control it’s about; no instructions to the player', () => {
+  for (const p of SC.phases) for (const q of p.prompts || []) {
+    assert.ok(!q.text, p.id + ': ' + q.key + ' has no instruction text');
+    if (q.key !== 'hand') assert.ok(q.think && !/\b(you|your)\b/i.test(q.think.replace(/\bYou’re\b/, '')), p.id + ': ' + q.key + ' is a thought of his');
+  }
+  assert.match(SC.phases[0].prompts[0].think, /shift/); assert.match(SC.phases[0].prompts[1].think, /ready to begin/);
+  assert.match(SC.phases.find(p => p.id === 'defiance').prompts[0].think, /steady pace is easier to bear/);
+  assert.match(SC.hand.prompt, /\?$/, 'the hand: his thought is the choice');
+});
+
+test('after her hand the first time, she takes a good deal more before it comes again', () => {
+  const C = SC.phases.find(p => p.id === 'covering'); assert.ok(C.forceCover[1] - C.forceCover[0] >= 8, String(C.forceCover));
+});
+
+test('pride opens with her still answering back, and him saying she’s not feeling it; only then the thought of her drawers', () => {
+  const Pp = SC.phases.find(p => p.id === 'pride'), I = Pp.intro;
+  assert.ok(I.filter(l => l.who === 'cicely').length >= 2 && I[I.length - 1].who === 'silas' && /not feeling/.test(I[I.length - 1].text));
+  assert.ok(I.some(l => l.if === 'pinned') && I.some(l => l.unless === 'pinned'), 'as her hand was dealt with');
+  assert.match(Pp.prompts[0].think, /drawers/);
+  // (played: the lines said in order, and no prompt till they are)
+  let firstPrompt = null;
+  const r = play((F, T) => { if (T.phase.id === 'pride' && firstPrompt == null && T.prompt) firstPrompt = T.S.t; }, ['take']), lines = r.said.filter(x => I.some(l => l.text === x));
+  assert.deepEqual(lines, [I[0].text, I[1].text, I[3].text], 'pinned: her lines, then his');
+  assert.ok(firstPrompt >= I[I.length - 1].at, 'the drawers thought only once he’s said it: ' + firstPrompt);
+  const told = play(null, ['tell', 'tell']).said.filter(x => I.some(l => l.text === x)); assert.deepEqual(told, [I[0].text, I[2].text, I[3].text], 'not pinned: the other line');
+});
+
+test('broken: after her first line of it, he thinks to slow; she goes on, over and over, till he does; then promises she understands, over and over, till he soothes her', () => {
+  const F = fake(), said = [], T = Tutorial.director(SC); T.attach(F.ses, { say: (t, who) => said.push([who || 'cicely', t]) });
+  const B = SC.phases.find(p => p.id === 'breaking'), slow = B.prompts.find(q => q.key === 'slow'), soothe = B.prompts.find(q => q.key === 'soothe');
+  let t = 0; const step = (n, act) => { for (let i = 0; i < n; i++, t += 0.1) { F.tick(T.director, 0.1); T.update(0.1); const pr = T.prompt; if (act) act(pr); } };
+  // (a player who does as asked, up to the break)
+  step(3000, pr => { if (T.phase.id === 'breaking' && T.prompt && T.prompt.key === 'slow') return; const a = pr && (pr.act || (pr.acts && pr.acts[1]));
+    if (a === 'take') { F.ses.takeHand(); T.did('take'); } else if (a === 'top') { F.P.f.state.top = 'up'; T.did('top'); } else if (a === 'under') { F.P.f.state.under = 'down'; T.did('under'); }
+    else if (a === 'run' || !a) { F.ses.st.running = true; if (a) T.did('run'); } else if (a) T.did(a); });
+  assert.equal(T.phase.id, 'breaking'); assert.equal(T.prompt.key, 'slow'); assert.ok(F.P.said.yield === 2, 'her first line of it said first');
+  const before = said.length; step(160); const cyc = said.slice(before).filter(([w, x]) => slow.cycle.includes(x));
+  assert.ok(cyc.length >= 3, 'over and over, till he slows: ' + cyc.length); assert.equal(T.prompt.key, 'slow');
+  T.did('slower'); step(5); assert.equal(T.prompt.key, 'soothe');
+  const b2 = said.length; step(160); assert.ok(said.slice(b2).filter(([w, x]) => soothe.cycle.includes(x)).length >= 3, 'promising she understands, till he soothes her');
+  assert.ok(!said.slice(b2).some(([w, x]) => slow.cycle.includes(x)), 'and no more of the first');
+  F.ses.st.running = false; F.ses.st.soothe = true; T.did('soothe'); step(2);
+  assert.equal(T.phase.id, 'receptive', 'soothing her: on to her telling it');
+});
+
+test('she tells it truly, everything held meanwhile; then he says he believes her, but it’s not learned yet; then the thought of what’s his to judge, and End', () => {
+  const r = { locked: [], said: [] }; let lockedWhileTelling = true, endWhileLocked = false, believedAt = null, judgedAt = null;
+  const res = play((F, T, t) => {
+    if (T.phase.id !== 'receptive') return;
+    if (T.S.told < SC.accept.length && !T.locked) lockedWhileTelling = false;
+    if (T.locked && T.canEnd) endWhileLocked = true;
+    if (believedAt == null && T.S.believed != null) believedAt = t;
+    if (judgedAt == null && T.prompt && T.prompt.key === 'receptive') judgedAt = t;
+  });
+  assert.ok(lockedWhileTelling, 'held while she tells it'); assert.ok(!endWhileLocked);
+  const order = res.said.filter(x => SC.accept.includes(x) || x === SC.believe);
+  assert.deepEqual(order, SC.accept.concat([SC.believe]), 'all of it, then his word');
+  assert.match(SC.believe, /believe you/i); assert.match(SC.believe, /not learned/i);
+  assert.ok(judgedAt > believedAt, 'then the thought'); const q = SC.phases.find(p => p.id === 'receptive').prompts.find(x => x.key === 'receptive');
+  assert.match(q.think, /judge/); assert.match(q.think, /end it herself/); assert.equal(q.act, 'end');
 });

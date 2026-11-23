@@ -211,35 +211,52 @@ const CORRECTION = {
   // (how defiant she comes to it, from how he answered her plea: stung by dryness most; disarmed a little by gentleness)
   tone: { firm: 0.78, dry: 0.9, gentle: 0.66 },
   rel: { submission: 0.1, comfort: 0.1, desire: 0 },
-  word: 'Her word is Falada. If she says it, it’s over at once, as you promised.',
-  // (her hand back over her seat: the choice, in the dialogue box)
+  // (the tutorial is Silas's own thoughts, in the dialogue box, as each thing first matters (`think`); the control it's about lit at the foot.
+  // The player's left to work out from his thought what to do with it)
+  // (her word, thought of with the first of them)
+  word: 'I’ll know it’s too much if she names the mare.',
+  // (her hand back over her seat: the choice, in the dialogue box, under his thought)
   // (what Silas says, either way: js/lines.js's, CAPTAIN.hands and CAPTAIN.take)
-  hand: { prompt: 'Her hand’s come back to cover herself.', options: [{ id: 'tell', label: 'Move it out of the way', line: 'hands' }, { id: 'take', label: 'Take her hand', line: 'take' }] },
+  hand: { prompt: 'Her hand’s back, to cover herself. Move it out of the way, or take it and keep hold of it?', options: [{ id: 'tell', label: 'Move it out of the way', line: 'hands' }, { id: 'take', label: 'Take her hand', line: 'take' }] },
   phases: [
     { id: 'ready', name: 'Before you begin', prompts: [
-      { key: 'shift', when: 'shiftDown', text: 'Her shift first: raise it, and roll it at her back.', control: 'T', act: 'top' },
-      { key: 'run', text: 'Start a run. Smacks keep coming, at the pace and strength set, until you stop it.', control: 'Space', act: 'run' } ] },
+      { key: 'shift', when: 'shiftDown', think: 'She won’t feel it through the shift. I should raise it.', control: 'T', act: 'top' },
+      { key: 'run', think: 'Now I’m ready to begin.', control: 'Space', act: 'run' } ] },
     { id: 'defiance', name: 'Defiance', floor: 0.5, allow: ['glance'], out: { hits: 14, distress: 0.45, most: 24 }, prompts: [
-      { key: 'pace', after: 4, text: 'Pace: slower, or faster. A steady pace is easier to bear than a quick one.', control: '[ ]', act: 'pace' },
-      { key: 'strength', after: 9, text: 'Strength: lighter, or harder. Harder brings her on sooner; too hard, and it’s more than she can bear.', control: '− =', act: 'strength' } ] },
+      { key: 'pace', after: 4, think: 'A steady pace is easier to bear than a quick one.', control: '[ ]', act: 'pace' },
+      { key: 'strength', after: 9, think: 'Harder brings her to it sooner. Too hard, and it’s more than she can bear.', control: '− =', act: 'strength' } ] },
     // (her hand back over her seat: the run stops, and the player chooses, in the dialogue, either time: move it out of the way, or take it and
-    // hold it, from then on. Then the run's theirs to begin again)
-    { id: 'covering', name: 'Covering', floor: 0.5, allow: ['cover', 'glance'], hold: ['cover'], forceCover: [2, 6], out: { covers: 2, after: 4 }, prompts: [
-      { key: 'hand', when: 'covering', again: true, text: 'Her hand’s come back over her seat, and the run’s stopped. Choose what you do with it: move it out of the way, or take it and hold it at the small of her back.', acts: ['tell', 'take'] },
-      { key: 'again', when: 'stopped', again: true, text: 'Start the run again.', control: 'Space', act: 'run' } ] },
-    { id: 'pride', name: 'Pride', floor: 0.55, allow: ['glance'], out: { distress: 0.95, hits: 8, most: 34 }, prompts: [
-      { key: 'drawers', when: 'drawersUp', text: 'Her drawers: lower them.', control: 'U', act: 'under' },
-      { key: 'meter', text: 'She’s holding in what she feels: her face shows little of it. Read the meter, not her face.', look: 'meter' } ] },
-    { id: 'breaking', name: 'Breaking', floor: 0, submission: 0.5, out: { need: 'soothed' }, prompts: [
-      { key: 'slow', when: 'broken', text: 'She’s broken. Slow the pace.', control: '[', act: 'slower' },
-      { key: 'soothe', when: 'broken', text: 'Soothe her: your palm, in slow circles, between.', control: 'S', act: 'soothe' } ] },
-    // (she says what she did, and why: she's taking it honestly now. Receptive: her defiance gone, what's done from here reaches her, as in any
-    // correction once it's lowered. It runs on as the player has it: on to its end, or too far, and her word)
+    // hold it, from then on. Then the run's theirs to begin again. After the first time, she takes a good deal more before it comes again)
+    { id: 'covering', name: 'Covering', floor: 0.5, allow: ['cover', 'glance'], hold: ['cover'], forceCover: [2, 12], out: { covers: 2, after: 4 }, prompts: [
+      { key: 'hand', when: 'covering', again: true, acts: ['tell', 'take'] },      // (his thought's the choice's own: SCENES.correction.hand.prompt)
+      { key: 'again', when: 'stopped', again: true, think: 'Again, then.', control: 'Space', act: 'run' } ] },
+    // (her hand dealt with, she's still answering back; he says so: she's not feeling it yet. Then he thinks of her drawers)
+    { id: 'pride', name: 'Pride', floor: 0.55, allow: ['glance'], out: { distress: 0.95, hits: 8, most: 34 },
+      intro: [
+        { at: 0.8, who: 'cicely', text: 'Is that the worst a steward can do? I’ve had harder from a hairbrush.' },
+        { at: 4.6, who: 'cicely', if: 'pinned', text: 'Hold my hand all you like. It won’t make me sorry.' },
+        { at: 4.6, who: 'cicely', unless: 'pinned', text: 'Move my hand all you like. It won’t make me sorry.' },
+        { at: 8.4, who: 'silas', text: 'Still more breath for answering back than for anything else. You’re not feeling this yet, are you?' } ],
+      prompts: [
+      { key: 'drawers', when: 'drawersUp', think: 'Through linen, it isn’t reaching her. I should lower her drawers.', control: 'U', act: 'under' },
+      { key: 'meter', think: 'She won’t let me see it in her face. I’ll have to judge it some other way.', look: 'meter' } ] },
+    // (broken: after her first line of it, he thinks to slow; and till he does, she goes on, over and over (cycle). Slower, and she promises she
+    // understands, over and over, till he soothes her)
+    { id: 'breaking', name: 'Breaking', floor: 0, submission: 0.5, out: { need: 'soothe' }, prompts: [
+      { key: 'slow', when: 'yielded', think: 'There. It’s gone out of her. Slower, now.', control: '[', act: 'slower',
+        cycle: ['I was wrong— I was wicked to her—', 'I know what I did— I know—', 'Please— I was wrong— I was wrong—'] },
+      { key: 'soothe', when: 'slowed', think: 'A hand between, in slow circles. She should know it isn’t anger.', control: 'S', act: 'soothe',
+        cycle: ['I understand. I do. I understand.', 'I’ll not do it again. I swear it.', 'I know what I did to her. I know it now.'] } ] },
+    // (she says what she did, and why, truly: everything held while she does (the controls greyed). Then he says he believes her, but it isn't
+    // learned yet; and thinks it's his to judge when it's enough, and that she'll end it herself if she must. Receptive: her defiance gone,
+    // what's done from here reaches her, as in any correction once it's lowered. It runs on as the player has it: on to its end, or too far,
+    // and her word)
     { id: 'receptive', name: 'Receptive', floor: 0, submission: 0.8, prompts: [
-      { key: 'listen', when: 'telling', text: 'Let her speak.' },
-      { key: 'receptive', when: 'told', text: 'She’s receptive now: her defiance is gone, and what you do from here reaches her. Give her the correction she deserves, and end it when it’s enough.', control: 'Enter', act: 'end',
-        note: 'Past the red mark on the meter is too harsh: held there, she’ll say her word.', look: 'meter' } ] },
+      { key: 'listen', when: 'telling', think: 'Let her speak.' },
+      { key: 'receptive', when: 'judged', think: 'It’s mine to judge when it’s enough. And if it’s ever more than she can bear, she’ll end it herself.', control: 'Enter', act: 'end', look: 'meter' } ] },
   ],
+  // (his word, once she's told it truly)
+  believe: 'I believe you. But you’ve not learned it yet.',
   // (what she says as she comes to it honestly: what she did, and why. One at a time, a little apart)
   accept: [
     'I wanted it. All of it. Her gowns, and her name, and him.',

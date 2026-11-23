@@ -520,12 +520,15 @@ every skirt is; then her drawers are lowered.
 **A scripted arc over the live systems.** A small phase controller
 drives her defiance, pride and submission through the phases below.
 Within each phase the correction plays as it always does: her reactions,
-lines, kicks and distress all come from the simulation, and an on-screen
-prompt teaches each control as it first matters. The player can't fail
-it. Pace and strength change what she says and how quickly each phase
-gives way to the next, within bounds. Every control starts greyed out
-and closed, End included, and each opens when the prompt that explains
-it first appears.
+lines, kicks and distress all come from the simulation. There's no
+tutorial panel: each control is introduced, as it first matters, by
+Silas's own thought in the dialogue box ("She won't feel it through the
+shift. I should raise it."; "A steady pace is easier to bear than a
+quick one."), with the control lit, and the player works out from the
+thought what to do with it. The player can't fail it. Pace and strength
+change what she says and how quickly each phase gives way to the next,
+within bounds. Every control starts greyed out and closed, End included,
+and each opens with the thought that introduces it.
 
 - **1. Defiance.** She submitted to the terms, but her pride fights the
   correction itself. She argues it's unjust and looks back at him over
@@ -536,35 +539,45 @@ it first appears.
   the run stops, and what Silas does about it is a choice in the
   dialogue: move her hand out of the way, or take it and hold it at the
   small of her back, from then on. Then the player starts the run again.
-  Teaches both, and that a run is the player's to begin.
+  After the first time, she takes a good deal more before her hand comes
+  back. Teaches both, and that a run is the player's to begin.
 
-- **3. Pride.** She holds in what she feels: her distress climbs while
+- **3. Pride.** Her hand dealt with, she's still answering back, and
+  Silas remarks aloud that she isn't feeling it yet; he thinks to lower
+  her drawers. She holds in what she feels: her distress climbs while
   she shows little of it. Teaches reading the distress meter rather than
   her face.
 
 - **4. Breaking.** Her pride gives way all at once, and her defiance
-  with it: tears, and the first apology. Teaches slowing the pace, and
-  soothing.
+  with it: tears, and the first apology. After it, Silas thinks to slow;
+  she goes on, over and over, until the player does. Then she promises
+  she understands, over and over, until the player soothes her. Teaches
+  slowing the pace, and soothing.
 
 - **5. Receptive.** She names what she did, and why: envy, and a whole
   life spent behind someone else being given everything. She's taking it
   honestly now: receptive, as any correction is once her defiance has
   been lowered, and what's done from here reaches her (her other
-  measures, not her defiance). The tutorial says so and leaves it to the
-  player: give her the correction she deserves, and end it when it's
-  enough; or take it on past too harsh, where she says her word. Teaches
-  that the end is the player's to judge.
+  measures, not her defiance). Everything is held, the controls greyed,
+  while she tells it truly. Then Silas says he believes her, but she
+  hasn't learned it yet, and thinks that it's his to judge when it's
+  enough, and that if it's ever more than she can bear she'll end it
+  herself. It's left to the player: give her the correction she
+  deserves, and end it when it's enough; or take it on past too harsh,
+  where she says her word. Teaches that the end is the player's to
+  judge.
 
-**Her word.** She can say Falada at any point, and the first prompt
-reminds the player of it. The script never needs it. If she says it,
-it's over at once, as he promised, and the scene goes to the aftercare.
-There Silas says first, before anything else, that it went further than
-it should have and that this is his to answer for, not hers. She is free
-to go, with the character he promised; saying her word costs her
-nothing. He makes the same offer, but only as something he'd have said
-either way: set apart from the night, and plainly not amends for it. She
-needn't answer that night. If she stays, it's for what she owes Adela,
-not because of what happened in the office.
+**Her word.** She can say Falada at any point, and Silas's first thought
+reminds the player of it ("I'll know it's too much if she names the
+mare."). The script never needs it. If she says it, it's over at once,
+as he promised, and the scene goes to the aftercare. There Silas says
+first, before anything else, that it went further than it should have
+and that this is his to answer for, not hers. She is free to go, with
+the character he promised; saying her word costs her nothing. He makes
+the same offer, but only as something he'd have said either way: set
+apart from the night, and plainly not amends for it. She needn't answer
+that night. If she stays, it's for what she owes Adela, not because of
+what happened in the office.
 
 ### Aftercare and the offer
 
