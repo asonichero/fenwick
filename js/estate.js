@@ -10,6 +10,10 @@
 //
 //   const s = Estate.create() · Estate.unlock(s, 'study') · Estate.restore(s, 'guest', 0.5) · Estate.arrive(s, 'goldie')
 //   Estate.affect(s, 'red', { trust: +0.1 }) · Estate.drift(s, 1, rnd) → clues · Estate.intervene(s, 'goldie', 'correction')
+//   Chapters and arcs: a chapter introduces its heroine and ends once she's taken in; the next opens only then. Her arc runs on alongside the
+//   others at the player's pace: Estate.corrected(s, id, result) (a correction's outcome) and Estate.affect (what's said) move her track;
+//   Estate.arcOf(s, id) → { stage, path, waits } · Estate.closeArc(s, id) (her arc's closing scene, once she's ready and what it waits on has
+//   got far enough) · Estate.chapterOpen(s, n) · Estate.finaleOpen(s)
 (function (root) {
 'use strict';
 const clamp = (x, a, b) => Math.max(a, Math.min(b, x));
@@ -135,7 +139,30 @@ const REPUTATION = ['employer', 'steward', 'protector', 'promises'];
 // another." So an effect names one heroine and moves only her track. trust, respect, affection (0–1, drafted), and growth: how far she's come
 // with her flaw (the GDD's "dialogue choices shape each heroine's growth and change later ambient interactions"). romance: only where the
 // GDD names it (Red, Belle) or the designer opens it. ──
-const TRACK = ['trust', 'respect', 'affection', 'growth'];
+const TRACK = ['trust', 'respect', 'affection', 'growth', 'submission', 'resentment'];      // (submission: how far she's given herself to his authority; resentment: what she holds against him)
+
+// ── Chapters and arcs (docs/gdd.md, "Chapters and arcs"). Not seven self-contained chapters: each introduces a heroine (from its zone opening to
+// her taken into the household, its last beat), and the next chapter opens only once it has ended. Her arc then runs on alongside everyone
+// else's, closed at the pace the player sets: as her track moves (the corrections, and what's said in conversations), she goes from settling
+// in, to having her flaw tested, to turning, to ready; then her arc's own closing scene closes it, along her path. Some arcs wait on others: a
+// stage of hers can't be reached till another's has got so far. The stages' thresholds, the waits and the paths are drafted. ──
+const ARC_STAGES = ['settling', 'testing', 'turning', 'ready', 'closed'];
+const ARC = {
+  testing: t => t.corrections >= 1 || t.growth >= 0.1,
+  turning: t => t.growth >= 0.4 && t.trust >= 0.4 && t.resentment <= 0.45,
+  ready: t => t.growth >= 0.75 && t.trust >= 0.6 && t.respect >= 0.5 && t.resentment <= 0.25,
+};
+// (whose arc waits on whose, and for what: drafted from the GDD's pairings. stage: the stage of hers that waits; needs: { id: stage of theirs })
+const ARC_WAITS = {
+  cinderella: { stage: 'ready', needs: { goldie: 'turning' }, why: 'She covers for Goldie’s messes until Silas holds Goldie accountable.' },
+  snow: { stage: 'ready', needs: { belle: 'turning' }, why: 'Belle has to be steady herself to ground Snow White.' },
+  rapunzel: { stage: 'ready', needs: { red: 'turning' }, why: 'Red teaches Rapunzel the village and the paths.' },
+  gretel: { stage: 'ready', needs: { cinderella: 'turning' }, why: 'The kitchens are Eleanor’s to share with her.' },
+};
+const FINALE_NEEDS = 'turning';      // (every arc at least this far before the finale opens: the roles it gives each of them need what they've learned)
+// (the path an arc closes along: the two axes. Romance, where it's open on her track and she's come that way; devotion, where she's given
+// herself to his authority; else simply her place in the household)
+const PATHS = { romance: t => t.romance != null && t.romance >= 0.5 && t.affection >= 0.5, devotion: t => t.submission >= 0.5 && t.respect >= 0.5 };
 
 function create(o) {
   o = o || {};
@@ -168,7 +195,7 @@ const everyHearth = s => Object.keys(ROOMS).filter(id => ROOMS[id].hearth).every
 function arrive(s, id) {
   const C = root.Cast, r = C && C.ROSTER[id]; if (!r || s.residents.includes(id)) return false;
   s.residents.push(id); s.arrived[id] = s.day;
-  s.tracks[id] = { trust: 0.2, respect: 0.2, affection: 0.1, growth: 0, romance: r.dynamic.romance === true ? 0 : null };
+  s.tracks[id] = { trust: 0.2, respect: 0.2, affection: 0.1, growth: 0, submission: 0.1, resentment: 0, corrections: 0, romance: r.dynamic.romance === true ? 0 : null, closed: null };
   // (left alone, habits only slide: the floor is never above where she starts)
   const c = r.meters.compliance, m = r.meters.mindfulness;
   s.habits[id] = { compliance: c, mindfulness: m, floor: { compliance: Math.min(c, floorOf(r, 'compliance')), mindfulness: Math.min(m, floorOf(r, 'mindfulness')) } };
@@ -198,8 +225,42 @@ function affect(s, id, fx) {
     if (!TRACK.includes(k)) throw new Error('Estate.affect: no such track value ' + k);
     t[k] = clamp(t[k] + fx[k], 0, 1);
   }
-  return t;
+  touch(t); return t;
 }
+// ── Her arc: its stage (the furthest her track has reached, held where something it waits on hasn't got far enough), its path, and what it
+// waits on. A stage once reached isn't lost (setbacks show in her track and her habits, not by undoing her arc) ──
+const stageN = k => ARC_STAGES.indexOf(k);
+// (the furthest stage her track meets now; kept on the track as it moves (reached), so a stage once reached isn't lost)
+const meets = t => { let n = 0; for (const k of ['testing', 'turning', 'ready']) { if (ARC[k](t)) n = stageN(k); else break; } return n; };
+const touch = t => { t.reached = Math.max(t.reached || 0, meets(t)); };
+function arcOf(s, id) {
+  const t = s.tracks[id]; if (!t) return null;
+  if (t.closed) return { stage: 'closed', path: t.closed, waits: [] };
+  let n = Math.max(t.reached || 0, meets(t));
+  const W = ARC_WAITS[id], waits = [];
+  if (W) for (const o in W.needs) { const a = arcOf(s, o); if (!a || stageN(a.stage) < stageN(W.needs[o])) waits.push({ id: o, stage: W.needs[o], why: W.why }); }
+  if (waits.length) n = Math.min(n, stageN(W.stage) - 1);      // (held short of it while it waits)
+  return { stage: ARC_STAGES[n], path: pathOf(t), waits };
+}
+const pathOf = t => (PATHS.romance(t) ? 'romance' : PATHS.devotion(t) ? 'devotion' : 'household');
+// (her arc's closing scene: only once she's ready; closed along her path, and kept so)
+function closeArc(s, id) { const a = arcOf(s, id); if (!a || a.stage !== 'ready') return false; s.tracks[id].closed = a.path; s.log.push({ day: s.day, closed: id, path: a.path }); return a.path; }
+// A correction's outcome (js/session.js's turnEnd result) on her track: her defiance let go in compliance is growth; what she resents, she
+// holds; corrected well (seen through, and cared for after), she trusts him a little more; her word ends it, and costs trust it shouldn't
+// have had to. Only hers moves. (Drafted.)
+function corrected(s, id, r) {
+  const t = s.tracks[id]; if (!t) throw new Error('Estate.corrected: ' + id + ' is not in the household');
+  const drop = r.defiance ? Math.max(0, r.defiance.from - r.defiance.to) : 0;
+  t.corrections++;
+  t.growth = clamp(t.growth + 0.25 * (r.compliance || 0) + 0.15 * drop, 0, 1);
+  t.resentment = clamp(t.resentment + (r.resentment || 0), 0, 1);
+  if (r.outcome === 'word') t.trust = clamp(t.trust - 0.05, 0, 1);
+  else { t.trust = clamp(t.trust + (r.cared ? 0.06 : 0.02), 0, 1); t.respect = clamp(t.respect + 0.04, 0, 1); }
+  touch(t); return arcOf(s, id);
+}
+// The chapters: the next opens only once this one has ended (its heroine taken in); the finale, only once every arc has got far enough.
+const chapterOpen = (s, n) => n <= 1 || s.chapter >= n;
+const finaleOpen = s => chapterOpen(s, CHAPTERS.length) && s.residents.every(id => stageN(arcOf(s, id).stage) >= stageN(FINALE_NEEDS));
 // Opening romance on a track the GDD leaves open (the designer's call, not the player's: docs/alpha-plan.md).
 function allowRomance(s, id) { const t = s.tracks[id]; if (t && t.romance == null) t.romance = 0; }
 function vignettes(s) { return VIGNETTES.filter(v => v.pair.every(id => s.residents.includes(id)) && !s.flags['seen:' + v.id]); }
@@ -241,8 +302,8 @@ function step(s) {
 }
 function raise(s, facet, amount) { if (!REPUTATION.includes(facet)) throw new Error('Estate.raise: ' + facet); s.rep[facet] = clamp(s.rep[facet] + amount, 0, 1); return s.rep[facet]; }
 
-const api = { ZONES, ROOMS, CHAPTERS, UNPLACED_JOURNEYS, HOMES, VIGNETTES, WEEK, DAY_SERVES, LAPSES, DRIFT, FINALE, REPUTATION, TRACK,
-  create, canOpen, open, unlock, clear, restore, light, warmth, everyHearth, arrive, homeOf, walkingChance, outfitFor, affect, allowRomance, vignettes, dayKind, servedToday, drift, intervene, chapterOf, step, raise };
+const api = { ZONES, ROOMS, CHAPTERS, UNPLACED_JOURNEYS, HOMES, VIGNETTES, WEEK, DAY_SERVES, LAPSES, DRIFT, FINALE, REPUTATION, TRACK, ARC_STAGES, ARC_WAITS, FINALE_NEEDS,
+  arcOf, closeArc, corrected, chapterOpen, finaleOpen, create, canOpen, open, unlock, clear, restore, light, warmth, everyHearth, arrive, homeOf, walkingChance, outfitFor, affect, allowRomance, vignettes, dayKind, servedToday, drift, intervene, chapterOf, step, raise };
 if (typeof module !== 'undefined' && module.exports) module.exports = api;
 root.Estate = api;
 })(typeof window !== 'undefined' ? window : globalThis);

@@ -6,9 +6,14 @@ Nov 18, 2026 · @Sir
 
 ## High-level concept and premise
 
-**Genre.** Third-person narrative walking simulator with gated spatial
-progression, environmental storytelling, scripted dialogue journeys, and
-an ongoing post-game domestic simulation loop.
+**Genre.** A blend. Each heroine's key beats are cinematic,
+choice-driven scenes, in the manner of Telltale's games, set within a
+third-person exploration of the estate with gated spatial progression
+and environmental storytelling. Between them is a daily round at the
+Hall, and an ongoing post-game domestic simulation loop. Underneath,
+each relationship is kept as a dating sim keeps it, so its paths are
+real. At its core is the correction: systemic, and where the player's
+judgement lives.
 
 **Setting.** Fenwick Hall, a neglected country house deep in the
 Fenwood, above the estate village of Redmere. A walled garden, a dense
@@ -727,6 +732,42 @@ final say is his.
 | Ch. 6    | Eastern briar wall and gatehouse         | Rapunzel                     | Evicting Gothel from the gatehouse; guiding Rapunzel into the walled garden for the first time                                                                                                  |
 | Ch. 7    | Far creek and timberline camp            | Snow White (with Belle)      | Accepting guardianship from the woodcutters; enforcing gate security as external threats converge                                                                                               |
 | Finale   | The restored West Wing                   | Full ensemble                | Unlocking the West Wing to resolve the previous owner's mystery while defending the estate from Snow White's stepmother and the wolf pack                                                       |
+
+### Chapters and arcs
+
+**Chapters introduce; arcs run on.** The chapters are not self-contained
+stories. Each introduces a heroine: it runs from its zone opening,
+through her discovery, terms, first correction and aftercare, to her
+being taken into the household. The next chapter opens only once that
+one has ended. Her arc then runs on alongside everyone else's, and the
+player closes it at their own pace.
+
+**Closed by her stats.** An arc moves through settling in, having her
+flaw tested, turning, and ready, as her track moves: trust, respect,
+affection, growth with her flaw, submission and resentment. The
+corrections and the conversations move it, and how well the player uses
+them decides how far. A correction seen through well, with care after
+it, is growth and trust. One that goes past what she can bear is
+resentment, which holds her back from turning, and her word costs trust
+it shouldn't have had to. Once she's ready, her arc's own closing scene
+closes it. A stage once reached isn't lost: setbacks show in her track
+and her habits, not by undoing her arc.
+
+**Some arcs wait on others.** A stage of one heroine's arc can wait on
+how far another's has come, and only ever on someone who came before her
+(drafted from the pairings): Eleanor's can't be ready until Goldie has
+been held accountable for her messes; Snow White's waits on Belle being
+steady enough to ground her; Rapunzel's on Red, who teaches her the
+paths; Gretel's on Eleanor, whose kitchens she shares. The finale opens
+once its chapter is reached and every arc has at least turned, since the
+roles it gives each of them need what they've learned.
+
+**Two axes, two paths.** Submission and romance are separate axes, not a
+route chosen once. An arc closes in romance where romance is open on her
+track and she has come that way; in devotion where she has given herself
+to his authority; otherwise simply in her place in the household. The
+player sees where she stands in how she behaves around the house, not in
+stat bars.
 
 ### Ambient vignettes between chapters
 

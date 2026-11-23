@@ -68,7 +68,7 @@ A heroine and Silas together in a plain space, as Meridian's figures page has th
 |---|---|
 | `js/cast.js` | Silas, the seven heroines and the village cast: what the GDD states (names, ages, roles, flaws, how each resists) kept apart from drafts (bodies, looks, pain stats, safe words, clothes) |
 | `js/lines.js` | Everything said: Silas placing and correcting her; her reactions, defiance and word; the aftercare; her terms |
-| `js/estate.js` | The estate as game state: chapters, zones and their gates, restoration and hearths, homes, vignettes, the week, relationship tracks (nothing in one lowers another), post-game habit drift and its clues, the finale's roles, reputation |
+| `js/estate.js` | The estate as game state: chapters (each introduces a heroine; the next opens once she's taken in), zones and their gates, restoration and hearths, homes, vignettes, the week, relationship tracks (nothing in one lowers another), each heroine's arc running on at the player's pace (its stages, what it waits on, its path: romance, devotion or her place), post-game habit drift and its clues, the finale's roles, reputation |
 | `js/guestroom.js`, `js/kit.js` | The guest bedroom (Ch. 1), as found and restored; the kit rooms are painted from |
 | `js/session.js` | The correction, played (ported from Meridian; changed only to take Fenwick's cast, and her period layers: a skirt raised from its hem, only the layers she wears, what each cushions) |
 | `js/figure.js`, `js/poses.js` | The figures (Blender-built bodies, clothes and hair, skeleton, skinning, toon shading, faces; the period garments' details and stockings drawn per pixel; a long braid) and posing |

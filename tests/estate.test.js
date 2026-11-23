@@ -97,3 +97,57 @@ test('Red walks the estate in her kirtle and leggings, more often as time goes o
   Estate.affect(s, 'red', { trust: 1 }); assert.ok(share('wood') >= later);
   for (const id of Cast.IDS.filter(x => x !== 'red')) assert.equal(Estate.outfitFor(s, id, 'wood'), Cast.outfits(id)[0], id);
 });
+
+// ── Chapters and arcs ──
+const good = { outcome: 'done', compliance: 0.7, resentment: 0, defiance: { from: 0.8, to: 0.1 }, cared: true };      // (a correction seen through well)
+const bring = (s, id, n, r) => { let a; for (let i = 0; i < n; i++) a = Estate.corrected(s, id, r || good); return a; };
+
+test('a chapter introduces its heroine and ends once she’s taken in; the next opens only then', () => {
+  const s = Estate.create(); assert.ok(Estate.chapterOpen(s, 1)); assert.ok(!Estate.chapterOpen(s, 2));
+  const C1 = Estate.CHAPTERS[0]; for (let i = 0; i < C1.beats.length; i++) Estate.step(s);
+  assert.ok(Estate.chapterOpen(s, 2), 'Ch. 1 ended: Ch. 2 open'); assert.ok(!Estate.chapterOpen(s, 3));
+});
+
+test('arcs run on at the player’s pace, alongside each other: settling, testing, turning, ready, closed; each closed by her own scene', () => {
+  const s = Estate.create(); for (const id of ['goldie', 'red']) Estate.arrive(s, id);
+  assert.equal(Estate.arcOf(s, 'goldie').stage, 'settling');
+  Estate.corrected(s, 'goldie', good); assert.equal(Estate.arcOf(s, 'goldie').stage, 'testing');
+  bring(s, 'goldie', 4); Estate.affect(s, 'goldie', { trust: 0.3, respect: 0.3 });
+  assert.equal(Estate.arcOf(s, 'goldie').stage, 'ready'); assert.equal(Estate.arcOf(s, 'red').stage, 'settling', 'Red’s, left alone, hasn’t moved');
+  assert.equal(Estate.closeArc(s, 'red'), false, 'not before she’s ready');
+  assert.ok(Estate.closeArc(s, 'goldie')); assert.equal(Estate.arcOf(s, 'goldie').stage, 'closed');
+});
+
+test('how well the corrections go decides it: resented ones hold her back from turning', () => {
+  const s = Estate.create(); Estate.arrive(s, 'goldie'); Estate.arrive(s, 'red');
+  bring(s, 'goldie', 5, { outcome: 'done', compliance: 0.6, resentment: 0.2, defiance: { from: 0.8, to: 0.2 } });
+  bring(s, 'red', 5, good); Estate.affect(s, 'red', { trust: 0.2 });
+  assert.ok(['testing'].includes(Estate.arcOf(s, 'goldie').stage), 'harsh: ' + Estate.arcOf(s, 'goldie').stage);
+  assert.ok(['turning', 'ready'].includes(Estate.arcOf(s, 'red').stage), 'well: ' + Estate.arcOf(s, 'red').stage);
+  const t = s.tracks.red.trust; Estate.corrected(s, 'red', { outcome: 'word', compliance: 0, resentment: 0.12 }); assert.ok(s.tracks.red.trust < t, 'her word costs trust it shouldn’t have had to');
+});
+
+test('some arcs wait on others: Eleanor’s can’t be ready till Goldie’s has turned; and a stage once reached isn’t lost', () => {
+  const s = Estate.create(); for (const id of ['goldie', 'cinderella']) Estate.arrive(s, id);
+  bring(s, 'cinderella', 5); Estate.affect(s, 'cinderella', { trust: 0.3, respect: 0.3 });
+  const a = Estate.arcOf(s, 'cinderella'); assert.equal(a.stage, 'turning', 'held short of ready'); assert.equal(a.waits[0].id, 'goldie'); assert.match(a.waits[0].why, /Goldie/);
+  assert.equal(Estate.closeArc(s, 'cinderella'), false);
+  bring(s, 'goldie', 3); Estate.affect(s, 'goldie', { trust: 0.2 });
+  assert.equal(Estate.arcOf(s, 'cinderella').stage, 'ready', 'Goldie’s turned: Eleanor’s free to close'); assert.ok(Estate.closeArc(s, 'cinderella'));
+  // (setbacks show in her track, not by undoing her arc)
+  Estate.affect(s, 'goldie', { growth: -0.5 }); assert.notEqual(Estate.arcOf(s, 'goldie').stage, 'settling');
+  for (const id in Estate.ARC_WAITS) for (const o in Estate.ARC_WAITS[id].needs) assert.ok(Estate.CHAPTERS.findIndex(c => c.featured.includes(o)) < Estate.CHAPTERS.findIndex(c => c.featured.includes(id)), id + ' waits only on someone who came before her');
+});
+
+test('two axes, two paths: an arc closes in romance where it’s open and she’s come that way, in devotion where she’s given herself to his authority, else in her place', () => {
+  const s = Estate.create(); for (const id of ['red', 'goldie', 'belle']) { Estate.arrive(s, id); bring(s, id, 5); Estate.affect(s, id, { trust: 0.3, respect: 0.3 }); }
+  Estate.affect(s, 'red', { romance: 0.6, affection: 0.5 }); Estate.affect(s, 'goldie', { submission: 0.5 }); Estate.affect(s, 'goldie', { romance: 0.9, affection: 0.9 });
+  assert.equal(Estate.closeArc(s, 'red'), 'romance'); assert.equal(Estate.closeArc(s, 'goldie'), 'devotion', 'romance not open on hers'); assert.equal(Estate.closeArc(s, 'belle'), 'household');
+});
+
+test('the finale opens once its chapter’s reached and every arc has turned', () => {
+  const s = Estate.create(); for (const id of Cast.IDS) Estate.arrive(s, id); s.chapter = Estate.CHAPTERS.length;
+  assert.ok(!Estate.finaleOpen(s));
+  for (const id of Cast.IDS) { bring(s, id, 3); Estate.affect(s, id, { trust: 0.25 }); }
+  assert.ok(Estate.finaleOpen(s), Cast.IDS.map(id => id + ':' + Estate.arcOf(s, id).stage).join(' '));
+});
