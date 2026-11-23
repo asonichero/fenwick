@@ -36,7 +36,7 @@ const HALL = {
     heir: { spec: ['man', 'heir'], seat: 'son', face: 'calm', look: 'hisPlate' },      // (look: where his eyes are kept, not on whoever speaks)
     cicely: { spec: ['her', 'cicely', 'gown'], seat: 'cicely', face: 'haughty' },
     silas: { spec: ['silas'], mark: 'silas', face: 'calm', arms: 'rest' },
-    adela: { spec: ['her', 'adela', 'goose'], mark: 'adela', off: true, face: 'shy', arms: 'clasp', demure: true },      // (demure: her eyes down, but for whoever speaks to her)
+    adela: { spec: ['her', 'adela', 'goose'], mark: 'adela', off: true, face: 'shy', arms: 'clasp', demure: true, gaitRate: 0.85 },      // (demure: her eyes down, but for whoever speaks to her)
   },
   names: { master: 'Thornleigh', heir: 'Young Thornleigh', cicely: 'The Bride', adela: 'The goose girl', silas: '{first}' },
   // (things to look at, from someone's place: x to their left, y up, z ahead)

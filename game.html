@@ -80,7 +80,7 @@ kbd { font: 11px ui-monospace, monospace; color: var(--dim); }
 
 <script src="vendor/three.min.js"></script><script src="vendor/OrbitControls.js"></script><script src="vendor/postprocessing.js"></script><script src="vendor/GLTFLoader.js"></script>
 <script src="js/cast.js"></script><script src="js/figure.js"></script><script src="js/poses.js"></script><script src="js/stage.js"></script><script src="js/kit.js"></script><script src="js/hall.js"></script><script src="js/office.js"></script>
-<script src="js/audio.js"></script><script src="js/player.js"></script><script src="js/prologue.js"></script><script src="js/cutscene.js"></script>
+<script src="js/audio.js"></script><script src="js/player.js"></script><script src="js/prologue.js"></script><script src="js/gait.js"></script><script src="js/cutscene.js"></script>
 <script>
 'use strict';
 // The game: the title, then the prologue's scenes in order (js/prologue.js: the hall, then his office), each played by js/cutscene.js in its
@@ -111,7 +111,7 @@ const keep = (k, v) => { try { const o = kept(); o[k] = v; localStorage.setItem(
 let cast = null, cs = null;
 const specOf = s => s[0] === 'man' ? Cast.manSpec(s[1]) : s[0] === 'silas' ? Cast.squireSpec() : Cast.figureSpec(s[1], 'f', s[2]);
 const castOf = S => { const o = {}; for (const id in cast) { if (S.cast[id]) o[id] = cast[id]; else cast[id].root.visible = false; } return o; };
-const ready = Figure.preload().then(() => {
+const ready = Promise.all([Figure.preload(), Gait.load().catch(e => console.warn('no walking clips', e))]).then(() => {
   cast = {}; for (const k of ORDER) for (const id in SCENES[k].cast) if (!cast[id]) { const f = Figure.make(specOf(SCENES[k].cast[id].spec)); scene.add(f.root); cast[id] = f; }
   // (everyone in their places from the first, behind the title: never left standing where they were made, in the table)
   cs = Cutscene.create({ stage, room, scene: SC, cast: castOf(SC), ui, fill: Player.fill });

@@ -76,7 +76,9 @@ function create(o) {
     const last = pts[pts.length - 1];
     if (fast || pts.length < 2) { s.walk = null; s.walkP = null; standAt(s, last, yaw); return null; }
     let len = 0; const segs = []; for (let i = 1; i < pts.length; i++) { const d = pts[i].distanceTo(pts[i - 1]); segs.push({ a: pts[i - 1], b: pts[i], d, at: len }); len += d; }
-    s.walkP = new Promise(res => { s.walk = { segs, len, d: 0, speed: speed || 0.7, yaw: yawTo(pts[0], pts[1]), done: () => { s.walk = null; s.walkP = null; const b = blendTo(s, () => standAt(s, last, yaw), 450); (b || Promise.resolve()).then(res); } }; });
+    // (the walk itself: the Mixamo clips (js/gait.js), carried along the way as far as their steps take it; else a few small steps of our own)
+    const gait = root.Gait && root.Gait.ready ? root.Gait.walker(s.F, len, { rate: s.c.gaitRate || 1 }) : null;
+    s.walkP = new Promise(res => { s.walk = { segs, len, d: 0, gait, speed: speed || 0.7, yaw: yawTo(pts[0], pts[1]), done: () => { s.walk = null; s.walkP = null; const b = blendTo(s, () => standAt(s, last, yaw), 450); (b || Promise.resolve()).then(res); } }; });
     return s.walkP;
   }
 
@@ -168,7 +170,12 @@ function create(o) {
     now += dt * 1000;
     for (const id in S) {
       const s = S[id], F = s.F; if (!F.root.visible) continue;      // (off: not there at all, cloth included, till they come on)
-      if (s.walk) { const w = s.walk; w.d = Math.min(w.len, w.d + w.speed * dt);
+      if (s.walk && s.walk.gait) { const w = s.walk, r = w.gait.step(dt); w.d = r.d;
+        const g = w.segs.find(q => w.d <= q.at + q.d) || w.segs[w.segs.length - 1], at = g.a.clone().lerp(g.b, Math.min(1, (w.d - g.at) / Math.max(1e-6, g.d))), want = yawTo(g.a, g.b);
+        let dy = want - w.yaw; dy = Math.atan2(Math.sin(dy), Math.cos(dy)); w.yaw += dy * (1 - Math.exp(-dt * 6));
+        F.root.position.copy(at); F.root.quaternion.copy(P.yawQ(w.yaw)); F.root.updateMatrixWorld(true); keep(s);
+        if (r.done) w.done(); }
+      else if (s.walk) { const w = s.walk; w.d = Math.min(w.len, w.d + w.speed * dt);
         if (w.d >= w.len) w.done();
         else { const g = w.segs.find(q => w.d <= q.at + q.d) || w.segs[w.segs.length - 1], at = g.a.clone().lerp(g.b, (w.d - g.at) / Math.max(1e-6, g.d)), want = yawTo(g.a, g.b);
           let dy = want - w.yaw; dy = Math.atan2(Math.sin(dy), Math.cos(dy)); w.yaw += dy * (1 - Math.exp(-dt * 7));      // (turning into each leg of the way)
