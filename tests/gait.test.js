@@ -36,3 +36,29 @@ test('every walk planned comes out at the length asked, ending on a heel strike,
     }
   }
 });
+
+// (a stand-in skeleton from the measured joints: each bone at its joint, its parent's as the figure has it; at rest, every turn none)
+function skeleton(sex, s) {
+  const J = META[sex].joints, P = { spine: 'hips', chest: 'spine', neck: 'chest', head: 'neck', clavL: 'chest', upperArmL: 'clavL', foreArmL: 'upperArmL', handL: 'foreArmL',
+    clavR: 'chest', upperArmR: 'clavR', foreArmR: 'upperArmR', handR: 'foreArmR', thighL: 'hips', shinL: 'thighL', footL: 'shinL', toeL: 'footL', thighR: 'hips', shinR: 'thighR', footR: 'shinR', toeR: 'footR' };
+  const F = fig(sex, s), root = new THREE.Object3D(), bone = {}, bones = [];
+  for (const k of Gait.ORDER) { const b = new THREE.Bone(); b.name = k; bone[k] = b; bones.push(b); }
+  for (const k of Gait.ORDER) { const at = new THREE.Vector3(...J[k]); if (P[k]) { bone[P[k]].add(bone[k]); bone[k].position.copy(at.sub(new THREE.Vector3(...J[P[k]]))); } else { root.add(bone[k]); bone[k].position.copy(at); } }
+  const rest0 = {}; for (const k in bone) rest0[k] = bone[k].position.clone();
+  root.scale.setScalar(s);
+  return Object.assign(F, { root, bone, bones, rest0, resetPose() { for (const k in bone) { bone[k].quaternion.identity(); bone[k].position.copy(rest0[k]); } }, grip() {} });
+}
+
+test('walking, the shoulders stay as the figure holds them standing; the arms still swing from them', async () => {
+  await Gait.load('models/walk.json');
+  for (const [sex, s, style] of [['m', 1.1, 'silas'], ['f', 0.98, 'adela']]) {
+    const F = skeleton(sex, s), arm = [];
+    for (let ph = 0; ph < 1; ph += 0.05) {
+      Gait.pose(F, style, ph);
+      for (const sd of ['L', 'R']) assert.ok(F.bone['clav' + sd].quaternion.angleTo(new THREE.Quaternion()) < 1e-6, `${style} ${ph.toFixed(2)}: the ${sd} shoulder kept`);
+      arm.push(F.bone.upperArmL.quaternion.clone());
+    }
+    const swing = Math.max(...arm.map(q => q.angleTo(arm[0])));
+    assert.ok(swing > 0.15, `${style}: the arm swings (${swing.toFixed(2)} rad)`);
+  }
+});

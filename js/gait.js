@@ -6,7 +6,8 @@
 // first turned to point as theirs does at rest, then as theirs has. The loops are lined up step for step (each from its left heel's strike),
 // so a walk is a blend of them at the same point in the stride: each bone's turn a weighted mean of theirs, the hips' rise, fall and sway and
 // the going forward in proportion to each one's legs against ours. Then shaped: the arms swung more or less (toward the loop's own still
-// average), the hips' sway likewise, the head carried lower, the chest a little forward, the pace. A figure's going forward is the blend's: it
+// average), the hips' sway likewise, the head carried lower, the chest a little forward, the pace. The shoulders aren't the loops': they stay
+// as the figure holds them standing. A figure's going forward is the blend's: it
 // carries the figure along its way, so the feet stay where they're put.
 //   A walk of a given length is planned before it's begun: begun at the point of the stride that brings it, at that length, to a heel strike,
 // eased in from standing (the pace building over the first steps) and out at its end (the pace slackening into the last), then the pose that
@@ -20,6 +21,9 @@ const THREE = root.THREE, V3 = THREE.Vector3, Q = THREE.Quaternion;
 let D = null;
 const ORDER = ['hips', 'spine', 'chest', 'neck', 'head', 'clavL', 'upperArmL', 'foreArmL', 'handL', 'clavR', 'upperArmR', 'foreArmR', 'handR', 'thighL', 'shinL', 'footL', 'toeL', 'thighR', 'shinR', 'footR', 'toeR'];
 const ARMS = /^(clav|upperArm|foreArm|hand)/;
+// (the shoulders kept as the figure holds them standing: the loops carry their clavicles some 20° lower than their own rest, all through the
+// stride, and ours would drop with them. The arms swing from shoulders that stay where they are)
+const KEEP = /^clav/;
 // (where each of our bones points: to the next joint, as theirs is measured)
 const TO = { hips: 'spine', spine: 'chest', chest: 'neck', neck: 'head', clavL: 'upperArmL', upperArmL: 'foreArmL', foreArmL: 'handL', handL: 'middle1L',
   clavR: 'upperArmR', upperArmR: 'foreArmR', foreArmR: 'handR', handR: 'middle1R', thighL: 'shinL', shinL: 'footL', footL: 'toeL', thighR: 'shinR', shinR: 'footR', footR: 'toeR' };
@@ -85,7 +89,7 @@ function pose(F, st, ph) {
     const n = b.name, par = b.parent && b.parent.isBone ? b.parent.name : null;
     _pw.copy(par && _w[par] ? _w[par] : new Q());
     const W = _w[n] || (_w[n] = new Q());
-    if (M[0].c.Q[n] && G.by[M[0].c.key].C[n]) {
+    if (!KEEP.test(n) && M[0].c.Q[n] && G.by[M[0].c.key].C[n]) {
       // (each loop's turn for this bone, here in the stride, its swing kept as the style has it, laid on our rest; their weighted mean)
       const keep = ARMS.test(n) ? S.arms : n === 'hips' ? S.sway : 1;
       _m.set(0, 0, 0, 0); let first = null;
