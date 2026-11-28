@@ -197,22 +197,25 @@ function create(stage, bay, opts) {
     R.fight = clamp(R.fight, 0, 1); R.ff = R.fight;
     R.A = sm(0.15, 0.95, D) * lerp(0.05, 1, R.ff);
     const A = R.A, Wg = P.wrig, act = under ? 1 : 0.3;
+    // (soothed: her legs still. No kick, no buck, no stepping while his hand's on her; what was under way settles)
+    const soothed = st.soothe && !st.swing, legsAct = soothed ? 0 : act;
+    R.calm = (R.calm || 0) + ((soothed ? 1 : 0) - (R.calm || 0)) * (1 - Math.exp(-dt * 6));
     // stepping, in bouts: a few seconds of it now and then once it really hurts, then not
-    if (R.bout > 0) R.bout -= dt;
+    if (soothed) R.bout = 0; else if (R.bout > 0) R.bout -= dt;
     else if (A > 0.35 && Math.random() < dt * (otk ? 0.11 : 0.16) * A * (0.3 + 0.7 * Wg) * act) { R.bout = 1.4 + Math.random() * 2.6; R.cad = 2.2 + Math.random(); R.n.bouts++; }
     R.stepPh += dt * R.cad * Math.PI * 2; R.stepAmp += ((R.bout > 0 ? A : 0) - R.stepAmp) * (1 - Math.exp(-dt * 5)); R.step = Math.sin(R.stepPh) * R.stepAmp;
     if (otk) {
       // a light kick now and then, one leg flicking up
-      if (Math.random() < dt * 0.6 * A * (0.05 + 0.95 * Wg) * act) { kickSp(Math.random() < 0.5 ? 'lkL' : 'lkR', (4 + 5 * Math.random()) * (0.4 + 0.6 * A)); R.n.kicks++; }
+      if (Math.random() < dt * 0.6 * A * (0.05 + 0.95 * Wg) * legsAct) { kickSp(Math.random() < 0.5 ? 'lkL' : 'lkR', (4 + 5 * Math.random()) * (0.4 + 0.6 * A)); R.n.kicks++; }
       // and, at its worst, a buck
-      if (Math.random() < dt * 0.015 * A * A * Wg * act * (1 - 0.6 * sub)) { kickSp('buck', 5 + 4 * A); R.n.bucks++; }
+      if (Math.random() < dt * 0.015 * A * A * Wg * legsAct * (1 - 0.6 * sub)) { kickSp('buck', 5 + 4 * A); R.n.bucks++; }
       // a hand that won't stay put: off the floor a moment, or starting back toward the seat before they stop it (the more submissive, the
       // better they hold their position)
       if (Math.random() < dt * 0.25 * A * (0.3 + 0.7 * Wg) * act * (1 - 0.7 * sub)) kickSp(Math.random() < 0.5 ? 'armL' : 'armR', 3 + 3 * Math.random());
       if (A > 0.5 && Math.random() < dt * 0.08 * A * Wg * act * (1 - 0.85 * sub)) { kickSp(Math.random() < 0.5 ? 'rbL' : 'rbR', 4 + 2 * A); R.n.reaches++; }
     } else {
       // (over a table: now and then a lower leg kicks up behind)
-      if (st.position === 'table' && Math.random() < dt * 0.35 * A * (0.05 + 0.95 * Wg) * act) { kickSp(Math.random() < 0.5 ? 'lkL' : 'lkR', (4 + 5 * Math.random()) * (0.4 + 0.6 * A)); R.n.kicks++; }
+      if (st.position === 'table' && Math.random() < dt * 0.35 * A * (0.05 + 0.95 * Wg) * legsAct) { kickSp(Math.random() < 0.5 ? 'lkL' : 'lkR', (4 + 5 * Math.random()) * (0.4 + 0.6 * A)); R.n.kicks++; }
       if (A > 0.4 && Math.random() < dt * 0.05 * A * act) kickSp(Math.random() < 0.5 ? 'armL' : 'armR', 3 + 2 * Math.random());      // (a hand lets go and grips again)
     }
     defy(dt, D);
@@ -553,14 +556,14 @@ function create(stage, bay, opts) {
     const twist = sp.twist.to(sq * (Math.sin(t * 1.4 + ph[2]) * 0.6 + Math.sin(t * 5.1 + ph[3]) * 0.4), dt), shift = sp.shift.to(sq * Math.sin(t * 0.47 + ph[4]), dt);
     // (Fenwick: with her skirt down, her legs kept still: only her hips and back move, turning, so nothing of her can come through it; raised,
     // she kicks and stamps as ever)
-    const legs = F.skirt && F.state.top !== 'up' ? 0 : 1;
-    const k = sp.kick.to(0, dt) * legs, ko = sp.kickO.to(0, dt) * legs, fl = sp.flinch.to(0, dt), ar = sp.arch.to(0, dt), bk = sp.buck.to(0, dt);
-    const lk = { L: sp.lkL.to(0, dt) * legs, R: sp.lkR.to(0, dt) * legs }, spent = 1 - R.ff, aw = otk ? sp.away.to(0, dt) : 0, shr = sp.shrug.to(0, dt);
+    const legs = F.skirt && F.state.top !== 'up' ? 0 : 1, calm = 1 - (R.calm || 0);      // (soothed: what kicking was under way settles)
+    const k = sp.kick.to(0, dt) * legs * calm, ko = sp.kickO.to(0, dt) * legs * calm, fl = sp.flinch.to(0, dt), ar = sp.arch.to(0, dt), bk = sp.buck.to(0, dt) * calm;
+    const lk = { L: sp.lkL.to(0, dt) * legs * calm, R: sp.lkR.to(0, dt) * legs * calm }, spent = 1 - R.ff, aw = otk ? sp.away.to(0, dt) : 0, shr = sp.shrug.to(0, dt);
     const armUp = { L: sp.armL.to(0, dt), R: sp.armR.to(0, dt) }, rb = { L: sp.rbL.to(0, dt), R: sp.rbR.to(0, dt) };
     // (spent: the head hangs, the hands loosen, the breath long)
     const hd = sp.head.to(0.15 * dd * R.ff - 0.3 * dd * spent, dt);
     const g = sp.grip.to((0.25 + 0.75 * dd) * (0.35 + 0.65 * R.ff), dt);
-    const pedal = R.step * legs;      // (stepping, in bouts: −1…1, a foot at a time)
+    const pedal = R.step * legs * calm;      // (stepping, in bouts: −1…1, a foot at a time)
     // (the more submissive: the head bowed rather than turned to the room, and at the end they stay down till they're told; the less, they
     // start to come up as soon as it's over)
     const sub = P.rel.submission, rise = (st.ending || st.phase === 'closing') ? sm(0, 1, (st.ending ? st.ending.t : 3) / 1.5) * (1 - sub) : 0;
